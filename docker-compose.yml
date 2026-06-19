@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: decoration-quant
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - FLASK_DEBUG=0
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@decoration-quant.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123456}
+    volumes:
+      - ./app.db:/app/app.db
+      - ./app/static/uploads:/app/app/static/uploads
+      - ./app/static/reports:/app/app/static/reports
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

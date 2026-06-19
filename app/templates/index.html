@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}装修图纸自动计量系统 - 首页{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-content">
+        <h1>装修图纸自动计量系统</h1>
+        <p class="hero-subtitle">基于计算机视觉的智能图纸分析平台</p>
+        <p class="hero-desc">
+            上传您的装修图纸，系统自动识别房间、墙体、门窗等构件，<br>
+            精确计算面积、周长、数量等工程数据，一键生成计量报告。
+        </p>
+        <div class="hero-actions">
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('main.new_project') }}" class="btn btn-primary btn-lg">新建项目</a>
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline btn-lg">我的项目</a>
+            {% else %}
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">申请使用</a>
+            <a href="{{ url_for('auth.login') }}" class="btn btn-outline btn-lg">登录系统</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="features-section">
+    <h2 class="section-title">核心功能</h2>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">📏</div>
+            <h3>面积测量</h3>
+            <p>自动识别房间边界，精确计算地面、墙面、天花面积，支持不规则形状。</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📐</div>
+            <h3>长度测量</h3>
+            <p>测量墙体长度、踢脚线、顶角线、阴角线等线性尺寸数据。</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🚪</div>
+            <h3>构件识别</h3>
+            <p>智能识别门、窗、插座、开关、灯具等装修构件并统计数量。</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <h3>一键报告</h3>
+            <p>自动生成 HTML 格式计量报告，包含图纸标注和详细数据表格。</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">☁️</div>
+            <h3>云端存储</h3>
+            <p>项目数据云端保存，随时随地登录查看和管理您的计量数据。</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3>账户保护</h3>
+            <p>账户申请审批制，保护您的知识产权和工程数据安全。</p>
+        </div>
+    </div>
+</div>
+
+<div class="workflow-section">
+    <h2 class="section-title">使用流程</h2>
+    <div class="workflow-steps">
+        <div class="step">
+            <div class="step-number">1</div>
+            <h3>注册账户</h3>
+            <p>提交注册信息，管理员审核通过后即可使用</p>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+            <div class="step-number">2</div>
+            <h3>创建项目</h3>
+            <p>创建计量项目，填写项目基本信息</p>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <h3>上传图纸</h3>
+            <p>上传装修图纸（支持 PNG、JPG 等格式）</p>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+            <div class="step-number">4</div>
+            <h3>自动计量</h3>
+            <p>系统自动分析图纸，计算各项工程数据</p>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+            <div class="step-number">5</div>
+            <h3>导出报告</h3>
+            <p>查看标注图纸，导出完整计量报告</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

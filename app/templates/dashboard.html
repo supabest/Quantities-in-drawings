@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}我的项目{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>我的项目</h2>
+    <a href="{{ url_for('main.new_project') }}" class="btn btn-primary">+ 新建项目</a>
+</div>
+
+<div class="projects-grid">
+    {% for project in projects.items %}
+    <div class="project-card">
+        <div class="project-card-header">
+            <h3><a href="{{ url_for('main.project_detail', project_id=project.id) }}">{{ project.name }}</a></h3>
+            <span class="status-badge status-{{ project.status }}">
+                {% if project.status == 'pending' %}待处理
+                {% elif project.status == 'processing' %}处理中
+                {% elif project.status == 'completed' %}已完成
+                {% elif project.status == 'failed' %}失败
+                {% else %}{{ project.status }}{% endif %}
+            </span>
+        </div>
+        <div class="project-card-body">
+            {% if project.description %}
+            <p class="project-desc">{{ project.description[:100] }}{% if project.description|length > 100 %}...{% endif %}</p>
+            {% endif %}
+            <div class="project-meta">
+                <span>📅 {{ project.created_at.strftime('%Y-%m-%d') }}</span>
+                <span>📐 {{ project.drawing_type }}</span>
+                <span>📄 {{ project.drawings.count() }} 张图纸</span>
+            </div>
+        </div>
+        <div class="project-card-footer">
+            <a href="{{ url_for('main.project_detail', project_id=project.id) }}" class="btn btn-sm btn-outline">查看详情</a>
+            {% if project.measurements.count() > 0 %}
+            <span class="measurement-count">{{ project.measurements.count() }} 项计量</span>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <h3>暂无项目</h3>
+        <p>创建您的第一个装修计量项目，开始智能图纸分析。</p>
+        <a href="{{ url_for('main.new_project') }}" class="btn btn-primary">创建项目</a>
+    </div>
+    {% endfor %}
+</div>
+
+{% if projects.pages > 1 %}
+<div class="pagination">
+    {% if projects.has_prev %}
+    <a href="{{ url_for('main.dashboard', page=projects.prev_num) }}">&laquo; 上一页</a>
+    {% endif %}
+    <span class="page-info">第 {{ projects.page }} / {{ projects.pages }} 页</span>
+    {% if projects.has_next %}
+    <a href="{{ url_for('main.dashboard', page=projects.next_num) }}">下一页 &raquo;</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

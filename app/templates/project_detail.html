@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} - 项目详情{% endblock %}
+
+{% block extra_head %}
+<style>
+    .annotated-img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; }
+    .drop-zone { border: 2px dashed #ccc; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: border-color 0.3s; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #4a90d9; background: #f0f7ff; }
+    .drop-zone-text { color: #666; }
+    .drop-zone-text .icon { font-size: 48px; display: block; margin-bottom: 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h2>{{ project.name }}</h2>
+        <span class="status-badge status-{{ project.status }}">
+            {% if project.status == 'pending' %}待处理
+            {% elif project.status == 'processing' %}处理中
+            {% elif project.status == 'completed' %}已完成
+            {% elif project.status == 'failed' %}失败
+            {% endif %}
+        </span>
+    </div>
+    <div class="page-header-actions">
+        <a href="{{ url_for('main.edit_project', project_id=project.id) }}" class="btn btn-outline btn-sm">编辑</a>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline btn-sm">返回</a>
+        <form method="POST" action="{{ url_for('main.delete_project', project_id=project.id) }}"
+              style="display:inline" onsubmit="return confirm('确认删除此项目？所有数据将不可恢复。')">
+            <button type="submit" class="btn btn-danger btn-sm">删除</button>
+        </form>
+    </div>
+</div>
+
+<div class="project-info">
+    <div class="info-grid">
+        {% if project.description %}
+        <div><strong>描述：</strong>{{ project.description }}</div>
+        {% endif %}
+        {% if project.address %}
+        <div><strong>地址：</strong>{{ project.address }}</div>
+        {% endif %}
+        <div><strong>图纸类型：</strong>{{ project.drawing_type }}</div>
+        <div><strong>创建时间：</strong>{{ project.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+        {% if project.scale != 1.0 %}
+        <div><strong>比例尺：</strong>{{ project.scale }} px/m</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="content-grid">
+    <!-- Left: Upload & Drawings -->
+    <div class="content-main">
+        <div class="card">
+            <div class="card-header">
+                <h3>上传图纸</h3>
+            </div>
+            <div class="card-body">
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-text">
+                        <span class="icon">📁</span>
+                        <p>拖拽图纸到此处或点击选择文件</p>
+                        <p class="text-muted small">支持 PNG、JPG、BMP、TIFF 格式</p>
+                    </div>
+                </div>
+                <input type="file" id="fileInput" name="files" multiple
+                       accept=".png,.jpg,.jpeg,.bmp,.tiff" style="display:none">
+                <div id="uploadProgress" style="display:none" class="mt-2">
+                    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                    <p class="text-muted small" id="uploadStatus">上传中...</p>
+                </div>
+                <div id="uploadResult" class="mt-2"></div>
+            </div>
+        </div>
+
+        {% if drawings %}
+        <div class="card mt-2">
+            <div class="card-header">
+                <h3>图纸列表 ({{ drawings|length }})</h3>
+            </div>
+            <div class="card-body">
+                <div class="drawing-gallery">
+                    {% for d in drawings %}
+                    <div class="drawing-item">
+                        <a href="{{ url_for('static', filename='uploads/' + d.filename) }}" target="_blank">
+                            <img src="{{ url_for('static', filename='uploads/' + d.filename) }}"
+                                 alt="{{ d.original_name }}" class="drawing-thumb">
+                        </a>
+                        <div class="drawing-info">
+                            <span class="drawing-name" title="{{ d.original_name }}">{{ d.original_name }}</span>
+                            <span class="drawing-size">{{ (d.file_size / 1024)|round(1) }} KB</span>
+                        </div>
+                        {% if d.annotated_path %}
+                        <div class="drawing-annotated">
+                            <a href="{{ url_for('static', filename='uploads/' + d.annotated_path) }}" target="_blank">
+                                <span class="badge badge-info">查看标注图</span>
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if drawings and project.status != 'completed' %}
+        <div class="card mt-2">
+            <div class="card-body text-center">
+                <button id="processBtn" class="btn btn-primary btn-lg"
+                        onclick="startProcessing({{ project.id }})">
+                    🚀 开始自动计量
+                </button>
+                <p class="text-muted small mt-1">系统将自动分析所有图纸，提取面积、长度、构件等数据</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right: Measurements & Reports -->
+    <div class="content-side">
+        {% if measurements %}
+        <div class="card">
+            <div class="card-header">
+                <h3>计量结果</h3>
+            </div>
+            <div class="card-body">
+                {% if measurements.room %}
+                <div class="measurement-section">
+                    <h4>📏 房间面积</h4>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr><th>名称</th><th>面积</th><th>周长</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for m in measurements.room %}
+                            <tr>
+                                <td>{{ m.label }}</td>
+                                <td>{{ m.area }} m²</td>
+                                <td>{{ m.perimeter }} m</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+
+                {% if measurements.wall %}
+                <div class="measurement-section">
+                    <h4>🧱 墙体</h4>
+                    {% for m in measurements.wall %}
+                    <p>总长度: <strong>{{ m.length }} m</strong> ({{ m.count }} 段)</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if measurements.door or measurements.window %}
+                <div class="measurement-section">
+                    <h4>🚪 门窗</h4>
+                    <p>门: <strong>{{ measurements.door|length }}</strong> 个</p>
+                    <p>窗: <strong>{{ measurements.window|length }}</strong> 个</p>
+                </div>
+                {% endif %}
+
+                {% if report %}
+                <div class="measurement-actions mt-2">
+                    <a href="{{ url_for('main.view_report', report_id=report.id) }}"
+                       class="btn btn-primary btn-block">📊 查看完整报告</a>
+                </div>
+                {% endif %}
+
+                {% if measurements.room %}
+                <div class="measurement-actions mt-1">
+                    <button class="btn btn-outline btn-block btn-sm"
+                            onclick="rerunProcessing({{ project.id }})">
+                        🔄 重新计量
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="processingOverlay" style="display:none" class="processing-overlay">
+    <div class="processing-modal">
+        <div class="spinner"></div>
+        <h3>正在自动计量...</h3>
+        <p id="processingStatus">系统正在分析图纸中，请稍候</p>
+        <div class="progress-bar"><div class="progress-fill progress-animate" id="procProgressFill"></div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const uploadProgress = document.getElementById('uploadProgress');
+const progressFill = document.getElementById('progressFill');
+const uploadStatus = document.getElementById('uploadStatus');
+const uploadResult = document.getElementById('uploadResult');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+        uploadFiles(e.dataTransfer.files);
+    }
+});
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) uploadFiles(fileInput.files);
+});
+
+async function uploadFiles(files) {
+    uploadProgress.style.display = 'block';
+    uploadResult.innerHTML = '';
+    progressFill.style.width = '0%';
+    uploadStatus.textContent = `正在上传 ${files.length} 个文件...`;
+
+    const formData = new FormData();
+    for (let f of files) formData.append('files', f);
+    formData.append('project_id', {{ project.id }});
+
+    try {
+        const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (data.success) {
+            uploadStatus.textContent = `✅ 上传完成：${data.count} 个文件`;
+            progressFill.style.width = '100%';
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            uploadStatus.textContent = '❌ ' + (data.error || '上传失败');
+        }
+    } catch (err) {
+        uploadStatus.textContent = '❌ 上传出错：' + err.message;
+    }
+}
+
+async function startProcessing(projectId) {
+    document.getElementById('processingOverlay').style.display = 'flex';
+    const statusEl = document.getElementById('processingStatus');
+    const progressFill2 = document.getElementById('procProgressFill');
+
+    try {
+        const resp = await fetch(`/api/process/${projectId}`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            statusEl.textContent = '✅ 计量完成！正在刷新页面...';
+            progressFill2.style.width = '100%';
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            statusEl.textContent = '❌ ' + (data.error || '处理失败');
+            progressFill2.style.width = '0%';
+            setTimeout(() => document.getElementById('processingOverlay').style.display = 'none', 3000);
+        }
+    } catch (err) {
+        statusEl.textContent = '❌ 请求出错：' + err.message;
+        setTimeout(() => document.getElementById('processingOverlay').style.display = 'none', 3000);
+    }
+}
+
+async function rerunProcessing(projectId) {
+    if (!confirm('重新计量将清除现有结果，确定继续？')) return;
+    try {
+        const resp = await fetch(`/api/project/${projectId}/rerun`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('操作失败：' + (data.error || '未知错误'));
+        }
+    } catch (err) {
+        alert('请求出错：' + err.message);
+    }
+}
+</script>
+{% endblock %}

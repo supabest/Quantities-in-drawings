@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}用户管理 - 管理员{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>用户管理</h2>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>邮箱</th>
+                        <th>公司</th>
+                        <th>状态</th>
+                        <th>注册时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users.items %}
+                    <tr>
+                        <td>{{ u.id }}</td>
+                        <td>{{ u.username }}</td>
+                        <td>{{ u.email }}</td>
+                        <td>{{ u.company or '-' }}</td>
+                        <td>
+                            {% if u.is_admin %}
+                            <span class="badge badge-admin">管理员</span>
+                            {% elif u.is_approved %}
+                            <span class="badge badge-success">已批准</span>
+                            {% else %}
+                            <span class="badge badge-warning">待审核</span>
+                            {% endif %}
+                            {% if not u.is_active %}
+                            <span class="badge badge-danger">已禁用</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td class="action-cell">
+                            {% if not u.is_approved and not u.is_admin %}
+                            <a href="{{ url_for('auth.approve_user', user_id=u.id) }}"
+                               class="btn btn-sm btn-success">批准</a>
+                            {% endif %}
+                            {% if not u.is_admin %}
+                            <a href="{{ url_for('auth.toggle_user_active', user_id=u.id) }}"
+                               class="btn btn-sm btn-{{ 'warning' if u.is_active else 'info' }}">
+                                {{ '禁用' if u.is_active else '启用' }}
+                            </a>
+                            <a href="{{ url_for('auth.delete_user', user_id=u.id) }}"
+                               class="btn btn-sm btn-danger"
+                               onclick="return confirm('确认删除用户 {{ u.username }}？此操作不可撤销。')">删除</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">暂无用户</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if users.pages > 1 %}
+        <div class="pagination">
+            {% if users.has_prev %}
+            <a href="{{ url_for('auth.admin_users', page=users.prev_num) }}">&laquo; 上一页</a>
+            {% endif %}
+            <span class="page-info">第 {{ users.page }} / {{ users.pages }} 页</span>
+            {% if users.has_next %}
+            <a href="{{ url_for('auth.admin_users', page=users.next_num) }}">下一页 &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

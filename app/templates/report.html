@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}计量报告 - {{ report.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>计量报告</h2>
+    <div class="page-header-actions">
+        <a href="{{ url_for('main.download_report', report_id=report.id) }}" class="btn btn-primary btn-sm">📥 下载报告</a>
+        <a href="{{ url_for('main.project_detail', project_id=project.id) }}" class="btn btn-outline btn-sm">返回项目</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="report-header">
+            <h3>{{ project.name }} - 自动计量报告</h3>
+            <p class="text-muted">生成时间：{{ report.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+        </div>
+
+        <!-- Summary -->
+        <div class="report-summary">
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <div class="summary-value">{{ summary.total_area|round(1) }}</div>
+                    <div class="summary-label">总面积 (m²)</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value">{{ summary.room_count }}</div>
+                    <div class="summary-label">房间数</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value">{{ summary.door_count }}</div>
+                    <div class="summary-label">门 (个)</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value">{{ summary.window_count }}</div>
+                    <div class="summary-label">窗 (个)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Measurements -->
+        <div class="report-details">
+            <h4>详细计量数据</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>类别</th>
+                        <th>面积 (m²)</th>
+                        <th>周长 (m)</th>
+                        <th>长度 (m)</th>
+                        <th>数量</th>
+                        <th>置信度</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in measurements %}
+                    <tr>
+                        <td>{{ m.label or '-' }}</td>
+                        <td>
+                            {% if m.category == 'room' %}房间
+                            {% elif m.category == 'wall' %}墙体
+                            {% elif m.category == 'door' %}门
+                            {% elif m.category == 'window' %}窗
+                            {% elif m.category == 'fixture' %}构件
+                            {% else %}{{ m.category }}{% endif %}
+                        </td>
+                        <td>{{ m.area|round(2) if m.area else '-' }}</td>
+                        <td>{{ m.perimeter|round(2) if m.perimeter else '-' }}</td>
+                        <td>{{ m.length|round(2) if m.length else '-' }}</td>
+                        <td>{{ m.count or '-' }}</td>
+                        <td>
+                            <span class="confidence-bar">
+                                <span class="confidence-fill" style="width:{{ (m.confidence or 0.5)*100 }}%"></span>
+                            </span>
+                            {{ (m.confidence * 100)|round(0) if m.confidence else '-' }}%
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">暂无计量数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Room Detail -->
+        {% if summary.rooms %}
+        <div class="report-rooms mt-2">
+            <h4>房间明细</h4>
+            <table class="table">
+                <thead>
+                    <tr><th>房间</th><th>面积 (m²)</th><th>周长 (m)</th></tr>
+                </thead>
+                <tbody>
+                    {% for room in summary.rooms %}
+                    <tr>
+                        <td>{{ room.label }}</td>
+                        <td>{{ room.area|round(2) if room.area else '-' }}</td>
+                        <td>{{ room.perimeter|round(2) if room.perimeter else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="table-total">
+                        <td><strong>合计</strong></td>
+                        <td><strong>{{ summary.total_area|round(2) }}</strong></td>
+                        <td><strong>{{ summary.total_perimeter|round(2) }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Annotated Drawings -->
+        {% set ns = namespace(has_annotations=false) %}
+        {% for d in project.drawings %}
+        {% if d.annotated_path %}
+        {% set ns.has_annotations = true %}
+        {% endif %}
+        {% endfor %}
+
+        {% if ns.has_annotations %}
+        <div class="report-drawings mt-2">
+            <h4>标注图纸</h4>
+            <div class="drawing-gallery">
+                {% for d in project.drawings %}
+                {% if d.annotated_path %}
+                <div class="drawing-item">
+                    <h5>{{ d.original_name }}</h5>
+                    <img src="{{ url_for('static', filename='uploads/' + d.annotated_path) }}"
+                         alt="标注图" class="annotated-img">
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

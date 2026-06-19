@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}新建项目{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>新建项目</h2>
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline btn-sm">返回</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST" class="project-form">
+            <div class="form-group">
+                <label for="name">项目名称 <span class="required">*</span></label>
+                <input type="text" id="name" name="name" class="form-control"
+                       placeholder="如：阳光花园3栋502室装修计量" required>
+            </div>
+            <div class="form-group">
+                <label for="description">项目描述</label>
+                <textarea id="description" name="description" class="form-control"
+                          rows="3" placeholder="项目简介、备注等"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="address">项目地址</label>
+                <input type="text" id="address" name="address" class="form-control"
+                       placeholder="如：深圳市南山区阳光花园3栋502">
+            </div>
+            <div class="form-group">
+                <label for="drawing_type">图纸类型</label>
+                <select id="drawing_type" name="drawing_type" class="form-control">
+                    <option value="floor_plan">平面图</option>
+                    <option value="elevation">立面图</option>
+                    <option value="section">剖面图</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">创建项目</button>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
