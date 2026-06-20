@@ -19,6 +19,7 @@
                 {% if current_user.is_authenticated %}
                 <li><a href="{{ url_for('main.dashboard') }}">我的项目</a></li>
                 <li><a href="{{ url_for('main.new_project') }}">新建项目</a></li>
+                <li><a href="{{ url_for('main.knowledge_base') }}">知识库</a></li>
                 {% if current_user.is_admin %}
                 <li><a href="{{ url_for('auth.admin_users') }}">用户管理</a></li>
                 {% endif %}

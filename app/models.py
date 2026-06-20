@@ -277,6 +277,30 @@ class HistoricalProject(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True)
 
 
+# ── Knowledge Base Entry (知识库条目) ──
+
+class KnowledgeBaseEntry(db.Model):
+    """算量知识库 — 记录临时规则、踩坑点和注意事项。
+
+    对应 AI工程量计算注意事项-知识库.docx 的结构化版本。
+    稳定规则应合并入 Project Instructions，本表保留历史记录。
+    """
+    __tablename__ = 'knowledge_base_entries'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(128), nullable=False)
+    category = db.Column(db.String(32), default='rule')  # rule, pitfall, edge_case
+    scenario = db.Column(db.Text)       # 应用场景
+    description = db.Column(db.Text, nullable=False)  # 规则描述
+    source = db.Column(db.String(256))  # 来源（项目/图纸/经验）
+    status = db.Column(db.String(16), default='active')  # active, archived, draft
+    merged_to = db.Column(db.String(64))  # 并入v3哪个章节
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+
 # ── Self Check Checklist (自检清单) ──
 
 class SelfCheckItem(db.Model):

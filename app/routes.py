@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.models import (
     Project, Drawing, Measurement, Report, SelfCheckItem,
+    KnowledgeBaseEntry,
     DIVISIONS, CONFIDENCE_LEVELS, PROJECT_TYPES
 )
 from datetime import datetime
@@ -239,6 +240,63 @@ def download_report(report_id):
 
     flash('报告文件不存在。', 'warning')
     return redirect(url_for('main.view_report', report_id=report.id))
+
+
+@main_bp.route('/knowledge-base')
+@login_required
+def knowledge_base():
+    """View the AI quantity surveying knowledge base."""
+    entries = KnowledgeBaseEntry.query.order_by(
+        KnowledgeBaseEntry.status, KnowledgeBaseEntry.updated_at.desc()
+    ).all()
+    active = [e for e in entries if e.status == 'active']
+    archived = [e for e in entries if e.status == 'archived']
+    return render_template('knowledge_base.html', active=active,
+                           archived=archived, entry_count=len(entries))
+
+
+@main_bp.route('/knowledge-base/new', methods=['GET', 'POST'])
+@login_required
+def knowledge_base_new():
+    """Add a new knowledge base entry."""
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        category = request.form.get('category', 'rule')
+        scenario = request.form.get('scenario', '').strip()
+        description = request.form.get('description', '').strip()
+        source = request.form.get('source', '').strip()
+
+        if not title or not description:
+            flash('标题和描述为必填项。', 'danger')
+            return render_template('knowledge_base_form.html')
+
+        entry = KnowledgeBaseEntry(
+            title=title, category=category, scenario=scenario,
+            description=description, source=source,
+            status='active', user_id=current_user.id
+        )
+        db.session.add(entry)
+        db.session.commit()
+        flash('知识库条目已添加。', 'success')
+        return redirect(url_for('main.knowledge_base'))
+
+    return render_template('knowledge_base_form.html')
+
+
+@main_bp.route('/knowledge-base/<int:entry_id>/archive')
+@login_required
+def archive_kb_entry(entry_id):
+    entry = KnowledgeBaseEntry.query.get_or_404(entry_id)
+    if not current_user.is_admin:
+        flash('仅管理员可归档条目。', 'danger')
+        return redirect(url_for('main.knowledge_base'))
+    merged_to = request.args.get('merged_to', '')
+    entry.status = 'archived'
+    if merged_to:
+        entry.merged_to = merged_to
+    db.session.commit()
+    flash(f'条目「{entry.title}」已归档。', 'success')
+    return redirect(url_for('main.knowledge_base'))
 
 
 @main_bp.route('/profile')

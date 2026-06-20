@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}算量知识库{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h2>📚 算量知识库</h2>
+        <span class="text-muted">{{ entry_count }} 条规则</span>
+    </div>
+    <div class="page-header-actions">
+        <a href="{{ url_for('main.knowledge_base_new') }}" class="btn btn-primary btn-sm">+ 添加规则</a>
+    </div>
+</div>
+
+<div class="info-box mb-2">
+    <p class="text-muted small">
+        📖 本知识库记录读图算量过程中发现的规则与踩坑点，对应
+        <strong>AI工程量计算注意事项-知识库.docx</strong>。
+        待规则验证稳定后应并入 <strong>Project Instructions</strong> 正式章节。
+    </p>
+</div>
+
+<!-- Active Rules -->
+{% if active %}
+<div class="card">
+    <div class="card-header"><h3>🟢 现行规则 ({{ active|length }})</h3></div>
+    <div class="card-body">
+        {% for entry in active %}
+        <div class="kb-entry">
+            <div class="kb-entry-header">
+                <div>
+                    <span class="badge badge-{{ entry.category }}">
+                        {% if entry.category == 'rule' %}规则
+                        {% elif entry.category == 'pitfall' %}踩坑
+                        {% elif entry.category == 'edge_case' %}边界
+                        {% else %}{{ entry.category }}{% endif %}
+                    </span>
+                    <strong>{{ entry.title }}</strong>
+                </div>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('main.archive_kb_entry', entry_id=entry.id) }}"
+                   class="btn btn-sm btn-outline"
+                   onclick="return confirm('归档此条目？请同时更新 Project Instructions。')">归档</a>
+                {% endif %}
+            </div>
+            {% if entry.scenario %}
+            <div class="kb-scenario">
+                <span class="label">场景：</span>{{ entry.scenario }}
+            </div>
+            {% endif %}
+            <div class="kb-description">{{ entry.description }}</div>
+            <div class="kb-meta">
+                {% if entry.source %}
+                <span class="text-muted small">来源：{{ entry.source }}</span>
+                {% endif %}
+                <span class="text-muted small">更新：{{ entry.updated_at.strftime('%Y-%m-%d') }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon">📚</div>
+    <h3>暂无现行规则</h3>
+    <p>点击"添加规则"开始记录算量发现。</p>
+</div>
+{% endif %}
+
+<!-- Archived Rules -->
+{% if archived %}
+<div class="card mt-2">
+    <div class="card-header"><h3>📦 已归档 ({{ archived|length }})</h3></div>
+    <div class="card-body">
+        {% for entry in archived %}
+        <div class="kb-entry kb-archived">
+            <div class="kb-entry-header">
+                <div>
+                    <span class="badge badge-archived">已归档</span>
+                    <strong>{{ entry.title }}</strong>
+                </div>
+            </div>
+            <div class="kb-description">{{ entry.description }}</div>
+            <div class="kb-meta">
+                {% if entry.merged_to %}
+                <span class="badge badge-success">已并入 {{ entry.merged_to }}</span>
+                {% endif %}
+                <span class="text-muted small">{{ entry.updated_at.strftime('%Y-%m-%d') }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.kb-entry {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    transition: box-shadow 0.2s;
+}
+.kb-entry:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.kb-archived { opacity: 0.75; background: #fafafa; }
+.kb-entry-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px; gap: 8px;
+}
+.kb-entry-header strong { font-size: 15px; }
+.kb-scenario { font-size: 13px; color: #555; margin-bottom: 6px; }
+.kb-scenario .label { color: #999; }
+.kb-description { font-size: 13px; line-height: 1.7; color: #444; white-space: pre-wrap; }
+.kb-meta { margin-top: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.badge-rule { background: #e6f7ff; color: #0050b3; }
+.badge-pitfall { background: #fff2f0; color: #820014; }
+.badge-edge_case { background: #f0e6ff; color: #531dab; }
+.badge-archived { background: #f5f5f5; color: #666; }
+.info-box { background: #f0f7ff; border: 1px solid #d6e4ff; border-radius: 6px; padding: 12px 16px; }
+.mb-2 { margin-bottom: 16px; }
+</style>
+{% endblock %}
