@@ -204,6 +204,9 @@ main { flex: 1; padding: 24px 0; }
 .form-check { display: flex; align-items: center; gap: 8px; }
 .form-check input { margin: 0; }
 .form-actions { display: flex; gap: 12px; margin-top: 20px; }
+.form-row { display: flex; gap: 16px; }
+.form-group.half { flex: 1; }
+.form-section-title { font-size: 15px; font-weight: 600; margin: 20px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
 select.form-control { appearance: auto; }
 textarea.form-control { resize: vertical; }
 

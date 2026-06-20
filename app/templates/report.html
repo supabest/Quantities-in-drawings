@@ -1,12 +1,18 @@
 {% extends "base.html" %}
-{% block title %}计量报告 - {{ report.title }}{% endblock %}
+{% block title %}自动计量报告 - {{ project.name }}{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h2>计量报告</h2>
+    <div class="page-header-left">
+        <h2>📊 自动计量报告</h2>
+        <span class="text-muted">{{ project.name }}</span>
+    </div>
     <div class="page-header-actions">
-        <a href="{{ url_for('main.download_report', report_id=report.id) }}" class="btn btn-primary btn-sm">📥 下载报告</a>
+        <a href="{{ url_for('main.download_report', report_id=report.id) }}" class="btn btn-primary btn-sm">
+            📥 下载HTML报告
+        </a>
         <a href="{{ url_for('main.project_detail', project_id=project.id) }}" class="btn btn-outline btn-sm">返回项目</a>
+        <a href="{{ url_for('main.view_boq', project_id=project.id) }}" class="btn btn-outline btn-sm">查看清单</a>
     </div>
 </div>
 
@@ -21,92 +27,124 @@
         <div class="report-summary">
             <div class="summary-cards">
                 <div class="summary-card">
-                    <div class="summary-value">{{ summary.total_area|round(1) }}</div>
-                    <div class="summary-label">总面积 (m²)</div>
+                    <div class="summary-value" style="color:#52c41a;">🟢 {{ summary.confidence_counts.high if summary.confidence_counts else 0 }}</div>
+                    <div class="summary-label">高置信度</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-value">{{ summary.room_count }}</div>
-                    <div class="summary-label">房间数</div>
+                    <div class="summary-value" style="color:#faad14;">🟡 {{ summary.confidence_counts.medium if summary.confidence_counts else 0 }}</div>
+                    <div class="summary-label">中置信度</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-value">{{ summary.door_count }}</div>
-                    <div class="summary-label">门 (个)</div>
+                    <div class="summary-value" style="color:#ff4d4f;">🔴 {{ summary.confidence_counts.low if summary.confidence_counts else 0 }}</div>
+                    <div class="summary-label">低置信度</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-value">{{ summary.window_count }}</div>
-                    <div class="summary-label">窗 (个)</div>
+                    <div class="summary-value">{{ measurements|length }}</div>
+                    <div class="summary-label">清单项数</div>
                 </div>
             </div>
         </div>
 
-        <!-- Detailed Measurements -->
+        <!-- Division Summary -->
         <div class="report-details">
-            <h4>详细计量数据</h4>
+            <h4>分部分项汇总</h4>
             <table class="table">
                 <thead>
                     <tr>
-                        <th>名称</th>
-                        <th>类别</th>
+                        <th>分部</th>
+                        <th>项目数</th>
                         <th>面积 (m²)</th>
-                        <th>周长 (m)</th>
                         <th>长度 (m)</th>
                         <th>数量</th>
-                        <th>置信度</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for m in measurements %}
+                    {% set div_names = {1:'楼地面工程',2:'墙柱面工程',3:'天棚工程',4:'门窗工程',5:'踢脚线工程',6:'固定柜台工程',7:'给排水工程',8:'电气工程'} %}
+                    {% for div_id in range(1, 9) %}
+                    {% if summary.divisions and summary.divisions.get(div_id|string) %}
+                    {% set d = summary.divisions.get(div_id|string) %}
+                    {% if d.item_count > 0 %}
                     <tr>
-                        <td>{{ m.label or '-' }}</td>
-                        <td>
-                            {% if m.category == 'room' %}房间
-                            {% elif m.category == 'wall' %}墙体
-                            {% elif m.category == 'door' %}门
-                            {% elif m.category == 'window' %}窗
-                            {% elif m.category == 'fixture' %}构件
-                            {% else %}{{ m.category }}{% endif %}
-                        </td>
-                        <td>{{ m.area|round(2) if m.area else '-' }}</td>
-                        <td>{{ m.perimeter|round(2) if m.perimeter else '-' }}</td>
-                        <td>{{ m.length|round(2) if m.length else '-' }}</td>
-                        <td>{{ m.count or '-' }}</td>
-                        <td>
-                            <span class="confidence-bar">
-                                <span class="confidence-fill" style="width:{{ (m.confidence or 0.5)*100 }}%"></span>
-                            </span>
-                            {{ (m.confidence * 100)|round(0) if m.confidence else '-' }}%
-                        </td>
+                        <td><strong>{{ div_id }}. {{ d.name }}</strong></td>
+                        <td>{{ d.item_count }}</td>
+                        <td>{{ '%.2f'|format(d.total_area) if d.total_area else '-' }}</td>
+                        <td>{{ '%.2f'|format(d.total_length) if d.total_length else '-' }}</td>
+                        <td>{{ d.total_count if d.total_count else '-' }}</td>
                     </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="text-center text-muted">暂无计量数据</td>
-                    </tr>
+                    {% endif %}
+                    {% endif %}
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
-        <!-- Room Detail -->
-        {% if summary.rooms %}
-        <div class="report-rooms mt-2">
-            <h4>房间明细</h4>
-            <table class="table">
+        <!-- Measurements Table -->
+        <div class="report-details mt-2">
+            <h4>详细计量数据</h4>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>序号</th>
+                            <th>项目名称</th>
+                            <th>分部</th>
+                            <th>面积(m²)</th>
+                            <th>长度(m)</th>
+                            <th>数量</th>
+                            <th>单位</th>
+                            <th>置信度</th>
+                            <th>来源</th>
+                            <th>计算式</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in measurements %}
+                        <tr class="conf-{{ m.confidence_level or 'medium' }}">
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ m.label or '-' }}</strong></td>
+                            <td>
+                                {% for di, dn, _, _ in DIVISIONS %}
+                                    {% if di == m.division_id %}{{ dn }}{% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>{{ '%.2f'|format(m.area) if m.area else '-' }}</td>
+                            <td>{{ '%.2f'|format(m.length) if m.length else '-' }}</td>
+                            <td>{{ m.count or '-' }}</td>
+                            <td>{{ m.unit or '-' }}</td>
+                            <td>
+                                <span class="conf-badge conf-{{ m.confidence_level or 'medium' }}">
+                                    {{ m.confidence_icon or '' }} {{ {'high':'高','medium':'中','low':'低'}.get(m.confidence_level, '') }}
+                                </span>
+                            </td>
+                            <td class="small">{{ m.source_tag_icon or '' }} {{ m.source_tag or '' }}</td>
+                            <td class="td-small">{{ m.formula_text or '-' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="text-center text-muted">暂无计量数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pending Items -->
+        {% if summary.pending_confirmation and summary.pending_confirmation|length > 0 %}
+        <div class="report-details mt-2" style="border-left: 3px solid #ff4d4f; padding-left: 12px;">
+            <h4 style="color:#ff4d4f;">🔴 待确认事项</h4>
+            <table class="table table-sm">
                 <thead>
-                    <tr><th>房间</th><th>面积 (m²)</th><th>周长 (m)</th></tr>
+                    <tr><th>项目</th><th>位置</th><th>需提供信息</th></tr>
                 </thead>
                 <tbody>
-                    {% for room in summary.rooms %}
+                    {% for p in summary.pending_confirmation %}
                     <tr>
-                        <td>{{ room.label }}</td>
-                        <td>{{ room.area|round(2) if room.area else '-' }}</td>
-                        <td>{{ room.perimeter|round(2) if room.perimeter else '-' }}</td>
+                        <td>{{ p.label }}</td>
+                        <td class="small">{{ p.position }}</td>
+                        <td class="small">{{ p.reason }}</td>
                     </tr>
                     {% endfor %}
-                    <tr class="table-total">
-                        <td><strong>合计</strong></td>
-                        <td><strong>{{ summary.total_area|round(2) }}</strong></td>
-                        <td><strong>{{ summary.total_perimeter|round(2) }}</strong></td>
-                    </tr>
                 </tbody>
             </table>
         </div>
@@ -115,9 +153,7 @@
         <!-- Annotated Drawings -->
         {% set ns = namespace(has_annotations=false) %}
         {% for d in project.drawings %}
-        {% if d.annotated_path %}
-        {% set ns.has_annotations = true %}
-        {% endif %}
+        {% if d.annotated_path %}{% set ns.has_annotations = true %}{% endif %}
         {% endfor %}
 
         {% if ns.has_annotations %}
@@ -138,4 +174,15 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.conf-badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 12px; white-space: nowrap; }
+.conf-high { background: #f6ffed; color: #135200; }
+.conf-medium { background: #fffbe6; color: #ad8b00; }
+.conf-low { background: #fff2f0; color: #820014; }
+tr.conf-low { background: #fffcfc; }
+.td-small { font-size: 12px; color: #666; }
+</style>
 {% endblock %}

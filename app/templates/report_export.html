@@ -3,105 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>计量报告 - {{ project.name }}</title>
+    <title>工程量清单报告 - {{ project.name }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; color: #333; background: #fff; padding: 40px; }
         h1 { font-size: 24px; margin-bottom: 5px; }
-        h2 { font-size: 18px; border-bottom: 2px solid #4a90d9; padding-bottom: 8px; margin: 24px 0 16px; }
-        h3 { font-size: 16px; margin: 16px 0 8px; }
-        .meta { color: #666; font-size: 14px; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-        th, td { padding: 8px 12px; border: 1px solid #e0e0e0; text-align: left; }
-        th { background: #f5f7fa; font-weight: 600; font-size: 14px; }
-        td { font-size: 14px; }
+        h2 { font-size: 18px; border-bottom: 2px solid #4a90d9; padding-bottom: 8px; margin: 30px 0 16px; }
+        h3 { font-size: 16px; margin: 20px 0 10px; color: #4a90d9; }
+        .meta { color: #666; font-size: 14px; margin-bottom: 24px; }
+        .meta p { margin: 2px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0 20px; font-size: 13px; }
+        th, td { padding: 6px 10px; border: 1px solid #e0e0e0; text-align: left; }
+        th { background: #f5f7fa; font-weight: 600; font-size: 12px; white-space: nowrap; }
+        td { vertical-align: top; }
         .total-row { background: #f0f7ff; font-weight: 600; }
-        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 16px 0; }
-        .summary-card { background: #f5f7fa; border-radius: 8px; padding: 16px; text-align: center; }
-        .summary-value { font-size: 28px; font-weight: 700; color: #4a90d9; }
-        .summary-label { font-size: 13px; color: #666; margin-top: 4px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+        .summary-card { background: #f5f7fa; border-radius: 6px; padding: 14px; text-align: center; }
+        .summary-value { font-size: 26px; font-weight: 700; color: #4a90d9; }
+        .summary-label { font-size: 12px; color: #666; margin-top: 4px; }
+        .conf-high { color: #135200; }
+        .conf-medium { color: #ad8b00; }
+        .conf-low { color: #820014; }
+        .footnote { font-size: 11px; color: #999; margin-top: 4px; }
+        .pending-box { background: #fff2f0; border: 1px solid #ffccc7; border-radius: 4px; padding: 12px; margin: 16px 0; }
+        .pending-box h4 { color: #820014; margin-bottom: 8px; }
         img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; margin: 8px 0; }
         .drawing-item { margin: 16px 0; }
-        .drawing-item h4 { font-size: 14px; color: #555; margin-bottom: 8px; }
         .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; text-align: center; }
+        .small { font-size: 11px; color: #666; }
+        .code { font-family: monospace; font-size: 11px; background: #f5f5f5; padding: 1px 4px; border-radius: 2px; }
         @media print { body { padding: 20px; } .no-print { display: none; } }
     </style>
 </head>
 <body>
-    <h1>装修图纸自动计量报告</h1>
+    <h1>工程量清单报告</h1>
     <div class="meta">
-        <p>项目：{{ project.name }}</p>
-        {% if project.address %}<p>地址：{{ project.address }}</p>{% endif %}
-        <p>生成时间：{{ generated_at }}</p>
+        <p><strong>项目：</strong>{{ project.name }}</p>
+        {% if project.address %}<p><strong>地址：</strong>{{ project.address }}</p>{% endif %}
+        <p><strong>项目类型：</strong>{{ {'residential':'住宅/样板房','commercial':'商业/办公','lobby':'大堂/门厅','showroom':'售楼部/展厅'}.get(project.project_type, project.project_type) }}</p>
+        <p><strong>默认层高：</strong>{{ project.default_floor_height }}m</p>
+        <p><strong>生成时间：</strong>{{ generated_at }}</p>
+        <p><strong>清单项数：</strong>{{ summary.total_items }} 项</p>
     </div>
 
+    <h2>一、置信度分布</h2>
     <div class="summary-grid">
         <div class="summary-card">
-            <div class="summary-value">{{ summary.total_area|round(1) }}</div>
-            <div class="summary-label">总面积 (m²)</div>
+            <div class="summary-value" style="color:#52c41a;">{{ summary.confidence_counts.high or 0 }}</div>
+            <div class="summary-label">🟢 高置信度</div>
         </div>
         <div class="summary-card">
-            <div class="summary-value">{{ summary.room_count }}</div>
-            <div class="summary-label">房间数</div>
+            <div class="summary-value" style="color:#faad14;">{{ summary.confidence_counts.medium or 0 }}</div>
+            <div class="summary-label">🟡 中置信度</div>
         </div>
         <div class="summary-card">
-            <div class="summary-value">{{ summary.door_count }}</div>
-            <div class="summary-label">门 (个)</div>
+            <div class="summary-value" style="color:#ff4d4f;">{{ summary.confidence_counts.low or 0 }}</div>
+            <div class="summary-label">🔴 低置信度</div>
         </div>
         <div class="summary-card">
-            <div class="summary-value">{{ summary.window_count }}</div>
-            <div class="summary-label">窗 (个)</div>
+            <div class="summary-value">{{ summary.pending_confirmation|length }}</div>
+            <div class="summary-label">待确认事项</div>
         </div>
     </div>
 
-    <h2>房间明细</h2>
+    <h2>二、工程量清单（八大分部）</h2>
+    {% set div_names = {1:'楼地面工程',2:'墙柱面工程',3:'天棚工程',4:'门窗工程',5:'踢脚线工程',6:'固定柜台工程',7:'给排水工程',8:'电气工程'} %}
+    {% for div_id in range(1, 9) %}
+    {% set div_items = measurements|selectattr('division_id', 'equalto', div_id)|list %}
+    {% if div_items|length > 0 %}
+    <h3>第{{ div_id }}分部 · {{ div_names[div_id] }}（{{ div_items|length }} 项）</h3>
     <table>
         <thead>
-            <tr><th>房间</th><th>面积 (m²)</th><th>周长 (m)</th></tr>
+            <tr>
+                <th style="width:40px">序号</th>
+                <th style="width:160px">项目名称</th>
+                <th style="min-width:180px">项目特征</th>
+                <th style="width:120px">部位</th>
+                <th style="min-width:160px">计算式</th>
+                <th style="width:70px">工程量</th>
+                <th style="width:50px">单位</th>
+                <th style="width:60px">置信度</th>
+                <th style="width:80px">来源</th>
+                <th style="width:100px">备注</th>
+            </tr>
         </thead>
         <tbody>
-            {% for room in summary.rooms %}
+            {% for m in div_items %}
             <tr>
-                <td>{{ room.label }}</td>
-                <td>{{ room.area|round(2) if room.area else '-' }}</td>
-                <td>{{ room.perimeter|round(2) if room.perimeter else '-' }}</td>
+                <td>{{ div_id }}-{{ '%02d' % loop.index }}</td>
+                <td><strong>{{ m.label or '' }}</strong></td>
+                <td class="small">{{ m.project_features or '' }}{% if m.material_code %}<br>编号：{{ m.material_code }}{% endif %}{% if m.base_layer %}<br>基层：{{ m.base_layer[:80] }}{% endif %}</td>
+                <td class="small">{{ m.position_desc or '' }}</td>
+                <td><code class="code">{{ m.formula_text or '' }}</code></td>
+                <td style="text-align:right;font-weight:600;font-family:monospace;">
+                    {% if m.area %}{{ '%.2f'|format(m.area) }}{% elif m.length %}{{ '%.2f'|format(m.length) }}{% elif m.count %}{{ m.count }}{% else %}-{% endif %}
+                </td>
+                <td>{{ m.unit or '' }}</td>
+                <td class="conf-{{ m.confidence_level or 'medium' }}">{{ m.confidence_icon or '' }} {{ {'high':'高','medium':'中','low':'低'}.get(m.confidence_level, '') }}</td>
+                <td class="small">{{ m.source_tag_icon or '' }} {{ m.source_tag or '' }}</td>
+                <td class="small">{{ m.remarks or '' }}</td>
             </tr>
             {% endfor %}
+        </tbody>
+        {% set div_key = '%d' % div_id %}
+        {% set div_summary = summary.divisions.get(div_key, {}) %}
+        <tfoot>
             <tr class="total-row">
-                <td>合计</td>
-                <td>{{ summary.total_area|round(2) }}</td>
-                <td>{{ summary.total_perimeter|round(2) }}</td>
+                <td colspan="5"><strong>本分部合计</strong></td>
+                <td style="text-align:right;">
+                    {% if div_summary.total_area %}<strong>{{ '%.2f'|format(div_summary.total_area) }} m²</strong>{% elif div_summary.total_length %}<strong>{{ '%.2f'|format(div_summary.total_length) }} m</strong>{% elif div_summary.total_count %}<strong>{{ div_summary.total_count }}</strong>{% endif %}
+                </td>
+                <td colspan="4"></td>
             </tr>
-        </tbody>
+        </tfoot>
     </table>
+    {% endif %}
+    {% endfor %}
 
-    <h2>详细计量数据</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>名称</th>
-                <th>类别</th>
-                <th>面积 (m²)</th>
-                <th>周长 (m)</th>
-                <th>长度 (m)</th>
-                <th>数量</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for m in measurements %}
-            <tr>
-                <td>{{ m.label or '-' }}</td>
-                <td>{{ {'room':'房间','wall':'墙体','door':'门','window':'窗','fixture':'构件'}.get(m.category, m.category) }}</td>
-                <td>{{ m.area|round(2) if m.area else '-' }}</td>
-                <td>{{ m.perimeter|round(2) if m.perimeter else '-' }}</td>
-                <td>{{ m.length|round(2) if m.length else '-' }}</td>
-                <td>{{ m.count or '-' }}</td>
-            </tr>
-            {% else %}
-            <tr><td colspan="6" style="text-align:center;color:#999">暂无计量数据</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    {% if summary.pending_confirmation %}
+    <h2>三、待确认事项</h2>
+    <div class="pending-box">
+        <h4>🔴 以下项目因信息不足标记为低置信度，须现场复量或设计师确认</h4>
+        <table>
+            <thead>
+                <tr><th style="width:160px">项目名称</th><th style="width:200px">位置</th><th>原因/需要提供的信息</th></tr>
+            </thead>
+            <tbody>
+                {% for p in summary.pending_confirmation %}
+                <tr>
+                    <td>{{ p.label }}</td>
+                    <td class="small">{{ p.position }}</td>
+                    <td class="small">{{ p.reason }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
 
     {% set ns = namespace(has_annotations=false) %}
     {% for d in project.drawings %}
@@ -109,7 +147,7 @@
     {% endfor %}
 
     {% if ns.has_annotations %}
-    <h2>图纸标注</h2>
+    <h2>四、图纸标注</h2>
     {% for d in project.drawings %}
     {% if d.annotated_path %}
     <div class="drawing-item">
@@ -121,7 +159,8 @@
     {% endif %}
 
     <div class="footer">
-        <p>本报告由装修图纸自动计量系统生成 | {{ generated_at }}</p>
+        <p>本报告由装修图纸自动计量系统 v3.1 生成 | {{ generated_at }}</p>
+        <p>置信度说明：🟢高=图纸标注直接读取，可直接用于报价 | 🟡中=尺寸推算/经验补全，建议复核 | 🔴低=信息不足，须现场确认</p>
     </div>
 </body>
 </html>

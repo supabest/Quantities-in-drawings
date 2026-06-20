@@ -8,6 +8,12 @@
     .drop-zone:hover, .drop-zone.dragover { border-color: #4a90d9; background: #f0f7ff; }
     .drop-zone-text { color: #666; }
     .drop-zone-text .icon { font-size: 48px; display: block; margin-bottom: 10px; }
+    .div-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 16px; }
+    .div-tab { padding: 6px 14px; border-radius: 4px; font-size: 13px; cursor: pointer; border: 1px solid #e0e0e0; background: #fff; }
+    .div-tab:hover { border-color: #4a90d9; }
+    .div-tab.active { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+    .div-section { display: none; }
+    .div-section.active { display: block; }
 </style>
 {% endblock %}
 
@@ -24,7 +30,10 @@
         </span>
     </div>
     <div class="page-header-actions">
-        <a href="{{ url_for('main.edit_project', project_id=project.id) }}" class="btn btn-outline btn-sm">编辑</a>
+        <a href="{{ url_for('main.edit_project', project_id=project.id) }}" class="btn btn-outline btn-sm">配置</a>
+        {% if measurements %}
+        <a href="{{ url_for('main.view_boq', project_id=project.id) }}" class="btn btn-primary btn-sm">📊 查看清单</a>
+        {% endif %}
         <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline btn-sm">返回</a>
         <form method="POST" action="{{ url_for('main.delete_project', project_id=project.id) }}"
               style="display:inline" onsubmit="return confirm('确认删除此项目？所有数据将不可恢复。')">
@@ -33,39 +42,40 @@
     </div>
 </div>
 
-<div class="project-info">
-    <div class="info-grid">
-        {% if project.description %}
-        <div><strong>描述：</strong>{{ project.description }}</div>
-        {% endif %}
-        {% if project.address %}
-        <div><strong>地址：</strong>{{ project.address }}</div>
-        {% endif %}
-        <div><strong>图纸类型：</strong>{{ project.drawing_type }}</div>
-        <div><strong>创建时间：</strong>{{ project.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
-        {% if project.scale != 1.0 %}
-        <div><strong>比例尺：</strong>{{ project.scale }} px/m</div>
-        {% endif %}
+<!-- Project Info -->
+<div class="card">
+    <div class="card-body">
+        <div class="info-grid">
+            {% if project.description %}<div><strong>描述：</strong>{{ project.description }}</div>{% endif %}
+            {% if project.address %}<div><strong>地址：</strong>{{ project.address }}</div>{% endif %}
+            <div><strong>项目类型：</strong>
+                {% for pt_id, pt_name, _ in PROJECT_TYPES %}
+                    {% if pt_id == project.project_type %}{{ pt_name }}{% endif %}
+                {% endfor %}
+            </div>
+            <div><strong>层高：</strong>{{ project.default_floor_height }}m</div>
+            <div><strong>创建时间：</strong>{{ project.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+        </div>
     </div>
 </div>
 
 <div class="content-grid">
     <!-- Left: Upload & Drawings -->
     <div class="content-main">
+
+        <!-- Upload Section -->
         <div class="card">
-            <div class="card-header">
-                <h3>上传图纸</h3>
-            </div>
+            <div class="card-header"><h3>上传图纸</h3></div>
             <div class="card-body">
                 <div class="drop-zone" id="dropZone">
                     <div class="drop-zone-text">
                         <span class="icon">📁</span>
                         <p>拖拽图纸到此处或点击选择文件</p>
-                        <p class="text-muted small">支持 PNG、JPG、BMP、TIFF 格式</p>
+                        <p class="text-muted small">支持 PNG、JPG、BMP、TIFF、DXF</p>
                     </div>
                 </div>
                 <input type="file" id="fileInput" name="files" multiple
-                       accept=".png,.jpg,.jpeg,.bmp,.tiff" style="display:none">
+                       accept=".png,.jpg,.jpeg,.bmp,.tiff,.dxf" style="display:none">
                 <div id="uploadProgress" style="display:none" class="mt-2">
                     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
                     <p class="text-muted small" id="uploadStatus">上传中...</p>
@@ -74,11 +84,10 @@
             </div>
         </div>
 
+        <!-- Drawing List -->
         {% if drawings %}
         <div class="card mt-2">
-            <div class="card-header">
-                <h3>图纸列表 ({{ drawings|length }})</h3>
-            </div>
+            <div class="card-header"><h3>图纸列表 ({{ drawings|length }})</h3></div>
             <div class="card-body">
                 <div class="drawing-gallery">
                     {% for d in drawings %}
@@ -89,12 +98,19 @@
                         </a>
                         <div class="drawing-info">
                             <span class="drawing-name" title="{{ d.original_name }}">{{ d.original_name }}</span>
+                            <span class="drawing-type">
+                                {% if d.drawing_type == 'floor_plan' %}平面图
+                                {% elif d.drawing_type == 'elevation' %}立面图
+                                {% elif d.drawing_type == 'ceiling' %}天花图
+                                {% elif d.drawing_type == 'detail' %}大样图
+                                {% else %}{{ d.drawing_type }}{% endif %}
+                            </span>
                             <span class="drawing-size">{{ (d.file_size / 1024)|round(1) }} KB</span>
                         </div>
                         {% if d.annotated_path %}
-                        <div class="drawing-annotated">
+                        <div class="drawing-actions">
                             <a href="{{ url_for('static', filename='uploads/' + d.annotated_path) }}" target="_blank">
-                                <span class="badge badge-info">查看标注图</span>
+                                <span class="badge badge-info">查看标注</span>
                             </a>
                         </div>
                         {% endif %}
@@ -105,6 +121,7 @@
         </div>
         {% endif %}
 
+        <!-- Process Button -->
         {% if drawings and project.status != 'completed' %}
         <div class="card mt-2">
             <div class="card-body text-center">
@@ -112,83 +129,110 @@
                         onclick="startProcessing({{ project.id }})">
                     🚀 开始自动计量
                 </button>
-                <p class="text-muted small mt-1">系统将自动分析所有图纸，提取面积、长度、构件等数据</p>
+                <p class="text-muted small mt-1">
+                    系统将按：平面图 → 立面图 → 天花图 → 大样图 顺序处理，输出8大分部工程量清单
+                </p>
             </div>
         </div>
         {% endif %}
     </div>
 
-    <!-- Right: Measurements & Reports -->
+    <!-- Right: Results & Summary -->
     <div class="content-side">
         {% if measurements %}
+        <!-- Quick Summary -->
         <div class="card">
-            <div class="card-header">
-                <h3>计量结果</h3>
-            </div>
+            <div class="card-header"><h3>📈 计量概览</h3></div>
             <div class="card-body">
-                {% if measurements.room %}
-                <div class="measurement-section">
-                    <h4>📏 房间面积</h4>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr><th>名称</th><th>面积</th><th>周长</th></tr>
-                        </thead>
-                        <tbody>
-                            {% for m in measurements.room %}
-                            <tr>
-                                <td>{{ m.label }}</td>
-                                <td>{{ m.area }} m²</td>
-                                <td>{{ m.perimeter }} m</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="stat-list">
+                    <div class="stat-item">
+                        <span class="stat-label">🟢 高置信度</span>
+                        <span class="stat-value">{{ conf_counts.high }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">🟡 中置信度</span>
+                        <span class="stat-value">{{ conf_counts.medium }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">🔴 低置信度</span>
+                        <span class="stat-value" {% if conf_counts.low > 0 %}style="color:#ff4d4f"{% endif %}>{{ conf_counts.low }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">📋 清单项总数</span>
+                        <span class="stat-value">{{ measurements|length }}</span>
+                    </div>
                 </div>
-                {% endif %}
+            </div>
+        </div>
 
-                {% if measurements.wall %}
-                <div class="measurement-section">
-                    <h4>🧱 墙体</h4>
-                    {% for m in measurements.wall %}
-                    <p>总长度: <strong>{{ m.length }} m</strong> ({{ m.count }} 段)</p>
+        <!-- 8 Divisions Summary -->
+        <div class="card">
+            <div class="card-header"><h3>📋 分部分项</h3></div>
+            <div class="card-body">
+                {% for div in divisions_data %}
+                <div class="project-card" style="margin-bottom:8px;cursor:pointer;"
+                     onclick="location.href='{{ url_for('main.view_boq', project_id=project.id) }}#div-{{ div.id }}'">
+                    <div class="project-card-header" style="padding:10px;">
+                        <span style="font-size:13px;font-weight:500;">
+                            {{ div.id }}. {{ div.name }}
+                        </span>
+                        <span style="font-size:12px;color:#999;">
+                            {{ div.item_list|length }}项
+                            {% if div.total_area %}| {{ '%.1f'|format(div.total_area) }}m²{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Low Confidence Warning -->
+        {% if low_conf_items %}
+        <div class="card" style="border-left: 3px solid #ff4d4f;">
+            <div class="card-body">
+                <h4 style="color:#ff4d4f;font-size:14px;">🔴 {{ low_conf_items|length }} 项待确认</h4>
+                <ul style="font-size:12px;color:#666;margin-top:8px;padding-left:16px;">
+                    {% for m in low_conf_items[:5] %}
+                    <li>{{ m.label }} — {{ m.remarks or '信息不足' }}</li>
                     {% endfor %}
-                </div>
-                {% endif %}
+                    {% if low_conf_items|length > 5 %}
+                    <li class="text-muted">...还有 {{ low_conf_items|length - 5 }} 项</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
 
-                {% if measurements.door or measurements.window %}
-                <div class="measurement-section">
-                    <h4>🚪 门窗</h4>
-                    <p>门: <strong>{{ measurements.door|length }}</strong> 个</p>
-                    <p>窗: <strong>{{ measurements.window|length }}</strong> 个</p>
-                </div>
-                {% endif %}
+        <!-- Report Link -->
+        {% if report %}
+        <div class="card mt-2">
+            <div class="card-body text-center">
+                <a href="{{ url_for('main.view_report', report_id=report.id) }}" class="btn btn-primary btn-block">
+                    📊 查看完整报告
+                </a>
+                <button class="btn btn-outline btn-block btn-sm mt-1"
+                        onclick="rerunProcessing({{ project.id }})">🔄 重新计量</button>
+            </div>
+        </div>
+        {% endif %}
 
-                {% if report %}
-                <div class="measurement-actions mt-2">
-                    <a href="{{ url_for('main.view_report', report_id=report.id) }}"
-                       class="btn btn-primary btn-block">📊 查看完整报告</a>
-                </div>
-                {% endif %}
-
-                {% if measurements.room %}
-                <div class="measurement-actions mt-1">
-                    <button class="btn btn-outline btn-block btn-sm"
-                            onclick="rerunProcessing({{ project.id }})">
-                        🔄 重新计量
-                    </button>
-                </div>
-                {% endif %}
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center text-muted">
+                <p>上传图纸并开始计量后，<br>此处将显示分部分项概览</p>
             </div>
         </div>
         {% endif %}
     </div>
 </div>
 
+<!-- Processing Overlay -->
 <div id="processingOverlay" style="display:none" class="processing-overlay">
     <div class="processing-modal">
         <div class="spinner"></div>
         <h3>正在自动计量...</h3>
         <p id="processingStatus">系统正在分析图纸中，请稍候</p>
+        <p class="text-muted small">处理顺序：平面图 → 立面图 → 天花图 → 大样图</p>
         <div class="progress-bar"><div class="progress-fill progress-animate" id="procProgressFill"></div></div>
     </div>
 </div>
@@ -209,9 +253,7 @@ dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover
 dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length) {
-        uploadFiles(e.dataTransfer.files);
-    }
+    if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
 });
 fileInput.addEventListener('change', () => {
     if (fileInput.files.length) uploadFiles(fileInput.files);
@@ -222,11 +264,9 @@ async function uploadFiles(files) {
     uploadResult.innerHTML = '';
     progressFill.style.width = '0%';
     uploadStatus.textContent = `正在上传 ${files.length} 个文件...`;
-
     const formData = new FormData();
     for (let f of files) formData.append('files', f);
     formData.append('project_id', {{ project.id }});
-
     try {
         const resp = await fetch('/api/upload', { method: 'POST', body: formData });
         const data = await resp.json();
@@ -246,7 +286,6 @@ async function startProcessing(projectId) {
     document.getElementById('processingOverlay').style.display = 'flex';
     const statusEl = document.getElementById('processingStatus');
     const progressFill2 = document.getElementById('procProgressFill');
-
     try {
         const resp = await fetch(`/api/process/${projectId}`, { method: 'POST' });
         const data = await resp.json();
@@ -270,11 +309,8 @@ async function rerunProcessing(projectId) {
     try {
         const resp = await fetch(`/api/project/${projectId}/rerun`, { method: 'POST' });
         const data = await resp.json();
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('操作失败：' + (data.error || '未知错误'));
-        }
+        if (data.success) location.reload();
+        else alert('操作失败：' + (data.error || '未知错误'));
     } catch (err) {
         alert('请求出错：' + err.message);
     }

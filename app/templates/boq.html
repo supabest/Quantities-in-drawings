@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}工程量清单 - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h2>📊 工程量清单</h2>
+        <span class="text-muted">{{ project.name }}</span>
+    </div>
+    <div class="page-header-actions">
+        <a href="{{ url_for('main.project_detail', project_id=project.id) }}" class="btn btn-outline btn-sm">返回项目</a>
+        {% if measurements %}
+        <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ 打印/导出</button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Project Info -->
+<div class="card">
+    <div class="card-body">
+        <div class="info-grid">
+            <div><strong>项目类型：</strong>
+                {% for pt_id, pt_name, _ in PROJECT_TYPES %}
+                    {% if pt_id == project.project_type %}{{ pt_name }}{% endif %}
+                {% endfor %}
+            </div>
+            <div><strong>默认层高：</strong>{{ project.default_floor_height }}m</div>
+            <div><strong>图纸数量：</strong>{{ project.drawings.count() }} 张</div>
+            <div><strong>清单项数：</strong>{{ measurements|length }} 项</div>
+        </div>
+    </div>
+</div>
+
+{% if not measurements %}
+<div class="empty-state">
+    <div class="empty-icon">📋</div>
+    <h3>暂无清单数据</h3>
+    <p>请先上传图纸并执行自动计量。</p>
+    <a href="{{ url_for('main.project_detail', project_id=project.id) }}" class="btn btn-primary">上传图纸</a>
+</div>
+{% else %}
+
+<!-- Confidence Distribution -->
+<div class="card">
+    <div class="card-header"><h3>置信度分布</h3></div>
+    <div class="card-body">
+        <div class="summary-cards">
+            <div class="summary-card" style="border-left: 4px solid #52c41a;">
+                <div class="summary-value" style="color:#52c41a;">🟢 {{ conf_dist.high|length }}</div>
+                <div class="summary-label">高置信度</div>
+            </div>
+            <div class="summary-card" style="border-left: 4px solid #faad14;">
+                <div class="summary-value" style="color:#faad14;">🟡 {{ conf_dist.medium|length }}</div>
+                <div class="summary-label">中置信度</div>
+            </div>
+            <div class="summary-card" style="border-left: 4px solid #ff4d4f;">
+                <div class="summary-value" style="color:#ff4d4f;">🔴 {{ conf_dist.low|length }}</div>
+                <div class="summary-label">低置信度</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-value">{{ pending|length }}</div>
+                <div class="summary-label">待确认事项</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 8-Division BOQ -->
+{% for div in divisions %}
+{% if div.item_list %}
+<div class="card">
+    <div class="card-header">
+        <h3>第{{ div.id }}分部 · {{ div.name }}
+            <small class="text-muted">（{{ div.item_list|length }} 项）</small>
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table boq-table">
+                <thead>
+                    <tr>
+                        <th style="width:50px">序号</th>
+                        <th style="width:180px">项目名称</th>
+                        <th style="min-width:200px">项目特征</th>
+                        <th style="width:120px">部位（图纸位置）</th>
+                        <th style="min-width:180px">计算式</th>
+                        <th style="width:80px">工程量</th>
+                        <th style="width:60px">单位</th>
+                        <th style="width:80px">置信度</th>
+                        <th style="width:100px">来源标签</th>
+                        <th style="width:120px">备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in div.item_list %}
+                    <tr class="conf-{{ m.confidence_level or 'medium' }}">
+                        <td>{{ div.id }}-{{ '%02d' % loop.index }}</td>
+                        <td><strong>{{ m.label or '' }}</strong></td>
+                        <td class="td-small">
+                            {{ m.project_features or '' }}
+                            {% if m.material_code %}
+                            <br><span class="tag tag-code">{{ m.material_code }}</span>
+                            {% endif %}
+                            {% if m.base_layer %}
+                            <br><span class="tag tag-base">{{ m.base_layer[:60] }}{% if m.base_layer|length > 60 %}...{% endif %}</span>
+                            {% endif %}
+                        </td>
+                        <td class="td-small">{{ m.position_desc or '' }}</td>
+                        <td class="td-small td-formula">
+                            <code>{{ m.formula_text or '' }}</code>
+                        </td>
+                        <td class="td-num">
+                            {% if m.area %}{{ '%.2f'|format(m.area) }}
+                            {% elif m.length %}{{ '%.2f'|format(m.length) }}
+                            {% elif m.count %}{{ m.count }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>{{ m.unit or '' }}</td>
+                        <td>
+                            <span class="conf-badge conf-{{ m.confidence_level or 'medium' }}">
+                                {{ m.confidence_icon or '' }} {{ CONFIDENCE_LEVELS.get(m.confidence_level, {}).get('label', '') }}
+                            </span>
+                        </td>
+                        <td><span class="source-tag">{{ m.source_tag_icon or '' }} {{ m.source_tag or '' }}</span></td>
+                        <td class="td-small">{{ m.remarks or '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="table-total">
+                        <td colspan="5"><strong>本分部合计</strong></td>
+                        <td>
+                            {% if div.total_area %}<strong>{{ '%.2f'|format(div.total_area) }} m²</strong>
+                            {% elif div.total_length %}<strong>{{ '%.2f'|format(div.total_length) }} m</strong>
+                            {% elif div.total_count %}<strong>{{ div.total_count }} 个</strong>
+                            {% endif %}
+                        </td>
+                        <td colspan="4"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Pending Confirmation -->
+{% if pending %}
+<div class="card" style="border-left: 4px solid #ff4d4f;">
+    <div class="card-header"><h3>🔴 待确认事项汇总</h3></div>
+    <div class="card-body">
+        <p class="text-muted">以下项目因信息不足标记为低置信度，须现场复量或设计师确认后方可用于对外报价。</p>
+        <table class="table">
+            <thead>
+                <tr><th>项目名称</th><th>位置</th><th>原因/需要提供的信息</th></tr>
+            </thead>
+            <tbody>
+                {% for p in pending %}
+                <tr>
+                    <td>{{ p.label }}</td>
+                    <td>{{ p.position }}</td>
+                    <td>{{ p.reason }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.boq-table { font-size: 13px; }
+.boq-table th { white-space: nowrap; background: #f5f7fa; font-size: 12px; }
+.boq-table td { vertical-align: top; }
+.td-small { font-size: 12px; color: #666; }
+.td-num { text-align: right; font-weight: 600; font-family: monospace; }
+.td-formula code { font-size: 11px; background: #f5f5f5; padding: 1px 4px; border-radius: 2px; word-break: break-all; }
+.conf-badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 12px; white-space: nowrap; }
+.conf-high { background: #f6ffed; color: #135200; }
+.conf-medium { background: #fffbe6; color: #ad8b00; }
+.conf-low { background: #fff2f0; color: #820014; }
+tr.conf-low { background: #fffcfc; }
+tr.conf-low:hover td { background: #fff5f5; }
+.source-tag { font-size: 12px; white-space: nowrap; }
+.tag { display: inline-block; padding: 1px 4px; border-radius: 2px; font-size: 10px; }
+.tag-code { background: #e6f7ff; color: #0050b3; }
+.tag-base { background: #f0e6ff; color: #531dab; }
+</style>
+{% endblock %}
