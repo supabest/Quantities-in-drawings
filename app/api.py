@@ -352,11 +352,32 @@ def upload_historical():
     db.session.add(hist)
     db.session.commit()
 
-    return jsonify({
-        'success': True,
-        'message': '历史清单已上传，系统将在下次计量时参照补漏',
-        'id': hist.id
-    })
+    # Parse Excel and store structured data
+    try:
+        from app.comparison import parse_historical_excel
+        parsed = parse_historical_excel(upload_path)
+        hist.item_count = parsed['item_count']
+        hist.summary_json = json.dumps(parsed, ensure_ascii=False)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'历史清单解析完成：{parsed["item_count"]} 项，{len(parsed["divisions"])} 个分部',
+            'id': hist.id,
+            'parsed': {
+                'item_count': parsed['item_count'],
+                'divisions': list(parsed['divisions'].keys()),
+                'project_name': parsed['project_name'],
+            }
+        })
+    except Exception as e:
+        # File saved but parse failed; still usable for reference
+        return jsonify({
+            'success': True,
+            'message': f'文件已上传，但解析失败：{str(e)}。可手动参照。',
+            'id': hist.id,
+            'parse_error': str(e),
+        })
 
 
 @api_bp.route('/historical/list')
@@ -369,6 +390,59 @@ def list_historical():
         'projects': [{'id': p.id, 'name': p.name, 'type': p.project_type,
                        'items': p.item_count, 'created': p.created_at.isoformat()}
                       for p in projects]
+    })
+
+
+# ═══════════════════════════════
+# Historical Comparison & Auto-fill
+# ═══════════════════════════════
+
+@api_bp.route('/historical/compare/<int:project_id>', methods=['POST'])
+@login_required
+def compare_with_historical(project_id):
+    """Compare current BOQ against a historical reference and find gaps."""
+    project = Project.query.get_or_404(project_id)
+    if project.user_id != current_user.id and not current_user.is_admin:
+        return jsonify({'success': False, 'error': '无权操作'}), 403
+
+    historical_id = request.get_json().get('historical_id')
+    if not historical_id:
+        return jsonify({'success': False, 'error': '请指定历史清单ID'}), 400
+
+    from app.comparison import compare_with_historical
+    result = compare_with_historical(project_id, historical_id)
+
+    if 'error' in result:
+        return jsonify({'success': False, 'error': result['error']}), 400
+
+    return jsonify({
+        'success': True,
+        'comparison': result,
+    })
+
+
+@api_bp.route('/historical/auto-fill/<int:project_id>', methods=['POST'])
+@login_required
+def auto_fill_missing(project_id):
+    """Auto-fill missing items from historical comparison into project."""
+    project = Project.query.get_or_404(project_id)
+    if project.user_id != current_user.id and not current_user.is_admin:
+        return jsonify({'success': False, 'error': '无权操作'}), 403
+
+    data = request.get_json()
+    historical_id = data.get('historical_id')
+    items_to_fill = data.get('items', [])
+
+    if not historical_id or not items_to_fill:
+        return jsonify({'success': False, 'error': '缺少历史清单ID或待填项目'}), 400
+
+    from app.comparison import auto_fill_missing
+    filled = auto_fill_missing(project_id, items_to_fill)
+
+    return jsonify({
+        'success': True,
+        'message': f'已补入 {len(filled)} 项遗漏项目',
+        'filled_count': len(filled),
     })
 
 
@@ -451,6 +525,8 @@ def update_project_config(project_id):
         project.project_type = data['project_type']
     if 'default_floor_height' in data:
         project.default_floor_height = data['default_floor_height']
+    if 'historical_ref_prompted' in data:
+        project.historical_ref_prompted = bool(data['historical_ref_prompted'])
     db.session.commit()
 
     return jsonify({'success': True})

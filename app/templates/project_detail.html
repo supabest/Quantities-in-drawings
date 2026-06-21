@@ -84,6 +84,39 @@
             </div>
         </div>
 
+        <!-- Historical Reference Section -->
+        <div class="card mt-2">
+            <div class="card-header">
+                <h3>📋 历史清单参照</h3>
+            </div>
+            <div class="card-body">
+                <div id="histRefPrompt" class="hist-prompt" {% if project.historical_ref_prompted %}style="display:none"{% endif %}>
+                    <div class="hist-prompt-icon">💡</div>
+                    <div class="hist-prompt-text">
+                        <strong>建议上传历史同类项目清单</strong>
+                        <p class="text-muted small">上传同类项目的工程量清单Excel，系统将自动比对并补全图纸未显示的隐含子目。</p>
+                    </div>
+                </div>
+                <div class="hist-upload-area">
+                    <input type="file" id="histFileInput" accept=".xlsx,.xls,.csv"
+                           style="display:none" onchange="uploadHistorical({{ project.id }})">
+                    <button class="btn btn-outline btn-sm" onclick="document.getElementById('histFileInput').click()">
+                        📤 上传历史清单 (.xlsx)
+                    </button>
+                    <span class="text-muted small" id="histUploadStatus"></span>
+                </div>
+                <div id="histComparisonResult" class="mt-2" style="display:none">
+                    <div id="histMissingItems" class="mt-1"></div>
+                    <div id="histWarnings" class="mt-1"></div>
+                    <button id="autoFillBtn" style="display:none" class="btn btn-primary btn-sm mt-1"
+                            onclick="autoFillMissing({{ project.id }})">
+                        🔄 补入遗漏项目
+                    </button>
+                    <span id="autoFillStatus" class="text-muted small"></span>
+                </div>
+            </div>
+        </div>
+
         <!-- Drawing List -->
         {% if drawings %}
         <div class="card mt-2">
@@ -313,6 +346,173 @@ async function rerunProcessing(projectId) {
         else alert('操作失败：' + (data.error || '未知错误'));
     } catch (err) {
         alert('请求出错：' + err.message);
+    }
+}
+
+// ── Historical Reference ──
+
+let currentHistoricalId = null;
+let currentMissingItems = [];
+
+async function uploadHistorical(projectId) {
+    const fileInput = document.getElementById('histFileInput');
+    const statusEl = document.getElementById('histUploadStatus');
+    const resultDiv = document.getElementById('histComparisonResult');
+
+    if (!fileInput.files.length) return;
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('project_id', projectId);
+
+    statusEl.textContent = '⏳ 正在上传解析...';
+    statusEl.style.display = 'inline';
+
+    try {
+        const resp = await fetch('/api/historical/upload', {
+            method: 'POST',
+            body: formData,
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            currentHistoricalId = data.id;
+            statusEl.textContent = `✅ ${data.message || '上传成功'}`;
+
+            // Dismiss prompt
+            const prompt = document.getElementById('histRefPrompt');
+            if (prompt) prompt.style.display = 'none';
+
+            // Run comparison
+            await runComparison(projectId, data.id);
+
+            // Mark project as prompted
+            await fetch(`/api/project/${projectId}/config`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({historical_ref_prompted: true}),
+            });
+        } else {
+            statusEl.textContent = '❌ ' + (data.error || '上传失败');
+        }
+    } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+    }
+}
+
+async function runComparison(projectId, historicalId) {
+    const resultDiv = document.getElementById('histComparisonResult');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<p class="text-muted">⏳ 正在与历史清单对比...</p>';
+
+    try {
+        const resp = await fetch(`/api/historical/compare/${projectId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({historical_id: historicalId}),
+        });
+        const data = await resp.json();
+
+        if (!data.success) {
+            resultDiv.innerHTML = `<p class="text-danger">❌ ${data.error}</p>`;
+            return;
+        }
+
+        const comp = data.comparison;
+        currentMissingItems = comp.missing_items || [];
+
+        let html = '';
+
+        // Stats comparison
+        if (comp.stats_comparison) {
+            const sc = comp.stats_comparison;
+            html += '<div class="hist-stats">';
+            html += `<strong>📊 指标对比</strong>`;
+            html += `<table class="table table-sm hist-table">`;
+            html += `<tr><th>指标</th><th>当前项目</th><th>历史清单</th><th>偏差</th></tr>`;
+            html += `<tr><td>墙面/地面面积比</td>`;
+            html += `<td>${sc.current?.wall_floor_ratio || '-'}</td>`;
+            html += `<td>${sc.historical?.wall_floor_ratio || '-'}</td>`;
+            if (sc.deviation_pct !== null) {
+                const alarm = sc.is_alarm ? 'hist-alarm' : '';
+                html += `<td class="${alarm}">${sc.deviation_pct}% ${sc.is_alarm ? '⚠️' : '✓'}</td>`;
+            } else {
+                html += `<td>-</td>`;
+            }
+            html += `</tr></table></div>`;
+        }
+
+        // Warnings
+        if (comp.warnings && comp.warnings.length) {
+            for (const w of comp.warnings) {
+                html += `<div class="alert alert-warning" style="font-size:13px">${w}</div>`;
+            }
+        }
+
+        // Missing items
+        const missing = currentMissingItems;
+        if (missing.length > 0) {
+            html += `<div class="hist-missing">`;
+            html += `<strong>🔍 发现 ${missing.length} 项可能遗漏的项目</strong>`;
+            html += `<table class="table table-sm hist-table">`;
+            html += `<tr><th>分部</th><th>项目名称</th><th>原因</th></tr>`;
+            for (const item of missing.slice(0, 20)) {
+                html += `<tr>`;
+                html += `<td>${item.division_id}.${item.division_name}</td>`;
+                html += `<td>${item.name}</td>`;
+                html += `<td class="text-muted small">${item.reason}</td>`;
+                html += `</tr>`;
+            }
+            if (missing.length > 20) {
+                html += `<tr><td colspan="3" class="text-muted small">...还有 ${missing.length - 20} 项</td></tr>`;
+            }
+            html += `</table>`;
+            html += `<p class="text-muted small">补入后标注【历史参照】📋，置信度🟡中</p>`;
+
+            // Show auto-fill button
+            document.getElementById('autoFillBtn').style.display = 'inline-block';
+        } else {
+            html += `<p class="text-success">✅ 与历史清单对照完毕，未发现遗漏项</p>`;
+            document.getElementById('autoFillBtn').style.display = 'none';
+        }
+
+        resultDiv.innerHTML = html;
+
+    } catch (err) {
+        resultDiv.innerHTML = `<p class="text-danger">❌ 对比出错：${err.message}</p>`;
+    }
+}
+
+async function autoFillMissing(projectId) {
+    if (!currentHistoricalId || !currentMissingItems.length) return;
+
+    const btn = document.getElementById('autoFillBtn');
+    const statusEl = document.getElementById('autoFillStatus');
+    btn.disabled = true;
+    statusEl.textContent = '⏳ 正在补入...';
+
+    try {
+        const resp = await fetch(`/api/historical/auto-fill/${projectId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                historical_id: currentHistoricalId,
+                items: currentMissingItems,
+            }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            statusEl.textContent = `✅ 已补入 ${data.filled_count} 项！请刷新页面查看`;
+            btn.style.display = 'none';
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            statusEl.textContent = '❌ ' + (data.error || '补入失败');
+            btn.disabled = false;
+        }
+    } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+        btn.disabled = false;
     }
 }
 </script>
