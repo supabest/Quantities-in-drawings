@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}个人中心{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>个人中心</h2>
+</div>
+
+<div class="content-grid">
+    <div class="content-main">
+        <div class="card">
+            <div class="card-header">
+                <h3>账户信息</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" class="profile-form">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <div class="form-control-static">{{ user.username }}</div>
+                    </div>
+                    <div class="form-group">
+                        <label>邮箱</label>
+                        <div class="form-control-static">{{ user.email }}</div>
+                    </div>
+                    <div class="form-group">
+                        <label>公司</label>
+                        <div class="form-control-static">{{ user.company or '未填写' }}</div>
+                    </div>
+                    <div class="form-group">
+                        <label>手机</label>
+                        <div class="form-control-static">{{ user.phone or '未填写' }}</div>
+                    </div>
+                    <div class="form-group">
+                        <label>账户状态</label>
+                        <div>
+                            {% if user.is_admin %}
+                            <span class="badge badge-admin">管理员</span>
+                            {% elif user.is_approved %}
+                            <span class="badge badge-success">已批准</span>
+                            {% else %}
+                            <span class="badge badge-warning">待审核</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>注册时间</label>
+                        <div class="form-control-static">{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                    </div>
+                    <div class="form-group">
+                        <label>最后登录</label>
+                        <div class="form-control-static">
+                            {{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else '首次登录' }}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-side">
+        <div class="card">
+            <div class="card-header">
+                <h3>数据统计</h3>
+            </div>
+            <div class="card-body">
+                <div class="stat-list">
+                    <div class="stat-item">
+                        <span class="stat-label">项目总数</span>
+                        <span class="stat-value">{{ user.projects.count() }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">已完成项目</span>
+                        <span class="stat-value">{{ user.projects.filter_by(status='completed').count() }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">处理中</span>
+                        <span class="stat-value">{{ user.projects.filter_by(status='processing').count() }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

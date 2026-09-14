@@ -1,0 +1,519 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} - 项目详情{% endblock %}
+
+{% block extra_head %}
+<style>
+    .annotated-img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; }
+    .drop-zone { border: 2px dashed #ccc; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: border-color 0.3s; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #4a90d9; background: #f0f7ff; }
+    .drop-zone-text { color: #666; }
+    .drop-zone-text .icon { font-size: 48px; display: block; margin-bottom: 10px; }
+    .div-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 16px; }
+    .div-tab { padding: 6px 14px; border-radius: 4px; font-size: 13px; cursor: pointer; border: 1px solid #e0e0e0; background: #fff; }
+    .div-tab:hover { border-color: #4a90d9; }
+    .div-tab.active { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+    .div-section { display: none; }
+    .div-section.active { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h2>{{ project.name }}</h2>
+        <span class="status-badge status-{{ project.status }}">
+            {% if project.status == 'pending' %}待处理
+            {% elif project.status == 'processing' %}处理中
+            {% elif project.status == 'completed' %}已完成
+            {% elif project.status == 'failed' %}失败
+            {% endif %}
+        </span>
+    </div>
+    <div class="page-header-actions">
+        <a href="{{ url_for('main.edit_project', project_id=project.id) }}" class="btn btn-outline btn-sm">配置</a>
+        {% if measurements %}
+        <a href="{{ url_for('main.view_boq', project_id=project.id) }}" class="btn btn-primary btn-sm">📊 查看清单</a>
+        {% endif %}
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline btn-sm">返回</a>
+        <form method="POST" action="{{ url_for('main.delete_project', project_id=project.id) }}"
+              style="display:inline" onsubmit="return confirm('确认删除此项目？所有数据将不可恢复。')">
+            <button type="submit" class="btn btn-danger btn-sm">删除</button>
+        </form>
+    </div>
+</div>
+
+<!-- Project Info -->
+<div class="card">
+    <div class="card-body">
+        <div class="info-grid">
+            {% if project.description %}<div><strong>描述：</strong>{{ project.description }}</div>{% endif %}
+            {% if project.address %}<div><strong>地址：</strong>{{ project.address }}</div>{% endif %}
+            <div><strong>项目类型：</strong>
+                {% for pt_id, pt_name, _ in PROJECT_TYPES %}
+                    {% if pt_id == project.project_type %}{{ pt_name }}{% endif %}
+                {% endfor %}
+            </div>
+            <div><strong>层高：</strong>{{ project.default_floor_height }}m</div>
+            <div><strong>创建时间：</strong>{{ project.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="content-grid">
+    <!-- Left: Upload & Drawings -->
+    <div class="content-main">
+
+        <!-- Upload Section -->
+        <div class="card">
+            <div class="card-header"><h3>上传图纸</h3></div>
+            <div class="card-body">
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-text">
+                        <span class="icon">📁</span>
+                        <p>拖拽图纸到此处或点击选择文件</p>
+                        <p class="text-muted small">支持 PNG、JPG、BMP、TIFF、DXF</p>
+                    </div>
+                </div>
+                <input type="file" id="fileInput" name="files" multiple
+                       accept=".png,.jpg,.jpeg,.bmp,.tiff,.dxf" style="display:none">
+                <div id="uploadProgress" style="display:none" class="mt-2">
+                    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                    <p class="text-muted small" id="uploadStatus">上传中...</p>
+                </div>
+                <div id="uploadResult" class="mt-2"></div>
+            </div>
+        </div>
+
+        <!-- Historical Reference Section -->
+        <div class="card mt-2">
+            <div class="card-header">
+                <h3>📋 历史清单参照</h3>
+            </div>
+            <div class="card-body">
+                <div id="histRefPrompt" class="hist-prompt" {% if project.historical_ref_prompted %}style="display:none"{% endif %}>
+                    <div class="hist-prompt-icon">💡</div>
+                    <div class="hist-prompt-text">
+                        <strong>建议上传历史同类项目清单</strong>
+                        <p class="text-muted small">上传同类项目的工程量清单Excel，系统将自动比对并补全图纸未显示的隐含子目。</p>
+                    </div>
+                </div>
+                <div class="hist-upload-area">
+                    <input type="file" id="histFileInput" accept=".xlsx,.xls,.csv"
+                           style="display:none" onchange="uploadHistorical({{ project.id }})">
+                    <button class="btn btn-outline btn-sm" onclick="document.getElementById('histFileInput').click()">
+                        📤 上传历史清单 (.xlsx)
+                    </button>
+                    <span class="text-muted small" id="histUploadStatus"></span>
+                </div>
+                <div id="histComparisonResult" class="mt-2" style="display:none">
+                    <div id="histMissingItems" class="mt-1"></div>
+                    <div id="histWarnings" class="mt-1"></div>
+                    <button id="autoFillBtn" style="display:none" class="btn btn-primary btn-sm mt-1"
+                            onclick="autoFillMissing({{ project.id }})">
+                        🔄 补入遗漏项目
+                    </button>
+                    <span id="autoFillStatus" class="text-muted small"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Drawing List -->
+        {% if drawings %}
+        <div class="card mt-2">
+            <div class="card-header"><h3>图纸列表 ({{ drawings|length }})</h3></div>
+            <div class="card-body">
+                <div class="drawing-gallery">
+                    {% for d in drawings %}
+                    <div class="drawing-item">
+                        <a href="{{ url_for('static', filename='uploads/' + d.filename) }}" target="_blank">
+                            <img src="{{ url_for('static', filename='uploads/' + d.filename) }}"
+                                 alt="{{ d.original_name }}" class="drawing-thumb">
+                        </a>
+                        <div class="drawing-info">
+                            <span class="drawing-name" title="{{ d.original_name }}">{{ d.original_name }}</span>
+                            <span class="drawing-type">
+                                {% if d.drawing_type == 'floor_plan' %}平面图
+                                {% elif d.drawing_type == 'elevation' %}立面图
+                                {% elif d.drawing_type == 'ceiling' %}天花图
+                                {% elif d.drawing_type == 'detail' %}大样图
+                                {% else %}{{ d.drawing_type }}{% endif %}
+                            </span>
+                            <span class="drawing-size">{{ (d.file_size / 1024)|round(1) }} KB</span>
+                        </div>
+                        {% if d.annotated_path %}
+                        <div class="drawing-actions">
+                            <a href="{{ url_for('static', filename='uploads/' + d.annotated_path) }}" target="_blank">
+                                <span class="badge badge-info">查看标注</span>
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Process Button -->
+        {% if drawings and project.status != 'completed' %}
+        <div class="card mt-2">
+            <div class="card-body text-center">
+                <button id="processBtn" class="btn btn-primary btn-lg"
+                        onclick="startProcessing({{ project.id }})">
+                    🚀 开始自动计量
+                </button>
+                <p class="text-muted small mt-1">
+                    系统将按：平面图 → 立面图 → 天花图 → 大样图 顺序处理，输出8大分部工程量清单
+                </p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right: Results & Summary -->
+    <div class="content-side">
+        {% if measurements %}
+        <!-- Quick Summary -->
+        <div class="card">
+            <div class="card-header"><h3>📈 计量概览</h3></div>
+            <div class="card-body">
+                <div class="stat-list">
+                    <div class="stat-item">
+                        <span class="stat-label">🟢 高置信度</span>
+                        <span class="stat-value">{{ conf_counts.high }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">🟡 中置信度</span>
+                        <span class="stat-value">{{ conf_counts.medium }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">🔴 低置信度</span>
+                        <span class="stat-value" {% if conf_counts.low > 0 %}style="color:#ff4d4f"{% endif %}>{{ conf_counts.low }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">📋 清单项总数</span>
+                        <span class="stat-value">{{ measurements|length }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8 Divisions Summary -->
+        <div class="card">
+            <div class="card-header"><h3>📋 分部分项</h3></div>
+            <div class="card-body">
+                {% for div in divisions_data %}
+                <div class="project-card" style="margin-bottom:8px;cursor:pointer;"
+                     onclick="location.href='{{ url_for('main.view_boq', project_id=project.id) }}#div-{{ div.id }}'">
+                    <div class="project-card-header" style="padding:10px;">
+                        <span style="font-size:13px;font-weight:500;">
+                            {{ div.id }}. {{ div.name }}
+                        </span>
+                        <span style="font-size:12px;color:#999;">
+                            {{ div.item_list|length }}项
+                            {% if div.total_area %}| {{ '%.1f'|format(div.total_area) }}m²{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Low Confidence Warning -->
+        {% if low_conf_items %}
+        <div class="card" style="border-left: 3px solid #ff4d4f;">
+            <div class="card-body">
+                <h4 style="color:#ff4d4f;font-size:14px;">🔴 {{ low_conf_items|length }} 项待确认</h4>
+                <ul style="font-size:12px;color:#666;margin-top:8px;padding-left:16px;">
+                    {% for m in low_conf_items[:5] %}
+                    <li>{{ m.label }} — {{ m.remarks or '信息不足' }}</li>
+                    {% endfor %}
+                    {% if low_conf_items|length > 5 %}
+                    <li class="text-muted">...还有 {{ low_conf_items|length - 5 }} 项</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Report Link -->
+        {% if report %}
+        <div class="card mt-2">
+            <div class="card-body text-center">
+                <a href="{{ url_for('main.view_report', report_id=report.id) }}" class="btn btn-primary btn-block">
+                    📊 查看完整报告
+                </a>
+                <button class="btn btn-outline btn-block btn-sm mt-1"
+                        onclick="rerunProcessing({{ project.id }})">🔄 重新计量</button>
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center text-muted">
+                <p>上传图纸并开始计量后，<br>此处将显示分部分项概览</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Processing Overlay -->
+<div id="processingOverlay" style="display:none" class="processing-overlay">
+    <div class="processing-modal">
+        <div class="spinner"></div>
+        <h3>正在自动计量...</h3>
+        <p id="processingStatus">系统正在分析图纸中，请稍候</p>
+        <p class="text-muted small">处理顺序：平面图 → 立面图 → 天花图 → 大样图</p>
+        <div class="progress-bar"><div class="progress-fill progress-animate" id="procProgressFill"></div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const uploadProgress = document.getElementById('uploadProgress');
+const progressFill = document.getElementById('progressFill');
+const uploadStatus = document.getElementById('uploadStatus');
+const uploadResult = document.getElementById('uploadResult');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) uploadFiles(fileInput.files);
+});
+
+async function uploadFiles(files) {
+    uploadProgress.style.display = 'block';
+    uploadResult.innerHTML = '';
+    progressFill.style.width = '0%';
+    uploadStatus.textContent = `正在上传 ${files.length} 个文件...`;
+    const formData = new FormData();
+    for (let f of files) formData.append('files', f);
+    formData.append('project_id', {{ project.id }});
+    try {
+        const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (data.success) {
+            uploadStatus.textContent = `✅ 上传完成：${data.count} 个文件`;
+            progressFill.style.width = '100%';
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            uploadStatus.textContent = '❌ ' + (data.error || '上传失败');
+        }
+    } catch (err) {
+        uploadStatus.textContent = '❌ 上传出错：' + err.message;
+    }
+}
+
+async function startProcessing(projectId) {
+    document.getElementById('processingOverlay').style.display = 'flex';
+    const statusEl = document.getElementById('processingStatus');
+    const progressFill2 = document.getElementById('procProgressFill');
+    try {
+        const resp = await fetch(`/api/process/${projectId}`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            statusEl.textContent = '✅ 计量完成！正在刷新页面...';
+            progressFill2.style.width = '100%';
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            statusEl.textContent = '❌ ' + (data.error || '处理失败');
+            progressFill2.style.width = '0%';
+            setTimeout(() => document.getElementById('processingOverlay').style.display = 'none', 3000);
+        }
+    } catch (err) {
+        statusEl.textContent = '❌ 请求出错：' + err.message;
+        setTimeout(() => document.getElementById('processingOverlay').style.display = 'none', 3000);
+    }
+}
+
+async function rerunProcessing(projectId) {
+    if (!confirm('重新计量将清除现有结果，确定继续？')) return;
+    try {
+        const resp = await fetch(`/api/project/${projectId}/rerun`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) location.reload();
+        else alert('操作失败：' + (data.error || '未知错误'));
+    } catch (err) {
+        alert('请求出错：' + err.message);
+    }
+}
+
+// ── Historical Reference ──
+
+let currentHistoricalId = null;
+let currentMissingItems = [];
+
+async function uploadHistorical(projectId) {
+    const fileInput = document.getElementById('histFileInput');
+    const statusEl = document.getElementById('histUploadStatus');
+    const resultDiv = document.getElementById('histComparisonResult');
+
+    if (!fileInput.files.length) return;
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('project_id', projectId);
+
+    statusEl.textContent = '⏳ 正在上传解析...';
+    statusEl.style.display = 'inline';
+
+    try {
+        const resp = await fetch('/api/historical/upload', {
+            method: 'POST',
+            body: formData,
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            currentHistoricalId = data.id;
+            statusEl.textContent = `✅ ${data.message || '上传成功'}`;
+
+            // Dismiss prompt
+            const prompt = document.getElementById('histRefPrompt');
+            if (prompt) prompt.style.display = 'none';
+
+            // Run comparison
+            await runComparison(projectId, data.id);
+
+            // Mark project as prompted
+            await fetch(`/api/project/${projectId}/config`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({historical_ref_prompted: true}),
+            });
+        } else {
+            statusEl.textContent = '❌ ' + (data.error || '上传失败');
+        }
+    } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+    }
+}
+
+async function runComparison(projectId, historicalId) {
+    const resultDiv = document.getElementById('histComparisonResult');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<p class="text-muted">⏳ 正在与历史清单对比...</p>';
+
+    try {
+        const resp = await fetch(`/api/historical/compare/${projectId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({historical_id: historicalId}),
+        });
+        const data = await resp.json();
+
+        if (!data.success) {
+            resultDiv.innerHTML = `<p class="text-danger">❌ ${data.error}</p>`;
+            return;
+        }
+
+        const comp = data.comparison;
+        currentMissingItems = comp.missing_items || [];
+
+        let html = '';
+
+        // Stats comparison
+        if (comp.stats_comparison) {
+            const sc = comp.stats_comparison;
+            html += '<div class="hist-stats">';
+            html += `<strong>📊 指标对比</strong>`;
+            html += `<table class="table table-sm hist-table">`;
+            html += `<tr><th>指标</th><th>当前项目</th><th>历史清单</th><th>偏差</th></tr>`;
+            html += `<tr><td>墙面/地面面积比</td>`;
+            html += `<td>${sc.current?.wall_floor_ratio || '-'}</td>`;
+            html += `<td>${sc.historical?.wall_floor_ratio || '-'}</td>`;
+            if (sc.deviation_pct !== null) {
+                const alarm = sc.is_alarm ? 'hist-alarm' : '';
+                html += `<td class="${alarm}">${sc.deviation_pct}% ${sc.is_alarm ? '⚠️' : '✓'}</td>`;
+            } else {
+                html += `<td>-</td>`;
+            }
+            html += `</tr></table></div>`;
+        }
+
+        // Warnings
+        if (comp.warnings && comp.warnings.length) {
+            for (const w of comp.warnings) {
+                html += `<div class="alert alert-warning" style="font-size:13px">${w}</div>`;
+            }
+        }
+
+        // Missing items
+        const missing = currentMissingItems;
+        if (missing.length > 0) {
+            html += `<div class="hist-missing">`;
+            html += `<strong>🔍 发现 ${missing.length} 项可能遗漏的项目</strong>`;
+            html += `<table class="table table-sm hist-table">`;
+            html += `<tr><th>分部</th><th>项目名称</th><th>原因</th></tr>`;
+            for (const item of missing.slice(0, 20)) {
+                html += `<tr>`;
+                html += `<td>${item.division_id}.${item.division_name}</td>`;
+                html += `<td>${item.name}</td>`;
+                html += `<td class="text-muted small">${item.reason}</td>`;
+                html += `</tr>`;
+            }
+            if (missing.length > 20) {
+                html += `<tr><td colspan="3" class="text-muted small">...还有 ${missing.length - 20} 项</td></tr>`;
+            }
+            html += `</table>`;
+            html += `<p class="text-muted small">补入后标注【历史参照】📋，置信度🟡中</p>`;
+
+            // Show auto-fill button
+            document.getElementById('autoFillBtn').style.display = 'inline-block';
+        } else {
+            html += `<p class="text-success">✅ 与历史清单对照完毕，未发现遗漏项</p>`;
+            document.getElementById('autoFillBtn').style.display = 'none';
+        }
+
+        resultDiv.innerHTML = html;
+
+    } catch (err) {
+        resultDiv.innerHTML = `<p class="text-danger">❌ 对比出错：${err.message}</p>`;
+    }
+}
+
+async function autoFillMissing(projectId) {
+    if (!currentHistoricalId || !currentMissingItems.length) return;
+
+    const btn = document.getElementById('autoFillBtn');
+    const statusEl = document.getElementById('autoFillStatus');
+    btn.disabled = true;
+    statusEl.textContent = '⏳ 正在补入...';
+
+    try {
+        const resp = await fetch(`/api/historical/auto-fill/${projectId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                historical_id: currentHistoricalId,
+                items: currentMissingItems,
+            }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            statusEl.textContent = `✅ 已补入 ${data.filled_count} 项！请刷新页面查看`;
+            btn.style.display = 'none';
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            statusEl.textContent = '❌ ' + (data.error || '补入失败');
+            btn.disabled = false;
+        }
+    } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

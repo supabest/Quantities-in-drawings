@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}新建项目{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>新建项目</h2>
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline btn-sm">返回</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST" class="project-form">
+            <div class="form-group">
+                <label for="name">项目名称 <span class="required">*</span></label>
+                <input type="text" id="name" name="name" class="form-control"
+                       placeholder="如：阳光花园3栋502室装修计量" required>
+            </div>
+            <div class="form-group">
+                <label for="description">项目描述</label>
+                <textarea id="description" name="description" class="form-control"
+                          rows="3" placeholder="项目简介、备注等"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="address">项目地址</label>
+                <input type="text" id="address" name="address" class="form-control"
+                       placeholder="如：深圳市南山区阳光花园3栋502">
+            </div>
+            <div class="form-row">
+                <div class="form-group half">
+                    <label for="project_type">项目类型</label>
+                    <select id="project_type" name="project_type" class="form-control"
+                            onchange="updateFloorHeight()">
+                        <option value="residential">住宅/样板房（默认层高2.80m）</option>
+                        <option value="commercial">商业/办公（默认层高3.00m）</option>
+                        <option value="lobby">大堂/门厅（默认层高4.50m）</option>
+                        <option value="showroom">售楼部/展厅（默认层高4.00m）</option>
+                    </select>
+                </div>
+                <div class="form-group half">
+                    <label for="default_floor_height_display">默认层高 (m)</label>
+                    <input type="text" id="default_floor_height_display" class="form-control"
+                           value="2.80" readonly>
+                    <input type="hidden" id="default_floor_height" name="default_floor_height" value="2.80">
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">创建项目</button>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const floorHeights = { residential: 2.80, commercial: 3.00, lobby: 4.50, showroom: 4.00 };
+function updateFloorHeight() {
+    const type = document.getElementById('project_type').value;
+    document.getElementById('default_floor_height_display').value = floorHeights[type] || 2.80;
+    document.getElementById('default_floor_height').value = floorHeights[type] || 2.80;
+}
+</script>
+{% endblock %}

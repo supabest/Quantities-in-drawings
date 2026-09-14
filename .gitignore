@@ -1,2 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual env
+venv/
+.venv/
+env/
+
+# Flask
+instance/
+app.db
+
+# Uploads & reports
+app/static/uploads/*
+app/static/reports/*
+!app/static/uploads/.gitkeep
+!app/static/reports/.gitkeep
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# CAD 备份文件
 *.bak
