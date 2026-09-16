@@ -1,0 +1,206 @@
+# -*- coding: utf-8 -*-
+"""端到端验证 Phase 1（图纸级并行+定标+对账）与 Phase 2（区域并行+守恒+归并）。"""
+import os, sys, time, shutil, traceback
+
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE)
+os.chdir(BASE)
+
+import numpy as np
+import cv2
+
+TMP = '/tmp/qty_e2e'
+shutil.rmtree(TMP, ignore_errors=True)
+os.makedirs(TMP + '/uploads', exist_ok=True)
+
+# ── 独立配置：临时 DB + 临时上传目录 ──
+import config as _cfg
+class TestConfig(_cfg.Config):
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + TMP + '/test.db'
+    UPLOAD_FOLDER = TMP + '/uploads'
+    REPORTS_FOLDER = TMP + '/reports'
+
+from app import create_app, db
+from app.models import User, Project, Drawing, Measurement
+from app.orchestrator import Orchestrator
+from app.orchestrator.task_state import QuantityTask
+
+app = create_app(TestConfig)
+
+WALL = 8  # 墙厚 px
+
+def ring(img, x1, y1, x2, y2):
+    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 0), WALL)
+
+def make_plan_a(path):
+    img = np.full((620, 1600, 3), 255, np.uint8)   # 客厅27m² 主卧16m² 卫生间3m² @100px/m
+    ring(img, 40, 40, 580, 580)      # 客厅 540x540
+    ring(img, 600, 40, 1020, 460)    # 主卧 420x420（与客厅墙间距20px → 跨区相邻触发公共墙标记）
+    ring(img, 1120, 40, 1330, 220)   # 卫生间 210x180
+    cv2.line(img, (300, 300), (400, 300), (0, 0, 0), 2)  # 客厅内 1m 线段 → 门窗检出
+    cv2.imwrite(path, img)
+
+def make_plan_b(path):
+    img = np.full((420, 800, 3), 255, np.uint8)    # 次卧9.6m² 厨房6.3m²
+    ring(img, 40, 40, 380, 360)      # 次卧 340x320
+    ring(img, 440, 40, 770, 230)     # 厨房 330x190
+    cv2.imwrite(path, img)
+
+def make_elevation(path):
+    img = np.full((280, 600, 3), 255, np.uint8)
+    cv2.line(img, (30, 250), (570, 250), (0, 0, 0), 4)
+    cv2.line(img, (30, 30), (570, 30), (0, 0, 0), 4)
+    cv2.imwrite(path, img)
+
+make_plan_a(TMP + '/uploads/A1F.png')
+make_plan_a(TMP + '/uploads/B1F.png')   # 第二层同户型 → 触发 medium 级并行（4 图纸）
+make_plan_b(TMP + '/uploads/A2F.png')
+make_elevation(TMP + '/uploads/S.png')
+
+with app.app_context():
+    db.create_all()
+    admin = User.query.filter_by(is_admin=True).first()
+
+    # 项目1：未设比例尺 → 期望被定标闸门拒绝
+    p1 = Project(name='无比例尺项目', user_id=admin.id)
+    db.session.add(p1); db.session.flush()
+    db.session.add(Drawing(filename='A1F.png', original_name='A1F.png', file_type='png', project_id=p1.id))
+
+    # 项目2：scale=100 → 完整流程
+    p2 = Project(name='标准项目', scale=100, default_floor_height=2.8, user_id=admin.id)
+    db.session.add(p2); db.session.flush()
+    for fn, name, dt in [('A1F.png', 'A栋一层平面.png', 'floor_plan'),
+                         ('B1F.png', 'B栋一层平面.png', 'floor_plan'),
+                         ('A2F.png', 'A栋二层平面.png', 'floor_plan'),
+                         ('S.png', '南立面.png', 'elevation')]:
+        db.session.add(Drawing(filename=fn, original_name=name, file_type='png',
+                               drawing_type=dt, project_id=p2.id))
+    db.session.commit()
+    pid_no_scale, pid = p1.id, p2.id
+
+# ── Test 1: 定标闸门 ──
+print('\n========== Test 1: 全局定标闸门（无比例尺应拒绝） ==========')
+summary1 = Orchestrator(app).run(pid_no_scale)
+print('status:', summary1.get('status'))
+assert summary1.get('status') == 'rejected_by_calibration', '闸门未生效!'
+print('OK 无比例尺被拒绝执行:', summary1['errors'])
+
+# ── Test 2: 完整流程 ──
+print('\n========== Test 2: Phase1 并行 + Phase2 区域并行 ==========')
+t0 = time.time()
+summary2 = Orchestrator(app).run(pid)
+print('耗时 %.1fs' % (time.time() - t0))
+for k in ('status', 'scale_assessment', 'drawing_count', 'drawings_processed', 'zones', 'ghost_suspects'):
+    print(f'  {k}: {summary2.get(k)}')
+print('  warnings:', *summary2.get('warnings', []), sep='\n    ')
+print('  errors:', summary2.get('errors'))
+print('  coverage.ok:', summary2['coverage']['ok'], '| suspects:', summary2['coverage']['suspect_count'])
+
+assert summary2['status'] == 'completed', f"状态异常: {summary2['status']}"
+assert summary2['drawings_processed'] == 4
+assert summary2['scale_assessment'] == 'medium', '应为图纸级并行路径'
+assert summary2['coverage']['ok'], '覆盖度对账未通过'
+assert summary2['zones']['zone_count'] >= 3, f"分区数不足: {summary2['zones']}"
+assert summary2['ghost_suspects'] >= 1, '幽灵房间去重未生效'
+print(f"OK Phase1: 4张图并行处理完成, 覆盖度对账通过")
+print(f"OK Phase2: 分为 {summary2['zones']['zone_count']} 个区域, 幽灵嫌疑 {summary2['ghost_suspects']} 个")
+
+with app.app_context():
+    # 区域归属断言（只看已分区的高置信房间；内外双轮廓的低置信副本不参与断言）
+    rooms = Measurement.query.filter_by(project_id=pid, division_id=1).all()
+    print('\n-- 房间 → 区域 --')
+    zmap = {}
+    for r in rooms:
+        print(f"  {r.label}: {r.area}m² zone={r.zone_id} boundary={r.boundary_type} conf={r.confidence_level}")
+        if r.zone_id:
+            zmap[r.label] = r.zone_id
+    assert zmap.get('客厅') == 'zone_public'
+    assert zmap.get('主卧') == 'zone_bedroom' and zmap.get('次卧') == 'zone_bedroom'
+    assert zmap.get('厨房') == 'zone_wet'
+    assert '卫生间' in zmap and zmap['卫生间'] == 'zone_wet'
+
+    # 派生项区域标记
+    derived = Measurement.query.filter(Measurement.project_id == pid,
+                                       Measurement.division_id.in_([2, 3, 5])).all()
+    unzoned = [d for d in derived if not d.zone_id]
+    print(f'-- 派生项 {len(derived)} 条, 未分区 {len(unzoned)} 条')
+    # 立面图生成的"墙面"无所属房间，允许未分区；房间派生项必须全部入区
+    bad = [d for d in unzoned if d.label != '墙面']
+    assert not bad, f'房间派生项应全部入区: {[d.label for d in bad]}'
+
+    # 门窗分区归属
+    d4 = Measurement.query.filter_by(project_id=pid, division_id=4).all()
+    d4_unzoned = [d for d in d4 if not d.zone_id]
+    print(f'-- 门窗项 {len(d4)} 条: {[(d.label, d.zone_id) for d in d4]}')
+    assert len(d4) >= 2, '两张A栋平面图应各检出至少1个门窗'
+    assert not d4_unzoned, f'门窗应全部随房间入区: {[d.label for d in d4_unzoned]}'
+    assert all(d.zone_id == 'zone_public' for d in d4), '客厅内的门窗应随客厅入公区'
+
+    # 公共墙规则：客厅(公区)↔主卧(居住区) 跨区相邻 → 双方墙面项标记 boundary
+    for lbl in ('客厅-墙面', '主卧-墙面'):
+        walls = Measurement.query.filter_by(project_id=pid, label=lbl).all()
+        assert walls, f'{lbl} 应存在'
+        for w in walls:
+            assert w.boundary_type == 'boundary', f'{lbl} 应标记 boundary（实际 {w.boundary_type}）'
+    for lbl in ('厨房-墙面', '次卧-墙面'):
+        walls = Measurement.query.filter_by(project_id=pid, label=lbl).all()
+        for w in walls:
+            assert w.boundary_type == 'zone', f'{lbl} 不应标记 boundary（实际 {w.boundary_type}）'
+    print('-- 公共墙: 客厅/主卧墙面项已标记 boundary, 厨房/次卧保持 zone')
+
+    # 幽灵去重限同图：A栋卫生间(外轮廓)不应被 B栋厨房内轮廓 误杀
+    assert any(r.label == '卫生间' and r.zone_id == 'zone_wet' and r.confidence_level == 'high'
+               for r in rooms), 'A栋卫生间外轮廓被跨图幽灵误杀'
+
+    # boundary_type 取值分布（公共墙规则验证点）
+    kinds = db.session.query(Measurement.boundary_type, db.func.count()) \
+        .filter_by(project_id=pid).group_by(Measurement.boundary_type).all()
+    print('-- boundary_type 分布:', dict(kinds))
+
+    # 守恒：分区面积 + 幽灵嫌疑面积 == 全部房间面积（幽灵项设计上不参与分区）
+    ghosts = [r for r in rooms if r.confidence_level == 'low' and '幽灵嫌疑' in (r.remarks or '')]
+    ghost_area = sum(r.area or 0 for r in ghosts)
+    zone_area = sum(r.area or 0 for r in rooms if r.zone_id)
+    total_area = sum(r.area or 0 for r in rooms)
+    kept_area = total_area - ghost_area
+    print(f'-- 面积守恒: 分区 {zone_area:.2f} + 幽灵 {ghost_area:.2f} = {zone_area+ghost_area:.2f} vs 全部 {total_area:.2f}')
+    assert abs(zone_area - kept_area) < 0.01, '分区面积应等于有效房间面积'
+    assert abs(zone_area + ghost_area - total_area) < 0.01, '总面积不守恒'
+
+    # 任务追踪
+    tasks = QuantityTask.query.filter_by(project_id=pid).all()
+    print('-- 任务记录:', [(t.task_type, t.status) for t in tasks])
+
+    # 归并结果
+    from app.orchestrator.zone_worker import merge_boq
+    boq = merge_boq(Project.query.get(pid))
+    print('-- grand_totals(分部:量):', boq['grand_totals'])
+    for z in boq['zones']:
+        print(f"   {z['zone_id']}: {z['divisions']}")
+    print('-- boundary_items:', [(b['label'], b['zone_id']) for b in boq['boundary_items']])
+    assert len(boq['boundary_items']) >= 2, '归并报告应单列区界墙项'
+
+# ── Test 3: API 冒烟 ──
+print('\n========== Test 3: API 冒烟（run/status/zones） ==========')
+with app.app_context():
+    admin = User.query.filter_by(is_admin=True).first()   # 重新加载（上一上下文已退出）
+    p3 = Project(name='API冒烟项目', scale=100, user_id=admin.id)
+    db.session.add(p3); db.session.flush()
+    db.session.add(Drawing(filename='A1F.png', original_name='api.png', file_type='png', project_id=p3.id))
+    db.session.commit()
+    pid3 = p3.id
+
+c = app.test_client()
+c.post('/auth/login', data={'email': 'admin@decoration-quant.com', 'password': 'admin123456'})
+r = c.post(f'/api/orchestrator/projects/{pid3}/run')
+print('run:', r.status_code, r.get_json())
+for _ in range(60):
+    time.sleep(0.5)
+    s = c.get(f'/api/orchestrator/projects/{pid3}/status').get_json()
+    if s and s.get('task_counts', {}).get('completed', 0) >= 4:
+        break
+print('status:', c.get(f'/api/orchestrator/projects/{pid3}/status').get_json())
+z = c.get(f'/api/orchestrator/projects/{pid3}/zones').get_json()
+print('zones api: zone_count=', len(z.get('zones', [])), '| grand:', z.get('grand_totals'))
+
+print('\n========== 全部断言通过 ==========')

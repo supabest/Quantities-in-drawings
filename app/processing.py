@@ -158,6 +158,8 @@ def _process_floor_plan(image_path, drawing, project, scale):
             position_desc=f"{label}-地面，平面图 {drawing.original_name}",
             formula_text=f"地面面积 = {formula}",
             project_features=f"{label}地面（净面积）",
+            # bbox(px) 供分区阶段做跨区相邻(公共墙)判定
+            data_json=json.dumps({'bbox': [int(v) for v in room['bbox']]}),
             project_id=project.id,
             drawing_id=drawing.id
         )
@@ -254,18 +256,23 @@ def _process_elevation(image_path, drawing, project, scale):
 # Phase 3: Derived Measurements (推算项目)
 # ════════════════════════════════════════════════════
 
-def _generate_derived_measurements(project, floor_height, scale):
+def _generate_derived_measurements(project, floor_height, scale, rooms=None):
     """Generate derived measurements based on floor plan analysis.
 
     - Division 2 (Walls): Wall area = perimeter × height - openings
     - Division 3 (Ceilings): Same as floor area (horizontal projection)
     - Division 5 (Baseboard): perimeter - door widths - cabinet widths
     - Division 6 (Fixed Cabinets): by room type
+
+    Args:
+        rooms: 指定参与计算的房间列表（Phase 2 区域级并行用）；
+               None 时取项目全部分部1房间（Phase 1 行为不变）。
     """
     # Get existing room and door measurements
-    rooms = Measurement.query.filter_by(
-        project_id=project.id, division_id=1
-    ).all()
+    if rooms is None:
+        rooms = Measurement.query.filter_by(
+            project_id=project.id, division_id=1
+        ).all()
 
     doors = Measurement.query.filter_by(
         project_id=project.id, division_id=4
@@ -369,18 +376,22 @@ def _generate_derived_measurements(project, floor_height, scale):
 # Phase 4: Hidden Items (隐含项目 · 经验补全)
 # ════════════════════════════════════════════════════
 
-def _generate_hidden_items(project):
+def _generate_hidden_items(project, rooms=None):
     """Generate hidden/common items that are not shown in drawings
     but must be included based on project experience.
 
     Divisions 7 (Plumbing) and 8 (Electrical).
     Also includes base layer items for Division 2.
+
+    Args:
+        rooms: 指定房间列表（Phase 2 区域级并行用）；None 时取项目全部（Phase 1 行为不变）。
     """
     items = []
     existing_labels = {m.label for m in Measurement.query.filter_by(project_id=project.id).all()}
 
     # Get room labels for context
-    rooms = Measurement.query.filter_by(project_id=project.id, division_id=1).all()
+    if rooms is None:
+        rooms = Measurement.query.filter_by(project_id=project.id, division_id=1).all()
     room_labels = [r.label or '' for r in rooms]
     has_bathroom = any('卫生间' in r for r in room_labels)
     has_kitchen = any('厨房' in r for r in room_labels)

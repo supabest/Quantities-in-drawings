@@ -202,6 +202,10 @@ class Measurement(db.Model):
     data_json = db.Column(db.Text)
     confidence = db.Column(db.Float)
 
+    # Phase 2 区域级并行：区域归属与边界标记
+    zone_id = db.Column(db.String(32), index=True)      # 所属区域标识（如 zone_public）
+    boundary_type = db.Column(db.String(16))            # zone=区内 / boundary=区界共享
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
     drawing_id = db.Column(db.Integer, db.ForeignKey('drawings.id'), nullable=True)
