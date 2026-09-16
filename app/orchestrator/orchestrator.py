@@ -28,6 +28,7 @@ from app.processing import (
 
 from .calibration import calibrate_project
 from .coverage import check_coverage
+from .audit import run_audits
 from .concurrency import run_tasks, DB_WRITE_LOCK, MAX_DRAWING_WORKERS
 from .task_state import TaskTracker, TaskStatus
 from .zone import (
@@ -198,6 +199,18 @@ class Orchestrator:
             summary['warnings'].append(
                 f"{coverage['suspect_count']} 张图纸存在漏项嫌疑，详见 coverage.items"
             )
+
+        # ── Step 7: 三路审计（Phase 3）——反向对账/横向对账/历史漏项 ──
+        # 反向对账的幽灵项标记在 merge 之前，保证合计口径一致（排除幽灵）
+        audit_task = tracker.create_task('audit')
+        audit = run_audits(project)
+        tracker.mark(audit_task, TaskStatus.COMPLETED,
+                     json.dumps(audit, ensure_ascii=False, default=str))
+        summary['audit'] = audit
+        if audit['reverse']['ghost_count']:
+            summary['warnings'].append(
+                f"{audit['reverse']['ghost_count']} 个清单项无法回溯图纸，已标记幽灵嫌疑待人工复核")
+        summary['warnings'].extend(audit['cross']['warnings'])
 
         summary['status'] = 'completed'
         summary['boq_merged'] = merge_boq(project)

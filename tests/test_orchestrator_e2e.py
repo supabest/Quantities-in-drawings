@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """端到端验证 Phase 1（图纸级并行+定标+对账）与 Phase 2（区域并行+守恒+归并）。"""
-import os, sys, time, shutil, traceback
+import os, sys, time, shutil, traceback, json
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
@@ -21,7 +21,7 @@ class TestConfig(_cfg.Config):
     REPORTS_FOLDER = TMP + '/reports'
 
 from app import create_app, db
-from app.models import User, Project, Drawing, Measurement
+from app.models import User, Project, Drawing, Measurement, HistoricalProject
 from app.orchestrator import Orchestrator
 from app.orchestrator.task_state import QuantityTask
 
@@ -180,6 +180,40 @@ with app.app_context():
     print('-- boundary_items:', [(b['label'], b['zone_id']) for b in boq['boundary_items']])
     assert len(boq['boundary_items']) >= 2, '归并报告应单列区界墙项'
 
+    # ── Phase 3: 三路审计 ──
+    audit = summary2['audit']
+    assert audit['reverse']['ghost_count'] == 0, '干净流水线不应产生反向幽灵项'
+    assert any('卫生间' in w for w in audit['cross']['warnings']), '同名房间跨图面积偏差应告警'
+    assert 'skipped' in audit['historical'], '未上传历史清单时应跳过漏项审计'
+    print(f"-- Phase3 审计: 反向幽灵 {audit['reverse']['ghost_count']}, "
+          f"横向告警 {len(audit['cross']['warnings'])} 条, 历史: 跳过")
+
+    # 注入无法回溯的清单项 + 历史清单 → 复核审计行为
+    admin = User.query.filter_by(is_admin=True).first()
+    g = Measurement(label='幽灵测试-墙面', division_id=2, area=9.9, unit='m²',
+                    source_tag='图纸实测', project_id=pid)   # 无 drawing_id 且无同名房间
+    db.session.add(g)
+    hp = HistoricalProject(name='历史同类项目', project_type='residential',
+                           user_id=admin.id, project_id=pid)
+    hp.summary_json = json.dumps({'stats': {
+        'total_items': 30, 'floor_area': 120, 'wall_floor_ratio': 2.8,
+        'division_items': {'6': ['玄关柜'], '7': ['面盆龙头']}}})
+    db.session.add(hp)
+    db.session.commit()
+
+    from app.orchestrator.audit import run_audits
+    rep = run_audits(Project.query.get(pid))
+    assert rep['reverse']['ghost_count'] == 1, f"应恰好标记1个注入幽灵: {rep['reverse']['ghosts']}"
+    assert rep['reverse']['ghosts'][0]['label'] == '幽灵测试-墙面'
+    assert rep['historical'].get('missing_count') == 1, \
+        f"应只缺玄关柜(面盆龙头已存在): {rep['historical'].get('missing_items')}"
+    assert rep['historical']['missing_items'][0]['name'] == '玄关柜'
+    # 幽灵项被归并排除、单列
+    boq2 = merge_boq(Project.query.get(pid))
+    assert any('幽灵测试' in (x.get('label') or '') for x in boq2['ghost_suspects'])
+    print(f"-- Phase3 注入验证: 注入幽灵已标记并排除合计, "
+          f"历史漏项建议 {rep['historical']['missing_count']} 条(未自动补入)")
+
 # ── Test 3: API 冒烟 ──
 print('\n========== Test 3: API 冒烟（run/status/zones） ==========')
 with app.app_context():
@@ -197,7 +231,7 @@ print('run:', r.status_code, r.get_json())
 for _ in range(60):
     time.sleep(0.5)
     s = c.get(f'/api/orchestrator/projects/{pid3}/status').get_json()
-    if s and s.get('task_counts', {}).get('completed', 0) >= 4:
+    if s and s.get('task_counts', {}).get('completed', 0) >= 5:
         break
 print('status:', c.get(f'/api/orchestrator/projects/{pid3}/status').get_json())
 z = c.get(f'/api/orchestrator/projects/{pid3}/zones').get_json()

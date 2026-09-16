@@ -28,7 +28,7 @@ class QuantityTask(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, index=True)
     drawing_id = db.Column(db.Integer, db.ForeignKey('drawings.id'), index=True)
 
-    task_type = db.Column(db.String(50), nullable=False)   # calibration / drawing_process / coverage / pricing_push
+    task_type = db.Column(db.String(50), nullable=False)   # calibration / drawing_process / zone_partition / coverage / audit / pricing_push
     status = db.Column(db.String(20), default=TaskStatus.PENDING.value, index=True)
     attempts = db.Column(db.Integer, default=0)
     detail = db.Column(db.Text)          # 失败原因 / 结果摘要（JSON）
