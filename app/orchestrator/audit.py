@@ -1,13 +1,17 @@
-"""审计引擎（Phase 3）— 双向对账 + 历史模板漏项审计。
+"""审计引擎（Phase 3/4）— 双向对账 + 历史模板漏项审计 + 异常规则 + AI 综合审计。
 
-三路审计（与架构讨论一致）：
+五路审计（与架构讨论一致）：
   1. 反向对账（清单→图纸/房间）：清单项回溯不到来源的为幽灵项——
      重复或幻觉。降置信度 + 标记，排除合计，留待人工（留痕不删除）。
      与正向覆盖度对账（coverage.py，图纸→清单）构成双向闭环。
   2. 横向对账（图与图）：同名房间跨图纸面积一致性检查。
-     平立面门窗数交叉核对需 CAD 语义关联（图纸关联 Agent），Phase 4 后补全。
+     平立面门窗数交叉核对需 CAD 语义关联（图纸关联 Agent），后续补全。
   3. 纵向审计（历史模板）：对照历史同类清单找漏项——
      只输出建议，不自动补入（审计只读不写原则）。
+  4. 确定性异常规则（Phase 4）：异常尺寸 / 重复清单项 / 低置信度集中——
+     纯阈值规则，不调 LLM。
+  5. AI 综合审计（Phase 4）：LLM 汇总全部确定性发现，输出综合报告与复核建议。
+     未配置 LLM_API_KEY 或预算耗尽时优雅降级；审计只读不写。
 
 反向对账的可追溯性判定规则：
   - 有 drawing_id            → 来自图纸解析，可追溯
@@ -16,11 +20,16 @@
   - 分部 1     无 drawing_id → 地面必须来自图纸，直接判幽灵
   - 其余                     → 幽灵项
 """
+import json
 import logging
 from collections import defaultdict
 
+from flask import current_app
+
 from app import db
 from app.models import Measurement, HistoricalProject
+
+from .llm_client import call_llm, parse_json_response, LLMCallBudget
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +41,15 @@ CROSS_AREA_DEVIATION = 0.30
 
 # 纵向审计：漏项建议最多输出条数
 HISTORICAL_MISSING_LIMIT = 50
+
+# ── Phase 4: 确定性异常规则阈值 ──
+DOOR_WIDTH_RANGE = (0.5, 1.5)      # 门宽常见范围（m）
+DOOR_HEIGHT_RANGE = (1.8, 2.6)     # 门高常见范围（m）
+ROOM_AREA_RANGE = (1.0, 300.0)     # 房间面积常见范围（m²）
+LOW_CONF_RATIO_LIMIT = 0.30        # 低置信度项占比上限
+
+# LLM 综合审计输入的清单样本上限（控制 token）
+LLM_PROMPT_ITEM_LIMIT = 60
 
 
 def reverse_reconciliation(project) -> dict:
@@ -132,8 +150,159 @@ def historical_audit(project) -> dict:
 
 
 def run_audits(project) -> dict:
-    """三路审计总入口。"""
+    """五路审计总入口（Phase 3 三路 + Phase 4 两路）。
+
+    顺序：确定性审计先行，LLM 综合审计最后（看到全部确定性发现）。
+    """
     rev = reverse_reconciliation(project)
     cross = cross_check_drawings(project)
     hist = historical_audit(project)
-    return {'reverse': rev, 'cross': cross, 'historical': hist}
+    anomaly = anomaly_checks(project)
+    llm = llm_audit(project, {'reverse': rev, 'cross': cross,
+                              'historical': hist, 'anomaly': anomaly})
+    return {'reverse': rev, 'cross': cross, 'historical': hist,
+            'anomaly': anomaly, 'llm': llm}
+
+
+# ════════════════════════════════════════════
+# Phase 4a: 确定性异常规则（不调 LLM）
+# ════════════════════════════════════════════
+
+def anomaly_checks(project) -> dict:
+    """确定性异常检测：异常尺寸 / 重复清单项 / 低置信度集中。
+
+    纯阈值规则（架构文档 §8：AI 不可做的交给确定性算法）。
+    幽灵嫌疑项不参与（它们已被单列待复核）。
+    """
+    ms = Measurement.query.filter_by(project_id=project.id).all()
+    live = [m for m in ms if not (m.remarks and '幽灵嫌疑' in m.remarks)]
+    findings = []
+
+    # 1. 异常尺寸
+    for m in live:
+        if m.division_id == 4:
+            if m.length and not (DOOR_WIDTH_RANGE[0] <= m.length <= DOOR_WIDTH_RANGE[1]):
+                findings.append({
+                    'type': 'anomaly_size', 'severity': 'warning',
+                    'measurement_id': m.id,
+                    'description': f"{m.label}: 门宽 {m.length}m 超出常见范围 "
+                                   f"{DOOR_WIDTH_RANGE[0]}~{DOOR_WIDTH_RANGE[1]}m"})
+            if m.height and not (DOOR_HEIGHT_RANGE[0] <= m.height <= DOOR_HEIGHT_RANGE[1]):
+                findings.append({
+                    'type': 'anomaly_size', 'severity': 'warning',
+                    'measurement_id': m.id,
+                    'description': f"{m.label}: 门高 {m.height}m 超出常见范围 "
+                                   f"{DOOR_HEIGHT_RANGE[0]}~{DOOR_HEIGHT_RANGE[1]}m"})
+        if m.division_id == 1 and m.area \
+                and not (ROOM_AREA_RANGE[0] <= m.area <= ROOM_AREA_RANGE[1]):
+            findings.append({
+                'type': 'anomaly_size', 'severity': 'warning',
+                'measurement_id': m.id,
+                'description': f"{m.label}: 房间面积 {m.area}m² 超出常见范围 "
+                               f"{ROOM_AREA_RANGE[0]}~{ROOM_AREA_RANGE[1]}m²"})
+        if (m.count is not None and m.count <= 0) or (m.area is not None and m.area < 0):
+            findings.append({
+                'type': 'anomaly_size', 'severity': 'error',
+                'measurement_id': m.id,
+                'description': f"{m.label}: 数量/面积非法（count={m.count}, area={m.area}）"})
+
+    # 2. 重复清单项（同分部 + 同名 + 同单位 + 同量，均非幽灵）
+    seen = defaultdict(list)
+    for m in live:
+        qty = round(m.area or m.length or m.count or 0, 2)
+        seen[(m.division_id, m.label, m.unit, qty)].append(m.id)
+    for (div_id, label, unit, qty), ids in seen.items():
+        if len(ids) > 1 and label:
+            findings.append({
+                'type': 'duplicate', 'severity': 'warning',
+                'measurement_ids': ids,
+                'description': f"疑似重复项: {label}（{unit}×{qty}）出现 {len(ids)} 次，"
+                               f"请人工合并/剔除"})
+
+    # 3. 低置信度集中
+    low = [m for m in live if m.confidence_level == 'low']
+    if live and len(low) / len(live) > LOW_CONF_RATIO_LIMIT:
+        findings.append({
+            'type': 'low_confidence_concentration', 'severity': 'warning',
+            'description': f"低置信度项占比 {len(low) / len(live):.0%}"
+                           f"（>{LOW_CONF_RATIO_LIMIT:.0%}），整体识别质量存疑，建议抽查原图"})
+
+    return {'finding_count': len(findings), 'findings': findings}
+
+
+# ════════════════════════════════════════════
+# Phase 4b: AI 综合审计（LLM，复用套价系统 GLM 配置）
+# ════════════════════════════════════════════
+
+LLM_AUDIT_SYSTEM_PROMPT = (
+    '你是资深装修算量审计师。基于给定的工程量清单摘要与确定性审计发现，'
+    '输出综合审计意见。只依据给定数据判断，不要编造图纸上不存在的信息。'
+    '严格输出 JSON（不要多余文字）：'
+    '{"summary": "一段话总体评价", '
+    '"risks": [{"item": "清单项或部位", "risk": "风险描述", "suggestion": "处理建议"}], '
+    '"overall": {"verdict": "pass|review|reject", "advice": "下一步建议"}}'
+)
+
+
+def _division_summary(project_id: int) -> list:
+    """分部级统计摘要（控制 token：只给聚合数 + 每分部样本项）。"""
+    out = []
+    ms = Measurement.query.filter_by(project_id=project_id).all()
+    for div_id in sorted({m.division_id for m in ms}):
+        items = [m for m in ms if m.division_id == div_id]
+        out.append({
+            'division_id': div_id,
+            'item_count': len(items),
+            'total': round(sum(m.area or m.length or m.count or 0 for m in items), 2),
+            'sample_items': [{'label': m.label, 'qty': m.area or m.length or m.count,
+                              'unit': m.unit, 'conf': m.confidence_level}
+                             for m in items[:LLM_PROMPT_ITEM_LIMIT]],
+        })
+    return out
+
+
+def build_llm_audit_prompt(project, deterministic: dict) -> tuple:
+    """组装综合审计的 (system, user) prompt——独立函数便于测试。"""
+    user_payload = {
+        'project': {'id': project.id, 'name': project.name,
+                    'type': project.project_type,
+                    'floor_height': project.default_floor_height},
+        'boq_divisions': _division_summary(project.id),
+        'deterministic_findings': {
+            'reverse_ghosts': deterministic.get('reverse', {}).get('ghost_count', 0),
+            'cross_warnings': deterministic.get('cross', {}).get('warnings', []),
+            'historical_missing': (deterministic.get('historical', {})
+                                   .get('missing_items', []))[:20],
+            'anomalies': (deterministic.get('anomaly', {}).get('findings', []))[:40],
+        },
+        'note': '低置信度/幽灵项已被标记待人工；你只需综合判断与给出建议，不要复述全部数据',
+    }
+    return LLM_AUDIT_SYSTEM_PROMPT, json.dumps(user_payload, ensure_ascii=False)
+
+
+def llm_audit(project, deterministic: dict, budget: LLMCallBudget = None) -> dict:
+    """AI 总审计：汇总确定性发现 → 人类可读的综合报告与复核建议。
+
+    未配置 LLM_API_KEY / 预算耗尽 / 调用失败 / 解析失败 → 优雅降级，
+    确定性审计结果不受影响（审计只读不写原则）。
+    """
+    api_key = current_app.config.get('LLM_API_KEY') or ''
+    if not api_key:
+        return {'skipped': '未配置 LLM_API_KEY，跳过 AI 综合审计（确定性审计结果不受影响）'}
+    budget = budget or LLMCallBudget(current_app.config.get('LLM_AUDIT_MAX_CALLS', 5))
+    if not budget.allow():
+        return {'skipped': 'LLM 调用预算耗尽，跳过 AI 综合审计'}
+
+    system_prompt, user_prompt = build_llm_audit_prompt(project, deterministic)
+    budget.count()
+    try:
+        raw = call_llm(system_prompt, user_prompt, api_key)
+    except Exception as exc:
+        logger.warning("AI 综合审计调用失败（已降级）: %s", exc)
+        return {'error': f'LLM 调用失败（已降级）: {exc}', 'calls_used': budget.calls_made}
+
+    parsed = parse_json_response(raw)
+    if not parsed:
+        return {'error': 'LLM 返回无法解析为 JSON（已降级）',
+                'raw_excerpt': raw[:300], 'calls_used': budget.calls_made}
+    return {'report': parsed, 'calls_used': budget.calls_made}

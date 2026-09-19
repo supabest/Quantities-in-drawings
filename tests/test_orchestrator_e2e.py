@@ -201,7 +201,7 @@ with app.app_context():
     db.session.add(hp)
     db.session.commit()
 
-    from app.orchestrator.audit import run_audits
+    from app.orchestrator.audit import run_audits, build_llm_audit_prompt
     rep = run_audits(Project.query.get(pid))
     assert rep['reverse']['ghost_count'] == 1, f"应恰好标记1个注入幽灵: {rep['reverse']['ghosts']}"
     assert rep['reverse']['ghosts'][0]['label'] == '幽灵测试-墙面'
@@ -213,6 +213,31 @@ with app.app_context():
     assert any('幽灵测试' in (x.get('label') or '') for x in boq2['ghost_suspects'])
     print(f"-- Phase3 注入验证: 注入幽灵已标记并排除合计, "
           f"历史漏项建议 {rep['historical']['missing_count']} 条(未自动补入)")
+
+    # ── Phase 4: 确定性异常规则 + LLM 优雅降级 ──
+    anomaly = summary2['audit']['anomaly']
+    assert anomaly['finding_count'] >= 1, '合成图 A/B 栋同内容应检出异常/重复'
+    assert any(f['type'] == 'duplicate' for f in anomaly['findings']), '应检出重复清单项'
+    print(f"-- Phase4 确定性异常: {anomaly['finding_count']} 条发现（含重复项）")
+
+    # 注入异常尺寸（0.3m 门宽；带 drawing_id 保证可追溯，只触发异常不触发幽灵）
+    d1 = Drawing.query.filter_by(project_id=pid).first()
+    bad = Measurement(label='客厅-门', division_id=4, length=0.3, height=2.1, unit='樘',
+                      source_tag='图纸实测', project_id=pid, drawing_id=d1.id)
+    db.session.add(bad)
+    db.session.commit()
+
+    app.config['LLM_API_KEY'] = ''   # 测试环境强制走降级路径（不发网络请求）
+    rep4 = run_audits(Project.query.get(pid))
+    aw = [f for f in rep4['anomaly']['findings']
+          if f['type'] == 'anomaly_size' and f.get('measurement_id') == bad.id]
+    assert aw, f'0.3m 门宽应命中异常尺寸规则: {rep4["anomaly"]["findings"][:3]}'
+    assert 'skipped' in rep4['llm'], '未配置 LLM_API_KEY 时 AI 综合审计应优雅降级'
+
+    # prompt 组装为独立函数，可离线测试（不发网络请求）
+    sys_p, user_p = build_llm_audit_prompt(Project.query.get(pid), rep4)
+    assert '审计师' in sys_p and '客厅' in user_p and 'anomalies' in user_p
+    print(f"-- Phase4 注入验证: 0.3m 门宽命中异常规则, LLM 层优雅降级, prompt 组装正常")
 
 # ── Test 3: API 冒烟 ──
 print('\n========== Test 3: API 冒烟（run/status/zones） ==========')
