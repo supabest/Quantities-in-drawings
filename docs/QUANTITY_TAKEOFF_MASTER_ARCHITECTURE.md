@@ -1,7 +1,7 @@
 # 装修工程图纸智能识别与工程量计算系统 — 总体架构设计
 
-> **文档版本**: v1.0
-> **日期**: 2026-08-09
+> **文档版本**: v1.1（追加 §十一 2.5D 实体模型）
+> **日期**: 2026-09-19
 > **设计依据**: 项目任务书 §一 ~ §三十五
 
 ---
@@ -388,6 +388,9 @@ class ComponentRelation:
     related_detail_id: Optional[str] = None
 ```
 
+> **v1.1 注**: 本节的 2D 元素模型将按 **§十一（2.5D 语义实体模型）** 扩展——
+> 墙段/开洞/材料面/房间体 + 拓扑图。Phase 5 数据建模时按 §十一 的实体定义执行（硬约束）。
+
 ---
 
 ## 五、开发阶段总览
@@ -396,7 +399,7 @@ class ComponentRelation:
 |-------|------|------|--------|-----------|
 | **Phase 0** | 代码库审计 + 架构设计 | ✅ 本轮完成 | ✅ | 1 天 |
 | **Phase 1** | DWG/DXF/PDF 解析 | CAD/PDF 解析引擎 + 测试 | ✅ 解析API可用 | 2-3 周 |
-| **Phase 2** | 统一图纸数据模型 | DrawingUnifiedModel + 数据库迁移 | ✅ 数据层可用 | 1-2 周 |
+| **Phase 2** | 统一图纸数据模型 | DrawingUnifiedModel + 数据库迁移（按 §十一 2.5D 实体模型 3D-ready 设计） | ✅ 数据层可用 | 1-2 周 |
 | **Phase 3** | 空间理解 | 房间/区域/材料/构件识别 | ✅ 可输出空间模型 | 2-3 周 |
 | **Phase 4** | 几何计算引擎 | QuantityRuleEngine (8 分部) | ✅ BOQ 可生成 | 2 周 |
 | **Phase 5** | 多 Agent/Worker 并行 | Orchestrator + 并发 + 任务队列 | ✅ 大项目可并行 | 2 周 |
@@ -676,3 +679,89 @@ Phase 0 完成后，进入 Phase 1：
    feat: Phase 0 架构设计文档 + 技术栈审计
    docs: 系统审计报告 / CAD解析方案 / 历史知识库 / Agent架构 / 总体架构
    ```
+
+---
+
+## 十一、2.5D 语义实体模型（三维辅助算量与检验）
+
+> **v1.1 追加** | 定位：不是三维重建，而是**轮廓挤出 + 拓扑关系**的轻量语义实体模型。
+> 它是 §四 DrawingUnifiedModel 的 3D-ready 扩展，作为 Phase 5 数据建模的硬约束。
+
+### 11.1 为什么是 2.5D 而不是三维重建
+
+装修算量所需的实体 = 房间多边形 + 墙段×层高 + 墙面开洞 + 材料区域归属 + 天花跌级。
+本质是平面轮廓沿 Z 轴挤出并补上拓扑关系，不需要网格、点云或 IFC 全家桶。
+
+技术栈：Shapely（2D 几何）+ 挤出逻辑 + Three.js（前端复核渲染）。
+行业对照：广联达/鲁班"BIM 翻模"即此思路；本模型是其轻量化自研版。
+
+### 11.2 实体定义（在 §四 模型基础上增加）
+
+```python
+@dataclass
+class WallSegment:
+    id: str
+    base_line: List[tuple]        # 2D 底边（边线，标定后确定）
+    height: float                 # 层高/段高
+    thickness: Optional[float]    # 墙厚（无 CAD 时可缺失）
+
+@dataclass
+class Opening:
+    id: str
+    wall_segment_id: str          # 拓扑约束：门窗必须挂在墙段上
+    kind: str                     # door / window / opening
+    width: float
+    height: float
+    sill: float                   # 离地高
+    position_on_wall: float       # 沿墙段位置参数
+
+@dataclass
+class MaterialFace:
+    id: str                       # 一面墙的一个饰面
+    wall_segment_id: str
+    side: int                     # 0/1 —— 面归属唯一房间
+    room_id: str                  # 使用侧归属（公共墙规则在此自然成立）
+    material_code: Optional[str]
+    opening_ids: List[str]        # 面积 = 面面积 − Σ开洞
+
+@dataclass
+class RoomVolume:
+    id: str
+    floor_polygon: List[tuple]
+    floor_height: float
+    ceiling_levels: List[dict]    # 跌级 [{level_z, polygon}]
+
+@dataclass
+class TopologyGraph:
+    """邻接关系 —— 拓扑校验与三维复核的依据。
+    落库复用 §3.1 的 component_relations / geometries 表。"""
+    room_walls: Dict[str, List[str]]      # room -> wall segments
+    wall_openings: Dict[str, List[str]]   # wall -> openings
+    face_rooms: Dict[str, str]            # material face -> owning room
+```
+
+### 11.3 拓扑校验规则（喂给审计层，违反者降置信/待人工，不静默修正）
+
+1. **门窗挂墙**：`Opening.wall_segment_id` 必须存在——替代 bbox 邻近法，杀掉门窗误报
+2. **面唯一归属**：每个 `MaterialFace` 恰属一个房间——公共墙"使用侧归属"在此自然成立
+3. **体积守恒**：Σ(地面面积×层高) 与围合体一致；天棚面积 = 地面水平投影
+4. **开洞守恒**：墙面面积 = 面面积 − Σ开洞；开洞不重叠、不出界
+5. **闭合性**：房间多边形闭合、墙段成环
+
+### 11.4 复杂造型降级
+
+弧形墙、圆柱、跌级、曲面软膜等直壁挤出处理不了的区域，自动降级🔴待人工，
+并输出审计信号（"此区域无法建模，请人工"）——与置信度哲学一致。
+
+### 11.5 三处嵌入路线
+
+| 落点 | 内容 |
+|------|------|
+| Phase 5 数据期 | 统一模型按本节实体+拓扑设计（3D-ready）；第一步低垂果实：解析层先做"门窗挂墙"2D 拓扑校验（无需真三维） |
+| Phase 6 引擎期 | 挤出 + 拓扑校验进引擎；QuantityRuleEngine 输入从 bbox 升级为实体 |
+| Phase 9 复核期 | Three.js 三维复核：清单项 ↔ 几何实体高亮联动（溯源从计算式升级到几何） |
+
+### 11.6 边界
+
+- 三维模型**放大**上游识别质量，不修复上游——它不能替代解析精度投入
+- 语义问题（灯槽/窗帘盒口径、甲供、活动家具）仍靠规则与用户交互，不靠几何
