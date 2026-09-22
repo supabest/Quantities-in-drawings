@@ -192,6 +192,8 @@ def _process_floor_plan(image_path, drawing, project, scale):
                 position_desc=f"{label}-{door.get('orientation', '')}，平面图 {drawing.original_name}",
                 formula_text=f"{door_label} = {width_m}×{height_m} = {door_area}m²",
                 project_features=f"{door_label}（{width_m}×{height_m}）",
+                # Phase 4.5 拓扑预校验：写入中心 px，无中心则留空（旧数据可优雅跳过）
+                data_json=json.dumps({'center_px': door['center_px']}) if door.get('center_px') else None,
                 project_id=project.id,
                 drawing_id=drawing.id
             )
@@ -648,6 +650,8 @@ def _detect_doors_and_windows(img, scale, room=None):
                 'height_m': DEFAULT_DOOR_HEIGHT,
                 'confidence': 0.5,
                 'orientation': orientation,
+                # Phase 4.5 拓扑预校验：门窗中心（px），后续可升级为沿墙参数 t
+                'center_px': [int(round((x1 + x2) / 2)), int(round((y1 + y2) / 2))],
             })
 
     return doors

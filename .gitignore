@@ -26,6 +26,7 @@ app/static/reports/*
 # IDE
 .vscode/
 .idea/
+.qoder/
 *.swp
 *.swo
 

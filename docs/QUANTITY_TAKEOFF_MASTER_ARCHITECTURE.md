@@ -1,7 +1,7 @@
 # 装修工程图纸智能识别与工程量计算系统 — 总体架构设计
 
-> **文档版本**: v1.1（追加 §十一 2.5D 实体模型）
-> **日期**: 2026-09-19
+> **文档版本**: v1.2（追加 §十二 修订版 Phase 规划 + Phase 4.5 前置补丁 + Phase 5 子阶段拆分 + **§12.6 IFC 兼容性决策**）
+> **日期**: 2026-09-22
 > **设计依据**: 项目任务书 §一 ~ §三十五
 
 ---
@@ -765,3 +765,272 @@ class TopologyGraph:
 
 - 三维模型**放大**上游识别质量，不修复上游——它不能替代解析精度投入
 - 语义问题（灯槽/窗帘盒口径、甲供、活动家具）仍靠规则与用户交互，不靠几何
+
+---
+
+## 十二、修订版 Phase 规划与 Phase 4.5 前置补丁
+
+> **v1.2 追加** | 定位：把 §五 的十阶段与工程实施中已完成的 Phase 1-4（对应本文件外
+> 的 方案 A 编号）对齐，并新增 **Phase 4.5 · 2D 拓扑预校验**，作为 §十一 三维辅助算量路线的
+> "零成本三维"起手式。
+
+### 12.1 修订版路线图（v1.2 生效）
+
+| 阶段 | 内容 | 相对 §五 的调整 | 状态 |
+|------|------|----------------|------|
+| **Phase 4** | 确定性异常规则 + LLM 综合审计（语义冲突） | 原 §五 Phase 8 中的 AI 总审计拆前，规则先行 | ✅ 完成 |
+| **Phase 4.5** | **2D 拓扑预校验**（门窗挂墙 / 闭合性 / 面积守恒） | **本轮新增**：§11.5 "低垂果实" 提前实现 | 🎯 计划中 |
+| **Phase 5a** | PostgreSQL 迁移 + Alembic + 双跑 | 原 §五 Phase 2 DB 部分前移，解除 SQLite 写锁 | ⏳ |
+| **Phase 5b** | DXF 解析（ezdxf + libredwg）+ `electrical.dxf` 对账验收 | 原 §五 Phase 1 的 CAD 部分 | ⏳ |
+| **Phase 5c** | PDF 解析（PyMuPDF + 可选 OCR）+ §9.1 权威域分工 | 原 §五 Phase 1 的 PDF 部分，从隐含拆出显式 | ⏳ |
+| **Phase 5d** | 融合去重 + §9.3 冲突仲裁 + §十一 2.5D 实体落库 | 原 §五 Phase 2 + Phase 3 的融合，按 §十一 硬约束 | ⏳ |
+| **Phase 6** | QuantityRuleEngine（Shapely）+ 挤出/拓扑进引擎 | 原 §五 Phase 4 + Phase 6 前段合并 | ⏳ |
+| **Phase 7-8** | 图纸关联 Agent → 历史知识库升级 | 同 §五 Phase 6 + Phase 7 | ⏳ |
+| **Phase 9** | 复核工作台 + **前端接入 `/api/orchestrator/*`** + 需求确认向导 + Three.js 三维复核 | 原 §五 Phase 9 显式补齐"前端接入编排器"缺口 | ⏳ |
+| **Phase 10** | 套价联调打通 + Excel 导出 + 生产部署 | 套价从"未提"变主线上线项 | ⏳ |
+
+### 12.2 Phase 4.5 · 2D 拓扑预校验（详解）
+
+**动机**：§11.3 五条拓扑规则中，有三条可以**纯 2D 完成**——不依赖真三维、不依赖 DXF/PDF 解析。作为 Phase 5 前置补丁，可提前抓 bug 并为 §十一 数据建模接口做回归验证。
+
+**范围（对应 §11.3 规则 1 / 3 / 5）**：
+
+| # | 检查项 | 判据 | 依据 |
+|---|--------|------|------|
+| 1 | **门窗挂墙 2D 版** | 分部 4 门窗中心到最近房间边界（bbox 边）的距离 ≤ 容差（默认 0.15m） | §11.3(1) |
+| 2 | **闭合性** | 分部 1 房间 `data_json.bbox` 反算多边形 `is_valid & is_closed`；退化面积 (<1m²) 判为可疑 | §11.3(5) |
+| 3 | **面积守恒** | 同房间地面面积 ≈ 天棚面积（分部 1 vs 分部 3）；偏差 >5% 触发 | §11.3(3) |
+
+**非范围（推到 Phase 5d / Phase 6）**：
+- ❌ 挤出渲染、墙面开洞不重叠、MaterialFace 归属、复杂造型降级
+- ❌ 真实 `WallSegment` 拓扑（需 DXF 图层信息）
+
+**落点**：`app/orchestrator/audit.py` 新增 `topology_2d_audit(project) -> dict`；
+`run_audits()` 追加为第五路（Phase 4 的四路 → Phase 4.5 的五路）。
+
+**输出契约**（与 `reverse_reconciliation()` 一致，只标记不删除）：
+
+```python
+{
+  'door_not_on_wall': [
+    {'m_id': 142, 'label': '客厅-门', 'dist_m': 0.42, 'tol_m': 0.15}
+  ],
+  'invalid_room_polygons': [
+    {'m_id': 87, 'label': '主卧', 'reason': 'not_closed | degenerate | self_intersect'}
+  ],
+  'area_conservation_violation': [
+    {'room': '客厅', 'floor_m2': 23.68, 'ceiling_m2': 24.15, 'delta_pct': 1.98}
+  ],
+  'hit_count': 7
+}
+```
+
+**降级规则**：命中项 `confidence_level → low`、`confidence_icon → 🔴`，`remarks` 追加
+`【2D拓扑嫌疑·Phase4.5】<原因>`；沿用 Phase 3 反向对账的"留痕不删除、排除合计、待人工"处理。
+
+**验收标准**：
+1. 现有 E2E（`tests/test_orchestrator_e2e.py`）保持全绿；
+2. 新增 3 个 fixture：门窗悬空 / 房间不闭合 / 地面天棚面积偏差 >5%；
+3. 对历史项目回归：Phase 4.5 命中项应 ⊆ 反向对账已标记的幽灵项 ∪ 横向对账已告警项（拓扑检查是子集，不引入新误报源）。
+
+**工作量**：3-5 天（含 fixture 与回归）。
+
+### 12.3 Phase 4.5 的价值链
+
+```
+Phase 4 完成 → 现有五路审计（反向/横向/纵向/异常规则/LLM 综合）
+                     ↓
+Phase 4.5 插入 → 第六路：2D 拓扑校验
+                     ├─ 输出喂给 Phase 4 LLM 综合审计（作为新事实来源）
+                     ├─ 提前踩坑 §十一 实体接口，Phase 5 建模少返工
+                     └─ 前端在 Phase 9 前即可展示嫌疑项（预留字段）
+                     ↓
+Phase 5 · 数据建模（真三维所需的矢量数据到位）
+                     ↓
+Phase 6 · 升级到真 2.5D 拓扑（§11.3 完整五条）
+```
+
+### 12.4 不做什么（避免范围蔓延）
+
+- 不在 Phase 4.5 引入 `WallSegment / Opening / MaterialFace / RoomVolume` 等 §十一 实体类；仍走 `Measurement.data_json` 的临时结构
+- 不引入 Three.js / WebGL 渲染（推到 Phase 9）
+- 不做真挤出（无矢量数据前，挤出只会放大误差）
+
+### 12.5 Phase 5 拆分详解（避免"统一模型"一词吃掉真实工作量）
+
+> **背景**：§五 里 "统一模型" 一句将 DB、CAD 解析、PDF 解析、多源融合、§9 仲裁、§十一 实体建模
+> 6 件事打包估算 **1-2 周**——实际严重低估。现拆为 **5a/5b/5c/5d** 四个子阶段，每个有独立
+> 交付物与验收标准。总计 **4-5 周**。
+
+#### **12.5.1 Phase 5a · PostgreSQL 迁移**（预计 1 周）
+
+| 项 | 内容 |
+|----|------|
+| 目标 | 从 SQLite 无锁机迁移到 PG；为后续并行写入/回滚提供事务基座 |
+| 交付 | 1) `config.py` 支持 `DATABASE_URL` 切换；<br>2) `migrations/` 目录 + Alembic 初始化；<br>3) SQLite→PG 数据导入脚本；<br>4) `orchestrator/concurrency.py` 里 **删除 `DB_WRITE_LOCK`**（SQLite 遗留锁） |
+| 验收 | 现有 E2E 在 PG 上全绿；同项目多 Worker 并发写库无锁冲突 |
+| 风险 | SQLite 旧数据中的 JSON 列 (`data_json`/`summary_json`) 需转为 `JSONB`；开发/生产双跑窗口需控制 |
+| 依赖 | 无（可即刻开工） |
+
+#### **12.5.2 Phase 5b · DXF 解析**（预计 2 周）
+
+| 项 | 内容 |
+|----|------|
+| 目标 | 把 DWG/DXF 变成 `drawing_elements` 表的结构化几何 |
+| 交付 | 1) `requirements.txt` 新增 `ezdxf / shapely`；<br>2) DWG→DXF 转换链路（ODA File Converter Docker 或 libredwg）；<br>3) `app/core/cad_parser/dxf_extractor.py`：九类实体提取（LINE/LWPOLYLINE/ARC/CIRCLE/HATCH/INSERT/DIMENSION/TEXT-MTEXT/LAYER）；<br>4) `drawing_pages` / `drawing_elements` 新表（§3.1）；<br>5) `electrical.dxf` 对照 `outputs/营销中心…表.xlsx` 验收报告 |
+| 验收 | 九类实体均可提取；`electrical.dxf` 中灯具/开关/插座图块计数与手算表偏差 <2%（对应 KPI 中"CAD 解析成功率 >95%"） |
+| 风险 | DWG 版本兼容性（AutoCAD 2018+）；中文图层名乱码；DIMENSION 实体实测值 override |
+| 依赖 | Phase 5a（写入 PG） |
+
+#### **12.5.3 Phase 5c · PDF 解析**（预计 1-1.5 周，**从原"统一模型"一词里显式剖出**）
+
+| 项 | 内容 |
+|----|------|
+| 目标 | 把矢量 PDF 变成 `drawing_elements` 表的**语义数据**；与 DXF 同表不同行 |
+| 交付 | 1) `requirements.txt` 新增 `PyMuPDF / pdfplumber / pytesseract`；<br>2) `app/core/cad_parser/pdf_extractor.py`：文字块 + bbox + 材料号正则 `[A-Z]{2}-\d{2}` + 图例表 + 尺寸标注；<br>3) **§9.1 权威域分工硬落地**：PDF 元素写入时 `source_type='pdf_text'`，`source_authority='semantic_only'`（**禁止参与几何计算**）；<br>4) 扫描版 PDF 分支：pytesseract OCR 后降级 `source_authority='fallback_ocr'`，自动射 🟡 中置信度 |
+| 验收 | 材料号 `ST-01`、房间名、图例表行均能提取；对同一份 DXF+PDF，材料号与 DXF TEXT 重合度 ≥ 80% |
+| 风险 | 无现成 PDF 验收样本——**需从 `营销中心…dwg` 导出 PDF 作 5c 验收物料**（ODA/QCAD） |
+| 依赖 | Phase 5a、5b（同表写入） |
+
+#### **12.5.4 Phase 5d · 融合去重 + §9.3 冲突仲裁 + §十一 实体落库**（预计 1.5 周，**本轮重点拆分**）
+
+> **一句话**：这一项不是"顺手归档"，而是把 §9.2/9.3 的量化阈值变成可运行的规则引擎。
+
+**子项 A — 融合去重（§9.2）**
+
+| 规则 | 实现 | 工作量 |
+|------|------|--------|
+| 身份键优先级 | CAD handle 优先；无 handle 时 bbox **IoU > 0.8** 视为同一实体 | Shapely `.intersection()/.union()` 封装 + 单测 0.5 天 |
+| 多来源归并 | 归并后 `DrawingSource` 列表写入 `drawing_elements.source_meta` (JSONB)，保留全部 `source_file / source_page / source_bbox` | 0.5 天 |
+| 只出一条清单项 | 融合层去重 → `Measurement` 不重复插入；审计层"同一区域同一材料重复" KPI 验证 <2% | 0.5 天（与 Phase 4 异常规则中重复检测合并） |
+
+**子项 B — §9.3 冲突仲裁引擎**
+
+| 冲突类型 | 仲裁规则 | 实现要点 |
+|---------|---------|---------|
+| DXF 实测 vs 标注 | **偏差 >5%** → 以标注为准 + 审计提示 | `abs(polygon.area - dim_measured)/dim_measured > 0.05` 阈值常量；命中则 `confidence='medium'`，备注仲裁依据 |
+| 平面 vs 立面宽度 | 以平面为准 | 依赖 Phase 7 图纸关联（本阶段先留接口，不实现） |
+| 几何 vs HATCH | **HATCH 只作分界，不算面积** | 提取 `HATCH.pattern_name` 作材料归属，面积一律回退到边界 polygon.area |
+
+工作量：仲裁引擎 **3 天**（含回归）。
+
+**子项 C — §十一 2.5D 实体落库**
+
+| 实体 | 表 | 字段要点 |
+|------|-----|---------|
+| WallSegment | `walls` 🆕 | `base_line`(GeoJSON LineString) + `height` + `thickness?` |
+| Opening | `doors` / `windows` 🆕 | `wall_segment_id` 外键（**拓扑硬约束**）+ `position_on_wall` |
+| MaterialFace | `wall_regions` 🆕 | `side` (0/1) + `room_id` 使用侧归属 + `opening_ids` |
+| RoomVolume | `rooms` 🆕 | `floor_polygon` + `floor_height` + `ceiling_levels` (JSONB) |
+| TopologyGraph | 复用 `component_relations` | 邻接表（room→wall→opening→face→room） |
+
+工作量：**4-5 天**（建表 + Alembic + 写入链路 + 拓扑外键约束）。
+
+**验收标准**（Phase 5d 整体）：
+1. `electrical.dxf` 与手算表工程量误差 ≤ 5%（KPI）；
+2. 同实体多源归并后 **只出一条 Measurement**（SQL 断言）；
+3. 五类冲突仲裁 fixture 全部命中预期降级行为；
+4. 无 handle 时 IoU 去重回归：向已知实体集注射人工衍变的“同一墙体三个微变体”，应只保留一条。
+
+**依赖关系**：
+```
+5a (DB) → 5b (DXF) → 5c (PDF) → 5d (融合 + 仲裁 + 实体)
+                         ↑                    ↑
+                    PDF验收样←— 本阶段需先导出     │
+                                              │
+                                     Phase 4.5 拓扑预校验 ←— 接口回归验证
+```
+
+#### **12.5.5 为何必须拆开的三个硬理由**
+
+1. **工作量可视化**——5c/5d 各含 1.5 周以上实现量，打包在"统一模型"一词里会被当作“顺手做的事”，导致 Phase 5 实际交付延期；
+2. **验收物料不同**——5b 用 DXF，5c 必须先准备 PDF，5d 需要仲裁 fixture；一个阶段一个 gate，不会“交不出东西”；
+3. **依赖链清晰**——5d 依赖 5b+5c 均有真实数据才能回归验证；串行交付，不会“写好的仲裁引擎无数据可测”的尴尬。
+
+#### **12.5.6 Phase 5 总计工作量修正**
+
+| 子阶段 | 工期 |
+|--------|------|
+| 5a | 1 周 |
+| 5b | 2 周 |
+| 5c | 1-1.5 周 |
+| 5d | 1.5 周 |
+| **Phase 5 总计** | **5.5-6 周**（§五 原估算 3-4 周，**偏乐观**） |
+
+### 12.6 三维模型输出格式与兼容性决策（v1.2 追加）
+
+> **背景**：为了"平立面算量 + 通用三维初步模型 + 自然语言细化"的闭环能真正落到甲方 / 造价 / BIM 咨询的工作流里，本项目对**外部 3D 交换格式**做出如下决策并绑定到既有 Phase。
+
+#### **12.6.1 主/辅/兜底三档**
+
+| 档位 | 格式 | 版本 | 用途 | 谁消费 |
+|------|------|------|------|--------|
+| 🥇 **主** | **IFC** | **IFC4 Reference View**（`IFC4X3_RC4` 待稳定后升级） | 语义化三维模型完整导出，含墙/洞/面/空间/材料全部对象 | Revit / ArchiCAD / 广联达 BIMmake / 探索者 / Tekla / BIMsight |
+| 🥈 **可视化** | **glTF / GLB** | 2.0 | 复核工作台 Three.js 直接展示，不承载语义 | 浏览器、移动端、微信内置浏览器 |
+| 🥉 **兜底** | **DWG 3D** | AutoCAD 2018+ | 只保留几何，服务少数纯 CAD 用户 | AutoCAD / 浩辰 / 天正 |
+
+#### **12.6.2 §十一 五类实体 → IFC 映射（Phase 5d schema 定稿时锁定）**
+
+| 本项目实体 | IFC 元素 | 关系 | 备注 |
+|-----------|---------|------|------|
+| `WallSegment` | `IfcWallStandardCase` | `IfcRelVoidsElement` → Opening | 含 `HasOpenings` |
+| `Opening` | `IfcOpeningElement` | 反向引用回 `IfcWall` | 挂墙通过 `wall_segment_id` 外键 |  |
+| `MaterialFace` (墙/顶) | `IfcCovering` | `IfcRelCoversBldgElements` | Cavity/ ceiling / finishing 分类 |
+| `MaterialFace` (地面) | `IfcSlab.isType = FLOOR` | `IfcRelContainedInSpatialStructure` | |
+| `RoomVolume` | `IfcSpace` | `IfcRelAggregates` → `IfcBuildingStorey` | 层高/标高来自 Storey |
+| `TopologyGraph` | `IfcProject` + 上述 Rel 关系网 | | 邻接关系映射为 IFC 关系实体 |
+
+**接口约束**：Phase 5d 的 §11.2 / §12.5.4 子项 C 建表时，每张实体表**必须预留** `ifc_guid CHAR(22)`（IFC GlobalId，base64 编码 128 位）+ `ifc_entity_type VARCHAR(64)` 两列——即使本阶段不写入，也要**建表时就存在**，避免二次迁移。
+
+#### **12.6.3 自然语言微调通道（Phase 9 落地）**
+
+**核心原则**：LLM 不直接生成 IFC 代码，只输出**受限 DSL**；DSL 由项目内规则引擎应用到 2.5D 实体上，然后重新走 §12.6.2 映射导出 IFC。
+
+```
+用户输入："客厅层高改成 2.9m"
+       ↓
+GLM-4.6 生成 ops（含 schema 校验的 JSON）
+       ↓
+规则引擎：op 白名单校验 → 拓扑合法性校验 → 应用到 §十一 实体
+       ↓
+QuantityRuleEngine 重算 → BOQ diff（Δ 面积/Δ 体积/新增/删除项）
+       ↓
+用户在复核工作台看到 diff → 确认 / 回滚（回滚走 §Phase 5a 事务基座）
+```
+
+**支持的 op 集合**（白名单，Phase 9 首批）：`set_room_height` / `rename_room` / `split_room` / `merge_rooms` / `add_opening_on_wall` / `delete_opening` / `set_material_face_finish` / `add_fixed_cabinet` / `adjust_wall_thickness`。任何超出白名单的 op 直接拒绝并提示用户改写描述。
+
+#### **12.6.4 效果图作为语义补充源（Phase 9.5 可选）**
+
+- **权威域划分**（扩展 §9.1）：几何 → DXF；材料/做法/装饰层数 → 效果图 + PDF 说明
+- 多模态 LLM（GLM-4V）从效果图抽取：吊顶层次 / 墙面造型层数 / 主材类别；结果写入 `MaterialFace.material_hint`（新字段）
+- 只做**建议 + 交叉验证**，不覆盖 DXF 几何；冲突时按 §9.3 仲裁规则降级
+
+#### **12.6.5 明确不做什么**
+
+- ❌ **不写 RVT**（Revit 私有；写 RVT 只能靠 Dynamo / Revit API 的 Windows-only 服务，破坏部署）
+- ❌ **不用 FBX / OBJ / glTF 作为算量源**（丢语义；glTF 只做可视化输出）
+- ❌ **不用 STEP / IGES**（MCAD 系，无建筑拓扑；固定柜等设备构件如确需精细几何，走独立附件路径）
+- ❌ **不做真三维重建**（沿用 §11.1 决策：2.5D 挤出 + 拓扑，不上 NeRF/Photogrammetry）
+
+#### **12.6.6 对现有 Phase 的增量影响**
+
+| Phase | 增量 | 附加工作量 |
+|-------|------|-----------|
+| **5d** | §11.2 建表预留 `ifc_guid` / `ifc_entity_type` 两列；实体写入时分配 UUID（暂不导出） | +0.5 天 |
+| **6** | 新增 `app/orchestrator/ifc_exporter.py`（IfcOpenShell） + `gltf_exporter.py`（web-ifc / trimesh） | +1.5 周 |
+| **9** | 复核工作台新增 **NL 微调对话框 + DSL 预览 + Diff/回滚 UI** | +2 周（原 Phase 9 内的子项，工作量已含在 Phase 9 估算） |
+| **9.5（新）** | 效果图多模态通道（可选，甲方需求驱动再启动） | +1 周 |
+
+**总增量约 3 周**（其中 2 周在 Phase 9 内本就要做，实际净增 1 周），与主干并行推进，不改变 Phase 5 时间表。
+
+#### **12.6.7 依赖新增**
+
+`requirements.txt` 在 Phase 6 追加：
+```
+ifcopenshell   # IFC 读写，PyPI 直接安装（自带 OCC 二进制）
+web-ifc        # Three.js 侧的 IFC 加载器（前端 npm）
+trimesh        # glTF 导出
+```
+
+Phase 5a 的 PostgreSQL 迁移不受本决策影响，可**即刻开工**。

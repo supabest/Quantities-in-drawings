@@ -1,6 +1,6 @@
-"""审计引擎（Phase 3/4）— 双向对账 + 历史模板漏项审计 + 异常规则 + AI 综合审计。
+"""审计引擎（Phase 3/4/4.5）— 双向对账 + 历史模板漏项审计 + 异常规则 + 2D 拓扑预校验 + AI 综合审计。
 
-五路审计（与架构讨论一致）：
+六路审计（与架构讨论一致）：
   1. 反向对账（清单→图纸/房间）：清单项回溯不到来源的为幽灵项——
      重复或幻觉。降置信度 + 标记，排除合计，留待人工（留痕不删除）。
      与正向覆盖度对账（coverage.py，图纸→清单）构成双向闭环。
@@ -10,7 +10,9 @@
      只输出建议，不自动补入（审计只读不写原则）。
   4. 确定性异常规则（Phase 4）：异常尺寸 / 重复清单项 / 低置信度集中——
      纯阈值规则，不调 LLM。
-  5. AI 综合审计（Phase 4）：LLM 汇总全部确定性发现，输出综合报告与复核建议。
+  5. 2D 拓扑预校验（Phase 4.5）：门窗挂墙 / 房间 bbox 合理性 / 地面天棚面积守恒。
+     §11.3 五条中可纯 2D 落地的三条；命中项降级 + 备注，为 Phase 5d 真拓扑建模验证接口。
+  6. AI 综合审计（Phase 4）：LLM 汇总全部确定性发现，输出综合报告与复核建议。
      未配置 LLM_API_KEY 或预算耗尽时优雅降级；审计只读不写。
 
 反向对账的可追溯性判定规则：
@@ -30,6 +32,7 @@ from app import db
 from app.models import Measurement, HistoricalProject
 
 from .llm_client import call_llm, parse_json_response, LLMCallBudget
+from .topology_2d import topology_2d_audit
 
 logger = logging.getLogger(__name__)
 
@@ -150,18 +153,21 @@ def historical_audit(project) -> dict:
 
 
 def run_audits(project) -> dict:
-    """五路审计总入口（Phase 3 三路 + Phase 4 两路）。
+    """六路审计总入口（Phase 3 三路 + Phase 4 两路 + Phase 4.5 一路）。
 
-    顺序：确定性审计先行，LLM 综合审计最后（看到全部确定性发现）。
+    顺序：确定性审计先行（反向→横向→纵向→异常→拓扑），LLM 综合审计最后（看到全部确定性发现）。
+    Phase 4.5 拓扑预校验放在最后一路确定性环节，因为它需要看到反向对账已标记的幽灵项（不重复处理）。
     """
     rev = reverse_reconciliation(project)
     cross = cross_check_drawings(project)
     hist = historical_audit(project)
     anomaly = anomaly_checks(project)
+    topology = topology_2d_audit(project)
     llm = llm_audit(project, {'reverse': rev, 'cross': cross,
-                              'historical': hist, 'anomaly': anomaly})
+                              'historical': hist, 'anomaly': anomaly,
+                              'topology_2d': topology})
     return {'reverse': rev, 'cross': cross, 'historical': hist,
-            'anomaly': anomaly, 'llm': llm}
+            'anomaly': anomaly, 'topology_2d': topology, 'llm': llm}
 
 
 # ════════════════════════════════════════════
@@ -274,6 +280,15 @@ def build_llm_audit_prompt(project, deterministic: dict) -> tuple:
             'historical_missing': (deterministic.get('historical', {})
                                    .get('missing_items', []))[:20],
             'anomalies': (deterministic.get('anomaly', {}).get('findings', []))[:40],
+            'topology_2d': {
+                'hit_count': deterministic.get('topology_2d', {}).get('hit_count', 0),
+                'door_not_on_wall': (deterministic.get('topology_2d', {})
+                                     .get('door_not_on_wall', []))[:15],
+                'invalid_room_polygons': (deterministic.get('topology_2d', {})
+                                          .get('invalid_room_polygons', []))[:10],
+                'area_conservation_violation': (deterministic.get('topology_2d', {})
+                                                .get('area_conservation_violation', []))[:10],
+            },
         },
         'note': '低置信度/幽灵项已被标记待人工；你只需综合判断与给出建议，不要复述全部数据',
     }

@@ -202,6 +202,7 @@ with app.app_context():
     db.session.commit()
 
     from app.orchestrator.audit import run_audits, build_llm_audit_prompt
+    from app.orchestrator.topology_2d import topology_2d_audit
     rep = run_audits(Project.query.get(pid))
     assert rep['reverse']['ghost_count'] == 1, f"应恰好标记1个注入幽灵: {rep['reverse']['ghosts']}"
     assert rep['reverse']['ghosts'][0]['label'] == '幽灵测试-墙面'
@@ -238,6 +239,62 @@ with app.app_context():
     sys_p, user_p = build_llm_audit_prompt(Project.query.get(pid), rep4)
     assert '审计师' in sys_p and '客厅' in user_p and 'anomalies' in user_p
     print(f"-- Phase4 注入验证: 0.3m 门宽命中异常规则, LLM 层优雅降级, prompt 组装正常")
+
+    # ── Phase 4.5: 2D 拓扑预校验 ──
+    # 1) 现有合成图中门窗均为中心浮在房间内部（非贴墙），应全部命中“门窗挂墙”规则
+    topo_first = summary2['audit']['topology_2d']
+    assert topo_first['hit_count'] >= 8, \
+        f"Phase4.5 首轮应至少命中 8 个悬空门窗: {topo_first}"
+    assert len(topo_first['door_not_on_wall']) >= 8, \
+        f"门窗挂墙规则未生效: {topo_first['door_not_on_wall'][:2]}"
+    # 命中项已降级 + 备注
+    suspect_doors = Measurement.query.filter_by(project_id=pid, division_id=4).all()
+    flagged = [d for d in suspect_doors if '2D拓扑嫌疑' in (d.remarks or '')]
+    assert len(flagged) >= 8, f"门窗应已降级 + 标注备注, 实际命中 {len(flagged)}"
+    assert all(d.confidence_level == 'low' for d in flagged), '拓扑嫌疑项必须降为低置信'
+    print(f"-- Phase4.5 首轮: 悬空门窗 {len(topo_first['door_not_on_wall'])} 个命中，"
+          f"房间 bbox 可疑 {len(topo_first['invalid_room_polygons'])}, "
+          f"面积不守恒 {len(topo_first['area_conservation_violation'])}")
+
+    # 2) 注入退化房间 bbox（w=0）→ invalid_room_polygons 命中
+    bad_room = Measurement(label='退化房', division_id=1, area=0.0, unit='m²',
+                           source_tag='图纸实测', project_id=pid,
+                           drawing_id=Drawing.query.filter_by(project_id=pid).first().id,
+                           zone_id='zone_test',
+                           data_json=json.dumps({'bbox': [100, 100, 0, 50]}))
+    db.session.add(bad_room); db.session.commit()
+
+    # 3) 注入面积不守恒测试——新开一个唯一前缀房间＋不匹配天棚，避开同名多候选歧义
+    test_room = Measurement(label='拓扑测试房', division_id=1, area=20.0, unit='m²',
+                            source_tag='图纸实测', project_id=pid,
+                            drawing_id=Drawing.query.filter_by(project_id=pid).first().id,
+                            zone_id='zone_test',
+                            data_json=json.dumps({'bbox': [800, 800, 200, 150]}))
+    test_ceiling = Measurement(label='拓扑测试房-天棚', division_id=3,
+                               area=30.0,  # 20 地面 vs 30 天棚，偏差 50% ≫ 5%
+                               unit='m²', source_tag='几何推算', project_id=pid)
+    db.session.add_all([test_room, test_ceiling]); db.session.commit()
+
+    topo2 = topology_2d_audit(Project.query.get(pid))
+    assert any(h.get('label') == '退化房' and h['reason'] == 'degenerate'
+               for h in topo2['invalid_room_polygons']), \
+        f"退化 bbox 应命中: {topo2['invalid_room_polygons']}"
+    assert any(h['room'] == '拓扑测试房' and h['delta_pct'] > 5.0
+               for h in topo2['area_conservation_violation']), \
+        f"注入的不守恒天棚应命中: {topo2['area_conservation_violation']}"
+    # 幂等性：已标记的门窗不重复命中
+    assert len(topo2['door_not_on_wall']) == 0, \
+        f"拓扑校验应幂等，已标记项不重复命中: {topo2['door_not_on_wall']}"
+    print(f"-- Phase4.5 注入验证: 退化房间 + 面积不守恒天棚命中，幂等无重复")
+
+    # 4) LLM prompt 包含拓扑预校验发现
+    sys_p5, user_p5 = build_llm_audit_prompt(Project.query.get(pid), {
+        'reverse': topo_first, 'cross': {}, 'historical': {},
+        'anomaly': {}, 'topology_2d': topo_first,
+    })
+    assert 'topology_2d' in user_p5 and 'door_not_on_wall' in user_p5, \
+        'LLM prompt 未包含拓扑预校验发现'
+    print(f"-- Phase4.5 集成验证: LLM prompt 已包含拓扑发现字段")
 
 # ── Test 3: API 冒烟 ──
 print('\n========== Test 3: API 冒烟（run/status/zones） ==========')
