@@ -1,10 +1,32 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: decoration-quant-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-quant}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-quant_dev_pw}
+      - POSTGRES_DB=${POSTGRES_DB:-decoration_quant}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/pg-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quant} -d decoration_quant"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   web:
     build: .
     container_name: decoration-quant
     restart: always
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "5000:5000"
     environment:
@@ -12,8 +34,8 @@ services:
       - FLASK_DEBUG=0
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@decoration-quant.com}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123456}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-quant}:${POSTGRES_PASSWORD:-quant_dev_pw}@db:5432/decoration_quant
     volumes:
-      - ./app.db:/app/app.db
       - ./app/static/uploads:/app/app/static/uploads
       - ./app/static/reports:/app/app/static/reports
     logging:
@@ -21,3 +43,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  pgdata:

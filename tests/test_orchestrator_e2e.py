@@ -14,9 +14,17 @@ shutil.rmtree(TMP, ignore_errors=True)
 os.makedirs(TMP + '/uploads', exist_ok=True)
 
 # ── 独立配置：临时 DB + 临时上传目录 ──
+# Phase 5a: 支持 PG（设 TEST_DATABASE_URL）；未设时回退 SQLite，保持无依赖可跑
 import config as _cfg
+_PG_URL = os.environ.get('TEST_DATABASE_URL')
+
 class TestConfig(_cfg.Config):
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + TMP + '/test.db'
+    if _PG_URL:
+        SQLALCHEMY_DATABASE_URI = _PG_URL
+        SQLALCHEMY_ENGINE_OPTIONS = _cfg._default_engine_options(_PG_URL)
+    else:
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + TMP + '/test.db'
+        SQLALCHEMY_ENGINE_OPTIONS = {'connect_args': {'timeout': 30}}
     UPLOAD_FOLDER = TMP + '/uploads'
     REPORTS_FOLDER = TMP + '/reports'
 
@@ -59,6 +67,13 @@ make_elevation(TMP + '/uploads/S.png')
 
 with app.app_context():
     db.create_all()
+    # Phase 5a: PG 下需清理上一次测试遗留数据（SQLite 因为 shutil.rmtree 无此问题）
+    if _PG_URL:
+        from sqlalchemy import text as _t
+        for tbl in ['measurements', 'reports', 'self_check_items',
+                    'quantity_tasks', 'drawings', 'projects', 'historical_projects']:
+            db.session.execute(_t(f'TRUNCATE TABLE {tbl} RESTART IDENTITY CASCADE'))
+        db.session.commit()
     admin = User.query.filter_by(is_admin=True).first()
 
     # 项目1：未设比例尺 → 期望被定标闸门拒绝

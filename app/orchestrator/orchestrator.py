@@ -29,7 +29,7 @@ from app.processing import (
 from .calibration import calibrate_project
 from .coverage import check_coverage
 from .audit import run_audits
-from .concurrency import run_tasks, DB_WRITE_LOCK, MAX_DRAWING_WORKERS
+from .concurrency import run_tasks, MAX_DRAWING_WORKERS
 from .task_state import TaskTracker, TaskStatus
 from .zone import (
     ensure_zone_columns,
@@ -236,19 +236,18 @@ class Orchestrator:
                     return {'category_counts': {}, 'skipped': 'file not found'}, None
 
                 dtype = drawing.drawing_type or 'floor_plan'
-                # SQLite 写串行化：DB 写锁内执行完整处理
-                with DB_WRITE_LOCK:
-                    if dtype == 'elevation':
-                        ms = _process_elevation(image_path, drawing, project, scale)
-                    else:
-                        ms = _process_floor_plan(image_path, drawing, project, scale)
+                # Phase 5a 后无需写锁：SQLite 仍受 busy timeout 保护；PG 天然并发
+                if dtype == 'elevation':
+                    ms = _process_elevation(image_path, drawing, project, scale)
+                else:
+                    ms = _process_floor_plan(image_path, drawing, project, scale)
 
-                    counts = {}
-                    for m in ms:
-                        key = m.category or 'other'
-                        counts[key] = counts.get(key, 0) + 1
+                counts = {}
+                for m in ms:
+                    key = m.category or 'other'
+                    counts[key] = counts.get(key, 0) + 1
 
-                    db.session.commit()
+                db.session.commit()
 
                 return {'category_counts': counts}, None
         except Exception as exc:

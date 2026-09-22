@@ -2,9 +2,9 @@
 
 Phase 1 用线程池（OpenCV 解析是 CPU 密集 + GIL 释放型，线程池足够）。
 Phase 2 若引入 LLM Agent，切换为 asyncio + Semaphore。
+Phase 5a 后：写锁已删；SQLite 仍保留 busy timeout，但 worker 内写入不再需要串行。
 """
 import logging
-import threading
 import concurrent.futures
 
 logger = logging.getLogger(__name__)
@@ -13,10 +13,6 @@ logger = logging.getLogger(__name__)
 MAX_DRAWING_WORKERS = 4
 GLOBAL_TIMEOUT_PER_TASK = 300      # 秒
 GLOBAL_RETRY_LIMIT = 3
-
-# SQLite 不支持并发写，worker 内的 DB 写入必须串行。
-# 生产切 PostgreSQL 后可移除。
-DB_WRITE_LOCK = threading.Lock()
 
 
 def run_tasks(tasks: list, worker_fn, max_workers: int = MAX_DRAWING_WORKERS) -> list:

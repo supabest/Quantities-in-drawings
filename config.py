@@ -4,13 +4,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _default_engine_options(uri: str) -> dict:
+    """根据 DB scheme 返 SQLAlchemy engine_options。
+
+    SQLite 保持 busy timeout=30s（开发无依赖时仍能处理瞬时写锁）；
+    PostgreSQL 不传 connect_args.timeout（会报错），交给 PG 自己处理并发。
+    """
+    if uri.startswith('sqlite'):
+        return {'connect_args': {'timeout': 30}}
+    # postgresql:// / postgresql+psycopg2:// 等
+    return {'pool_pre_ping': True, 'pool_size': 10, 'max_overflow': 20}
+
+
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    # SQLite busy 等待 30s：瞬时写锁竞争排队而非报错（生产切 PostgreSQL 后可移除）
-    SQLALCHEMY_ENGINE_OPTIONS = {'connect_args': {'timeout': 30}}
+    SQLALCHEMY_ENGINE_OPTIONS = _default_engine_options(SQLALCHEMY_DATABASE_URI)
     UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app', 'static', 'uploads')
     MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # 32 MB max upload
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp', 'tiff', 'dxf'}

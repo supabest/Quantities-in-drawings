@@ -15,7 +15,7 @@ from app import db
 from app.models import Measurement, Project
 from app.processing import _generate_derived_measurements, _generate_hidden_items
 
-from .concurrency import run_tasks, DB_WRITE_LOCK
+from .concurrency import run_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -44,17 +44,17 @@ class ZoneWorker:
                 room_ids = [r['id'] for r in self.zone['rooms']]
                 rooms = (Measurement.query.filter(Measurement.id.in_(room_ids)).all()
                          if room_ids else [])
-                with DB_WRITE_LOCK:
-                    derived = _generate_derived_measurements(
-                        project, self.floor_height, self.scale, rooms=rooms)
-                    hidden = _generate_hidden_items(project, rooms=rooms)
-                    # 区域标记
-                    for m in derived + hidden:
-                        if m.zone_id is None:
-                            m.zone_id = self.zone_id
-                            m.boundary_type = 'zone'
-                    db.session.commit()
-                return {'zone_id': self.zone_id, 'item_count': len(derived) + len(hidden)}, None
+                # Phase 5a 后无需写锁（PG 天然并发）
+                derived = _generate_derived_measurements(
+                    project, self.floor_height, self.scale, rooms=rooms)
+                hidden = _generate_hidden_items(project, rooms=rooms)
+                # 区域标记
+                for m in derived + hidden:
+                    if m.zone_id is None:
+                        m.zone_id = self.zone_id
+                        m.boundary_type = 'zone'
+                db.session.commit()
+            return {'zone_id': self.zone_id, 'item_count': len(derived) + len(hidden)}, None
         except Exception as exc:
             logger.exception("ZoneWorker %s 失败", self.zone_id)
             return None, f"{type(exc).__name__}: {exc}"

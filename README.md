@@ -46,6 +46,37 @@ docker-compose up -d
 
 详细部署指南请参考 [deploy/README.md](deploy/README.md)。
 
+## Phase 5a · PostgreSQL 本地开发环境
+
+```bash
+# 1. 启动 PG
+docker compose up -d db
+
+# 2. 建表（跑 Alembic 基线，跳过默认 seed）
+export DATABASE_URL=postgresql://quant:quant_dev_pw@localhost:5432/decoration_quant
+SKIP_DB_CREATE_ALL=1 FLASK_APP=run.py flask db upgrade
+
+# 3.（可选）从现有 app.db 导入数据
+python scripts/migrate_sqlite_to_pg.py --truncate
+
+# 4. 启动应用（自动 seed admin 与知识库）
+python run.py
+```
+
+**E2E 测试切换 PG**（默认仍走 SQLite，无依赖可跑）：
+```bash
+export TEST_DATABASE_URL=postgresql://quant:quant_dev_pw@localhost:5432/decoration_quant_test
+SKIP_DB_CREATE_ALL=1 FLASK_APP=run.py flask db upgrade  # 建表
+python tests/test_orchestrator_e2e.py
+```
+
+**开发日常命令**：
+```bash
+flask db migrate -m "描述"    # 自动写新迁移
+flask db upgrade                # 应用迁移
+flask db stamp head             # 将已有库标记为已迁移（一次性）
+```
+
 ## 默认管理员
 
 | 邮箱 | 密码 |
