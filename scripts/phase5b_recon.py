@@ -49,6 +49,66 @@ def load_excel_layerstats(path):
     return block_counts, wire_lengths
 
 
+def load_excel_region(path):
+    """解析 `分层统计` 逐区域行。返回 (块计数 {(region,block):n}, 线长 {(region,layer):m})。"""
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = wb['分层统计']
+    blocks, wires = Counter(), {}
+    for r in range(2, ws.max_row + 1):
+        region = ws.cell(r, 1).value
+        cat = ws.cell(r, 2).value
+        layer = ws.cell(r, 3).value
+        key = ws.cell(r, 4).value
+        qty = ws.cell(r, 5).value
+        if not region or qty in (None, ''):
+            continue
+        try:
+            qty = float(qty)
+        except (TypeError, ValueError):
+            continue
+        region = str(region).strip()
+        if cat and '块' in str(cat):
+            blocks[(region, str(key or '').strip())] += qty
+        elif cat and '线' in str(cat):
+            wires[(region, str(layer).strip())] = qty
+    return blocks, wires
+
+
+def recon_by_region():
+    """增量 2 验收：标题框区域切分 vs 手算表逐区域行。"""
+    doc = dx.load(DXF)
+    frames = dx.find_plan_frames(doc)
+    mine_regions = sorted(f['region'] for f in frames)
+    xl_blocks, xl_wires = load_excel_region(XLSX)
+    xl_regions = sorted({reg for reg, _ in xl_blocks} | {reg for reg, _ in xl_wires})
+
+    print('=' * 72)
+    print('增量 2 · 标题框区域切分对账')
+    print('=' * 72)
+    print(f'切出平面框 {len(frames)} 个: {mine_regions}')
+    print(f'手算表区域 {len(xl_regions)} 个; 区域集合一致: {set(mine_regions) == set(xl_regions)}')
+
+    # ── 逐块跨区域总量（消除人工跨系统子分配差异后的公平比对）──
+    my_by_block = Counter()
+    for (reg, layer, bn), n in dx.count_blocks_by_region(doc, frames).items():
+        my_by_block[bn] += n
+    xl_by_block = Counter()
+    for (reg, bn), n in xl_blocks.items():
+        xl_by_block[bn] += n
+    tot = ok = 0
+    print('\n逐块跨区域总量（xl=手算表, mine=我仅平面框）:')
+    for bn, xn in xl_by_block.most_common(50):
+        dn = my_by_block.get(bn, 0)
+        dev = (dn - xn) / xn * 100 if xn else float('nan')
+        tot += 1
+        ok += abs(dev) < 2
+        flag = '✓' if abs(dev) < 2 else ' '
+        print(f'  {flag} {bn[:32]:32s} xl={xn:5.0f} mine={dn:5.0f} Δ={dev:+6.1f}%')
+    print(f'\n逐块总量命中<2%: {ok}/{tot}')
+    print('注: 手算表块总量 << 平面框内总 INSERT，因人工只 tally 映射到清单的 ~69 种块，'
+          '其余装饰/参照/图例块未计——留待增量 3 的图层/块名→清单映射过滤。')
+
+
 def main():
     doc = dx.load(DXF)
     my_blocks = dx.count_blocks(doc)
@@ -92,4 +152,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if '--region' in sys.argv:
+        recon_by_region()
+    else:
+        main()

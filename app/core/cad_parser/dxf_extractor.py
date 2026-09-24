@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import math
+import re
 from collections import Counter, defaultdict
 from typing import Dict, Iterable, Tuple
 
@@ -110,6 +111,132 @@ def measure_wire_lengths(doc, prefixes: Iterable[str] = WIRE_LAYER_PREFIXES,
 
 # 绘图单位（mm）→ 米
 layer_length_units = {'mm_to_m': 1.0 / 1000.0}
+
+
+# ── 标题框区域切分（增量 2）──
+# 平面图标题："23A层展示区 照明平面图" / "25层展示区 应急照明平面图" …
+PLAN_TITLE_RE = re.compile(
+    r'(\d+[A-Z]?)\s*层.*?(应急照明|配电|照明|插座|火灾报警|弱电)\s*平面图')
+
+
+def _entity_point(e):
+    """实体代表点：INSERT 用插入点，线/多段线用 bbox 中心。"""
+    t = e.dxftype()
+    try:
+        if t == 'INSERT':
+            p = e.dxf.insert
+            return (p.x, p.y)
+        if t == 'LWPOLYLINE':
+            pts = [(pt[0], pt[1]) for pt in e.get_points('xy')]
+        elif t == 'LINE':
+            pts = [(e.dxf.start.x, e.dxf.start.y), (e.dxf.end.x, e.dxf.end.y)]
+        elif t == 'POLYLINE':
+            pts = [(v.dxf.location.x, v.dxf.location.y) for v in e.vertices]
+        elif e.dxf.hasattr('insert'):
+            p = e.dxf.insert
+            return (p.x, p.y)
+        else:
+            return None
+    except Exception:
+        return None
+    if not pts:
+        return None
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)
+
+
+def find_plan_frames(doc) -> list:
+    """识别 TEL_TITLE 图层上的 A1 平面图框，读标题→区域标签。
+
+    Returns:
+        [{'bbox': (x0, y0, x1, y1), 'region': '23A照明'}, ...]（仅保留能定标签的平面框）
+    """
+    msp = doc.modelspace()
+    raw = []
+    for e in msp.query('LWPOLYLINE'):
+        if e.dxf.layer != 'TEL_TITLE':
+            continue
+        pts = list(e.get_points('xy'))
+        if len(pts) != 4 or not e.closed:
+            continue
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        w, h = max(xs) - min(xs), max(ys) - min(ys)
+        if 55000 < min(w, h) < 62000 and 78000 < max(w, h) < 86000:  # A1 幅面（横竖皆可）
+            raw.append((min(xs), min(ys), max(xs), max(ys)))
+    # 去重（外/内框中心相近）
+    frames = []
+    for f in raw:
+        cx, cy = (f[0] + f[2]) / 2, (f[1] + f[3]) / 2
+        if not any(abs(cx - (g['bbox'][0] + g['bbox'][2]) / 2) < 3000
+                   and abs(cy - (g['bbox'][1] + g['bbox'][3]) / 2) < 3000 for g in frames):
+            frames.append({'bbox': f, 'region': None})
+    # 读标题文字定区域标签
+    titles = []
+    for t in msp.query('TEXT MTEXT'):
+        try:
+            s = (t.dxf.text if t.dxftype() == 'TEXT' else t.text) or ''
+            p = t.dxf.insert
+        except Exception:
+            continue
+        m = PLAN_TITLE_RE.search(s)
+        if m:
+            titles.append((p.x, p.y, f'{m.group(1)}{m.group(2)}'))
+    for g in frames:
+        x0, y0, x1, y1 = g['bbox']
+        for tx, ty, label in titles:
+            if x0 <= tx <= x1 and y0 <= ty <= y1:
+                g['region'] = label
+                break
+    return [g for g in frames if g['region']]
+
+
+def region_of(pt, frames) -> str:
+    """代表点落在哪个图框→区域标签（无则 None）。"""
+    if pt is None:
+        return None
+    x, y = pt
+    for g in frames:
+        x0, y0, x1, y1 = g['bbox']
+        if x0 <= x <= x1 and y0 <= y <= y1:
+            return g['region']
+    return None
+
+
+def count_blocks_by_region(doc, frames=None) -> Counter:
+    """按 (区域, 图层, 块名) 计数顶层 INSERT。不打散块。"""
+    frames = frames or find_plan_frames(doc)
+    c = Counter()
+    for e in doc.modelspace().query('INSERT'):
+        r = region_of(_entity_point(e), frames)
+        if r:
+            c[(r, e.dxf.layer, e.dxf.name)] += 1
+    return c
+
+
+def measure_wire_lengths_by_region(doc, frames=None,
+                                   prefixes: Iterable[str] = WIRE_LAYER_PREFIXES,
+                                   unit_to_m: float = 1.0) -> Dict[Tuple[str, str], float]:
+    """按 (区域, 图层) 求和顶层导线长度。"""
+    frames = frames or find_plan_frames(doc)
+    prefixes = tuple(prefixes)
+    acc = defaultdict(float)
+    for e in doc.modelspace():
+        layer = e.dxf.layer
+        if not layer.startswith(prefixes):
+            continue
+        r = region_of(_entity_point(e), frames)
+        if not r:
+            continue
+        t = e.dxftype()
+        if t == 'LWPOLYLINE':
+            acc[(r, layer)] += _lwpolyline_length(e)
+        elif t == 'LINE':
+            acc[(r, layer)] += _line_length(e)
+        elif t == 'POLYLINE':
+            acc[(r, layer)] += _polyline_length(e)
+    return {k: v * unit_to_m for k, v in acc.items()}
 
 
 def load(path: str):
