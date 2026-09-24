@@ -48,13 +48,17 @@ docker-compose up -d
 
 ## Phase 5a · PostgreSQL 本地开发环境
 
+> ⚠️ **端口说明**：本机若已跑着别的 PostgreSQL（如套价系统）会占用 5432，
+> 因此 compose 默认把容器映射到宿主机 **5433**（容器内仍 5432）。连接串一律用
+> `127.0.0.1:5433`（显式 IPv4，避开 `localhost`→IPv6 的解析串扰）。
+
 ```bash
 # 1. 启动 PG
 docker compose up -d db
 
 # 2. 建表（跑 Alembic 基线，跳过默认 seed）
-export DATABASE_URL=postgresql://quant:quant_dev_pw@localhost:5432/decoration_quant
-SKIP_DB_CREATE_ALL=1 FLASK_APP=run.py flask db upgrade
+export DATABASE_URL=postgresql://quant:quant_dev_pw@127.0.0.1:5433/decoration_quant
+SKIP_DB_CREATE_ALL=1 FLASK_APP=run.py python -m flask db upgrade
 
 # 3.（可选）从现有 app.db 导入数据
 python scripts/migrate_sqlite_to_pg.py --truncate
@@ -65,17 +69,19 @@ python run.py
 
 **E2E 测试切换 PG**（默认仍走 SQLite，无依赖可跑）：
 ```bash
-export TEST_DATABASE_URL=postgresql://quant:quant_dev_pw@localhost:5432/decoration_quant_test
-SKIP_DB_CREATE_ALL=1 FLASK_APP=run.py flask db upgrade  # 建表
+export TEST_DATABASE_URL=postgresql://quant:quant_dev_pw@127.0.0.1:5433/decoration_quant_test
 python tests/test_orchestrator_e2e.py
 ```
 
 **开发日常命令**：
 ```bash
-flask db migrate -m "描述"    # 自动写新迁移
-flask db upgrade                # 应用迁移
-flask db stamp head             # 将已有库标记为已迁移（一次性）
+python -m flask db migrate -m "描述"   # 自动写新迁移
+python -m flask db upgrade               # 应用迁移
+python -m flask db stamp head            # 将已有库标记为已迁移（一次性）
 ```
+
+> 若 venv 是从别处移动过来的，`flask`/`python` 裸命令可能失效，改用绝对路径
+> `venv/bin/python -m flask ...` 与 `venv/bin/python ...`。
 
 ## 默认管理员
 

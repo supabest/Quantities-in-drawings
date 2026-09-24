@@ -20,6 +20,8 @@ import json
 import logging
 from collections import defaultdict
 
+from sqlalchemy import inspect
+
 from app import db
 from app.models import Measurement
 
@@ -43,11 +45,18 @@ GHOST_AREA_RATIO_RANGE = (0.5, 0.95)
 BOUNDARY_ADJACENCY_TOLERANCE_M = 0.35
 
 
-# ── SQLite 列迁移（幂等）──
+# ── 列迁移（幂等，跨 SQLite / PostgreSQL）──
 def ensure_zone_columns() -> None:
-    """Measurement 增加 zone_id/boundary_type 列（已有则跳过）。"""
-    with db.engine.connect() as conn:
-        cols = {row[1] for row in conn.exec_driver_sql('PRAGMA table_info(measurements)')}
+    """Measurement 增加 zone_id/boundary_type 列（已有则跳过）。
+
+    Phase 5a：原用 SQLite 专属 `PRAGMA table_info`，PG 不支持。
+    改用 SQLAlchemy inspect 探测列（双方言），ALTER TABLE ADD COLUMN 两库通用。
+    """
+    insp = inspect(db.engine)
+    if 'measurements' not in insp.get_table_names():
+        return
+    cols = {c['name'] for c in insp.get_columns('measurements')}
+    with db.engine.begin() as conn:
         if 'zone_id' not in cols:
             conn.exec_driver_sql('ALTER TABLE measurements ADD COLUMN zone_id VARCHAR(32)')
             logger.info("已添加 measurements.zone_id 列")
