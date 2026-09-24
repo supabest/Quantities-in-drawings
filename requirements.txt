@@ -16,3 +16,6 @@ python-dotenv==1.0.0
 email-validator==2.1.0
 openpyxl==3.1.2
 requests
+# Phase 5b · CAD 矢量解析
+ezdxf==1.4.2
+shapely>=2.0
