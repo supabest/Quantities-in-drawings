@@ -39,3 +39,6 @@ Thumbs.db
 
 # CAD 备份文件
 *.bak
+
+# 装修图纸原始/转换文件（DWG/DXF/PDF/xlsx 体积大，不入库）
+装修图纸/
