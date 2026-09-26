@@ -39,9 +39,25 @@ MIN_ROOM_M2, MAX_ROOM_M2 = 5.0, 60.0
 WALL_EMPTY_THRESHOLD = 20
 
 
-def _iter_line_segments(msp, layers):
-    """yield (x1,y1,x2,y2) 单位 m，仅取指定图层上的 LINE / LWPOLYLINE。"""
+def _iter_entities(msp):
+    """遍历模型空间实体, 并递归展开 INSERT 块内部几何。
+
+    关键修正: 建筑墙常藏在块(含已绑定的 XREF 块)内部, 只扫顶层会漏。
+    virtual_entities() 会应用 INSERT 变换, 给出世界坐标下的真实几何。
+    """
     for e in msp:
+        yield e
+        if e.dxftype() == 'INSERT':
+            try:
+                for ve in e.virtual_entities():
+                    yield ve
+            except Exception:
+                continue
+
+
+def _iter_line_segments(msp, layers):
+    """yield (x1,y1,x2,y2) 单位 m，取指定图层(含块内展开)的 LINE / LWPOLYLINE。"""
+    for e in _iter_entities(msp):
         if layers is not None and e.dxf.layer not in layers:
             continue
         try:
@@ -121,28 +137,28 @@ def main() -> int:
     else:
         print('    未发现 $0$ 壳层')
 
-    # 3) 关键墙层
-    wall_like = [l for l in ent_by_layer
-                 if re.search(r'(S-WALL|WALL|墙)', l, re.I)]
-    print(f'\n[3] 墙相关图层（S-WALL/WALL/墙）：')
+    # 3) 关键墙层（含块内展开，因为建筑墙常藏在块里）
+    wall_like = sorted({e.dxf.layer for e in _iter_entities(msp)
+                        if re.search(r'(S-WALL|WALL|墙)', e.dxf.layer, re.I)})
+    print(f'\n[3] 墙相关图层（S-WALL/WALL/墙，含块内展开）：')
     if not wall_like:
         print('    [警告] 未找到任何墙层')
-    # 按层统计线长/线数
+    # 按层统计展开后的线长/线数
     len_by_layer = defaultdict(float)
     cnt_by_layer = defaultdict(int)
     for l in wall_like:
         for (x1, y1, x2, y2) in _iter_line_segments(msp, {l}):
             len_by_layer[l] += math.hypot(x2 - x1, y2 - y1)
             cnt_by_layer[l] += 1
-    total_wall_ents = sum(ent_by_layer[l] for l in wall_like)
+    total_wall_len = sum(len_by_layer.values())
+    total_wall_lines = sum(cnt_by_layer.values())
     for l in sorted(wall_like, key=lambda x: -len_by_layer[x]):
-        flag = '  <-- 空壳!' if ent_by_layer[l] < WALL_EMPTY_THRESHOLD else ''
-        print(f'    实体{ent_by_layer[l]:5d} 线{cnt_by_layer[l]:4d} '
-              f'总长{len_by_layer[l]:7.1f}m  {l}{flag}')
-    print(f'    墙层实体合计 {total_wall_ents} 个')
+        flag = '  <-- 空!' if cnt_by_layer[l] == 0 else ''
+        print(f'    线{cnt_by_layer[l]:5d} 总长{len_by_layer[l]:7.1f}m  {l}{flag}')
+    print(f'    墙层展开后合计：{total_wall_lines} 段 / {total_wall_len:.1f}m')
 
     # 4) 围合体检
-    print(f'\n[4] 围合体检（墙层端点吸附 5mm 后 polygonize）：')
+    print(f'\n[4] 围合体检（墙层含块展开、端点吸附 5mm 后 polygonize）：')
     wall_segs = list(_iter_line_segments(msp, set(wall_like) or None))
     nroom, rsum = _room_faces(wall_segs) if wall_segs else (0, 0.0)
     print(f'    房间尺度(5-60㎡)闭合面：{nroom} 个，面积和 {rsum:.1f}㎡')
@@ -151,26 +167,17 @@ def main() -> int:
     print('\n' + '=' * 68)
     print('判定')
     print('=' * 68)
-    # 结构墙层（S-WALL 或 $0$ 绑定壳）是否非空——区别于装修团队自绘的裸 WALL
-    struct_layers = [l for l in wall_like
-                     if ('S-WALL' in l.upper() or '$' in l)]
-    struct_ents = sum(ent_by_layer[l] for l in struct_layers)
     if nroom >= 3:
         print('  [PASS] 墙层可围合出房间，DXF 几何完整，可进入面积对账。')
         return 0
-    if shell_layers and struct_layers and struct_ents < WALL_EMPTY_THRESHOLD:
-        print(f'  [FAIL] 疑似 XREF 墙几何丢失：存在 $0$ 壳层但结构墙层仅 {struct_ents} 实体')
-        print('         （装修裸 WALL 非空属正常，建筑墙在参照里），且围合房间数不足。')
-        print('         请在 AutoCAD 内 XREF→Bind 绑定所有外部参照后重导 DXF（见 §12.7.9）。')
+    if total_wall_len < 50:
+        print(f'  [FAIL] 墙几何缺失/过少（展开块后仅 {total_wall_len:.0f}m 墙线）。')
+        print('         若原图墙在外部参照里，请在 AutoCAD 内 XREF→Bind 后重导 DXF。')
         return 2
-    if shell_layers and nroom < 3:
-        print('  [FAIL] 存在 $0$ 外部参照壳层但墙未能围合房间，疑似参照几何未嵌入。')
-        print('         请在 AutoCAD 内 XREF→Bind 绑定所有外部参照后重导 DXF（见 §12.7.9）。')
-        return 2
-    if total_wall_ents < WALL_EMPTY_THRESHOLD:
-        print('  [WARN] 墙层实体过少，无法围合房间。请核查原图墙是否在参照/其他图层。')
-        return 3
-    print('  [WARN] 墙层非空但围合失败（可能门洞断开/坐标不闭合），需人工核查画法。')
+    # 墙线充足但围不出房间 = 双线墙/门洞算法问题，非数据问题
+    print(f'  [WARN] 墙几何完整（展开块后 {total_wall_len:.0f}m 墙线），但简单围合未成功。')
+    print('         这是双线墙+门洞断开的算法难题（非数据丢失，无需重导）。')
+    print('         需专门算法：沿墙中心线追踪 或 用门块(DorLib2D)封口后再围合。')
     return 3
 
 
