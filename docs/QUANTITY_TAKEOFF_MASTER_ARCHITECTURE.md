@@ -1362,6 +1362,6 @@ Phase 5a 的 PostgreSQL 迁移不受本决策影响，可**即刻开工**。
 
 **下一步（B）**：从各立面页（p28+）抽墙面/天花材料（按名称标注）→ 补齐“房间×（地面/墙面/天花）”完整矩阵，并将待核 45.5㎡ 的地面从做法表/立面落实。
 
-> 📄 **地面算量已沉淀为独立基线文档**：[`docs/FLOOR_QUANTITY_WORKFLOW.md`](FLOOR_QUANTITY_WORKFLOW.md)（数据源清单 + 算量规则 R1–R10 + 5 阶段工作流 + 基准值 + 失效点 + 参数表），后续优化以此为基线。
+> 📄 **算量过程已合并为单一手册**：[`docs/QUANTITY_TAKEOFF_MANUAL.md`](QUANTITY_TAKEOFF_MANUAL.md)（第一部分 作业纪律 + 第二部分 图纸分类总表 + 第三部分 地面算量规则 R1–R13/工作流/基准值/参数表）。原 `WORKING_DISCIPLINE / DRAWING_REGISTER / FLOOR_QUANTITY_WORKFLOW` 三份已并入此手册并删除。本文档回退为纯设计与决策日志。
 
 
