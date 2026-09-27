@@ -109,6 +109,8 @@
 
 ## 3. 标准工作流（分阶段，可复现）
 
+> ⚠️ 本工作流受 [`WORKING_DISCIPLINE.md`](WORKING_DISCIPLINE.md) 约束：**先出“空间×部位”分析表(含缺图反馈)→再出分阶段计划→两道确认门通过后才计算**。下方 Stage 0′/Stage 0 即纪律一/纪律二的落地。
+
 ```
 Stage 0′ 【R0 强制前置】图纸盘点与分类 —— 先找齐再干活
   ├─ 读 `02.目录`(图框图纸目录表) + [`DRAWING_REGISTER.md`](DRAWING_REGISTER.md)，按图号(List/G/P/E/CD/FD/SD/DQ/GD)分类
