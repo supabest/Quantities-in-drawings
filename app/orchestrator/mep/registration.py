@@ -148,6 +148,27 @@ def _inpoly(px, py, poly):
     return inside
 
 
+def _dist_poly(x, y, poly):
+    """点到多边形边界的最短距离（点到边，非点到顶点）。
+
+    墙装件端点常停在长墙中段，用顶点距离会系统性高估 → 误判未能归属（M5b 勘误）。
+    """
+    import math
+    n, best = len(poly), float("inf")
+    for k in range(n):
+        ax, ay = poly[k]
+        bx, by = poly[(k + 1) % n]
+        dx, dy = bx - ax, by - ay
+        if dx == dy == 0:
+            d = math.hypot(x - ax, y - ay)
+        else:
+            t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)))
+            d = math.hypot(x - (ax + t * dx), y - (ay + t * dy))
+        if d < best:
+            best = d
+    return best
+
+
 class RoomIndex:
     """标定后的房间归属索引（PDF pt 坐标）。"""
 
@@ -160,13 +181,12 @@ class RoomIndex:
         return cls([{**r, "poly_pt": to_pt(r["poly_mm"], tx, ty)} for r in rooms])
 
     def room_of(self, x, y, wall_tol=WALL_TOL_PT):
-        import math
         for r in self.rooms:
             if _inpoly(x, y, r["poly_pt"]):
                 return r["name"]
         best, bd = None, wall_tol
         for r in self.rooms:
-            dmin = min(math.hypot(x - px, y - py) for px, py in r["poly_pt"])
+            dmin = _dist_poly(x, y, r["poly_pt"])
             if dmin < bd:
                 bd, best = dmin, r["name"]
         return best
