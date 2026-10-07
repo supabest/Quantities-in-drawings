@@ -19,3 +19,8 @@ requests
 # Phase 5b · CAD 矢量解析
 ezdxf==1.4.2
 shapely>=2.0
+# Phase · 三维建模与 IFC/glTF 导出
+ifcopenshell==0.8.4.post1
+trimesh==4.12.2
+mapbox-earcut==2.1.0
+scipy==1.13.1
