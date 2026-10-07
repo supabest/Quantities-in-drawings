@@ -1,2 +1,4 @@
 # 开发/测试依赖（生产镜像不装）
+# 测试需导入 app 包（flask 全家桶）与主管线（opencv/numpy），故全量继承运行时依赖
+-r requirements.txt
 pytest>=8

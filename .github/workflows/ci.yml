@@ -15,7 +15,7 @@ jobs:
           python-version: '3.11'
       - name: Install deps
         run: pip install -r requirements-dev.txt
-      # Tier A 工件/纯函数层：小工件 json 入库即可跑，封算法改动是否破坏 M2/M3/M4 定案数字。
-      # Tier B（PDF 复算/全量配准）图纸不入库，CI 自动 skip 或 -m "not slow" 排除，本地全量执行。
-      - name: MEP golden regression
-        run: pytest tests/test_mep_golden.py tests/test_mep_module.py -v -m "not slow"
+      # 全量非 slow：MEP Tier A（封账工件/纯函数）+ 主管线 e2e（PNG识别→分区→审计→API）。
+      # Tier B（PDF 复算/全量配准）图纸不入库，slow 标记排除 + skipif 自动跳，本地全量执行。
+      - name: Test suite (MEP golden + orchestrator e2e)
+        run: pytest tests/ -v -m "not slow"
