@@ -629,7 +629,7 @@ def _detect_doors_and_windows(img, scale, room=None):
     rx, ry, rw, rh = room['bbox'] if room else (0, 0, img.shape[1], img.shape[0])
 
     for line in lines:
-        x1, y1, x2, y2 = line[0]
+        x1, y1, x2, y2 = np.ravel(line)[:4]   # OpenCV 5.x HoughLinesP 返回 (N,4)，旧版 (N,1,4)——ravel 兼容
         length = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         length_m = length / scale
 
@@ -675,7 +675,7 @@ def _detect_wall_surfaces(img, scale):
     # Group lines into wall segments
     segments = []
     for line in lines:
-        x1, y1, x2, y2 = line[0]
+        x1, y1, x2, y2 = np.ravel(line)[:4]   # 兼容 OpenCV 5.x (N,4) 与旧版 (N,1,4)
         length = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         length_m = length / scale
 

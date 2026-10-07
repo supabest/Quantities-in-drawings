@@ -27,6 +27,8 @@ class TestConfig(_cfg.Config):
         SQLALCHEMY_ENGINE_OPTIONS = {'connect_args': {'timeout': 30}}
     UPLOAD_FOLDER = TMP + '/uploads'
     REPORTS_FOLDER = TMP + '/reports'
+    # 安全修复后 admin 密码走配置通道（无默认值）：测试显式钉一个已知密码供登录冒烟
+    ADMIN_PASSWORD = 'admin123456'
 
 from app import create_app, db
 from app.models import User, Project, Drawing, Measurement, HistoricalProject
