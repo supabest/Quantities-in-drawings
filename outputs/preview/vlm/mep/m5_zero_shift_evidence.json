@@ -1,0 +1,8 @@
+{
+ "method": "cv2.matchTemplate TM_CCORR_NORMED; template=P01标定户型面内墨迹(膨胀15px,排除图框/标题栏); image=目标页erode1墙影@150dpi",
+ "self_check_P01_peak_shift_pt": [0.5, -0.5], "self_check_corr": 0.363,
+ "P08_peak_shift_pt": [0.5, -0.5], "P08_corr": 0.350,
+ "P09_peak_shift_pt": [0.5, -0.5], "P09_corr": 0.349,
+ "conclusion": "P08/P09 户型与 P01 同位置(零平移<1pt)，M2 标定(tx=-1478317.20,ty=6457826.22)直接复用；目视证据 m5_p08_overlay.png",
+ "M4_correction": "M4 遗留清单第1条'双平面'判定作废，真因=锚点为注记列文字bbox，走引线追踪(m5_P08_rows/m5_P09_rows)"
+}

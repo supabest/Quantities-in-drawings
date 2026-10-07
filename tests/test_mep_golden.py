@@ -129,3 +129,48 @@ def test_p08_usb_dedup_sealed():
         if not any(math.hypot(cx - ux, cy - uy) < 15 for ux, uy in seen):
             seen.append((cx, cy))
     assert len(seen) == SEALED["usb"], "USB 去重后应为通注的 6 个"
+
+
+# ── M5：P08/P09 引线追踪归属（mep_takeoff_m5.md） ─────────────────
+@pytest.mark.skipif(not os.path.exists(os.path.join(ART, "m5_zero_shift_evidence.json")),
+                    reason="M5 工件不在库")
+def test_m5_zero_shift_evidence():
+    j = _load("m5_zero_shift_evidence.json")
+    # 零平移：P08/P09 最强峰相对 P01 平移 <1pt（双平面误判已勘误）
+    for k in ("P08", "P09"):
+        sx, sy = j[f"{k}_peak_shift_pt"]
+        assert abs(sx) < 1.0 and abs(sy) < 1.0, f"{k} 子平面平移非零，标定复用前提破坏"
+
+
+@pytest.mark.skipif(not os.path.exists(os.path.join(ART, "m5_P08_rows.json")),
+                    reason="M5 工件不在库")
+def test_m5_attribution_totals_match_m2():
+    """引线归属不改变量：每类 Σn 必须等于 M2 封账计数。"""
+    m2 = _load("m2_counts_clean.json")
+    rows = _load("m5_P08_rows.json")
+    got = {}
+    for r in rows:
+        got[r["kind"]] = got.get(r["kind"], 0) + r["n"]
+    for kind, v in got.items():
+        assert v == m2["18"][kind]["total"], f"P08 {kind} 归属Σ{v} != M2 封账 {m2['18'][kind]['total']}"
+    rows9 = _load("m5_P09_rows.json")
+    t9 = _load("m2_textcounts.json")["19"]["counts"]
+    got9 = {}
+    for r in rows9:
+        got9[r["kind"]] = got9.get(r["kind"], 0) + r["n"]
+    for kind, v in got9.items():
+        assert v == t9[kind], f"P09 {kind} 归属Σ{v} != M2 封账 {t9[kind]}"
+
+
+@pytest.mark.skipif(not os.path.exists(os.path.join(ART, "m5_P09_rows.json")),
+                    reason="M5 工件不在库")
+def test_m5_semantic_anchors():
+    """语义铁律抽查：燃气/洗衣机在生阳台，四浴室各有且仅有 1 马桶角阀。"""
+    rows9 = _load("m5_P09_rows.json")
+    room = {r["kind"]: r["room"] for r in rows9 if r["room"] != "未能归属"}
+    assert room["燃气点"] == "生活阳台"
+    assert room["洗衣机龙头"] == "生活阳台"
+    assert room["浴缸龙头"] == "主人浴室"
+    toilets = [r["room"] for r in rows9 if r["kind"] == "马桶/喷枪角阀" and r["room"] != "未能归属"]
+    assert sorted(toilets) == sorted(["主人浴室", "浴室一", "浴室二", "浴室三"]), "四浴室应各 1 马桶角阀"
+
