@@ -30,9 +30,10 @@ class Config:
     # Pagination
     ITEMS_PER_PAGE = 12
 
-    # Default admin credentials (first run)
+    # Default admin (first run)：不再内置默认密码。
+    # 未设 ADMIN_PASSWORD 时首次启动随机生成一次性密码，仅打印一次供登录后立即修改。
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL') or 'admin@decoration-quant.com'
-    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') or 'admin123456'
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')  # None → 随机一次性密码
 
     # 套价系统联动 (decoration-pricing-system)
     PRICING_API_BASE_URL = os.environ.get('PRICING_API_BASE_URL') or 'http://localhost:8000'

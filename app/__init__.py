@@ -14,6 +14,20 @@ login_manager.login_message_category = 'warning'
 migrate = Migrate()
 
 
+def _admin_initial_password(app):
+    """首次 seed 用管理员密码：优先环境变量；未配置则随机生成一次性密码，
+    仅在本启动日志打印一次（不落库明文、不写文件），登录后请立即修改。"""
+    pwd = app.config.get('ADMIN_PASSWORD')
+    if pwd:
+        return pwd
+    import secrets
+    pwd = secrets.token_urlsafe(12)
+    app.logger.warning(
+        '未设置 ADMIN_PASSWORD：已为 admin 生成一次性密码：%s '
+        '（仅此一次显示，请立即登录并修改）', pwd)
+    return pwd
+
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -54,7 +68,7 @@ def create_app(config_class=Config):
                 is_admin=True,
                 is_approved=True
             )
-            admin.set_password(app.config['ADMIN_PASSWORD'])
+            admin.set_password(_admin_initial_password(app))
             db.session.add(admin)
             db.session.commit()
 

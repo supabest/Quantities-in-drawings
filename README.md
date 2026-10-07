@@ -1,42 +1,51 @@
 # 装修图纸自动计量系统
 
-基于计算机视觉的 Web 应用，自动识别装修平面图中的房间、墙体、门窗等构件，计算面积、周长、数量等工程数据，一键生成计量报告。
+装修/机电工程量自动计算（takeoff）项目，包含**两条技术路线**：
 
-## 功能特性
+| 路线 | 位置 | 输入 | 状态 |
+|---|---|---|---|
+| **矢量算量主线** | `modeling/` + `app/orchestrator/` + 手册 `docs/QUANTITY_TAKEOFF_MANUAL.md` | DXF（模型空间）+ 施工图纸 PDF（矢量 drawings/文字） | **主力**：227户型墙/地/天/固装/机电全专业已封账 |
+| 位图 Web 应用 | `app/processing.py` + Flask 模板 | 位图平面图（PNG/JPG/…） | 遗留管线：仅适用无矢量源扫描件 |
 
-- **用户认证系统** — 账户申请审批制，保护知识产权
-- **图纸上传与管理** — 支持 PNG、JPG、BMP、TIFF 格式
-- **自动计量** — OpenCV 计算机视觉管线自动分析图纸
-  - 🏠 房间检测与面积、周长计算
-  - 🧱 墙体长度检测
-  - 🚪 门窗识别与计数
-  - 📊 构件统计
-- **图纸标注** — 在原图上叠加标注结果（面积标签、轮廓线）
-- **完整报告** — HTML 格式计量报告，支持下载
-- **管理员面板** — 用户审批、启用/禁用、删除
-- **轻量部署** — 支持 Docker 一键部署到轻量云
+## 核心纪律（详见算量手册第一部分）
+
+- **几何是数值唯一来源**；BOQ/清单仅作列项与单位模板，生产对账不依赖 BOQ。
+- **三态账目**：已确认 / 图上没有（走单方估算并披露）/ 未能读取（挂账），每行带计算式。
+- 估算（D 层单方）永不与图纸实测混账。
+
+## 矢量算量主线
+
+- **建模**：`modeling/run_model.py` 由定稿 DXF 提取墙/房间/门窗，产出
+  `outputs/model/` 下 GLB / IFC / DXF 与各专业 takeoff 表（楼面/天花/墙面/固装）。
+- **图纸识读**：`app/orchestrator/` 对整套施工图纸 PDF 做页分析、标定（px/m 校验）、
+  分区（zone）、覆盖度与审计；`app/orchestrator/mep/` 沉淀 MEP 能力
+  （`registration` 配准+归属索引，`counts` 文字锚/回路解析）。
+- **机电 MEP 算量（M1→M4 封账）**：
+  `outputs/model/mep_legends.md`（图例建档）→ `mep_takeoff_m2.md`（点位计数 +
+  DXF↔PDF 配准房间归属）→ `mep_takeoff_m3.md`（照明回路拓扑）→ `mep_takeoff_m4.md`
+  （对账定案 + 三态总账）。
+- **回归基准**：`tests/test_mep_golden.py` 以封账数字为 golden set，改动提取算法后
+  自动比对（图纸在库本地时可全量复算，否则跑工件一致性层）。
+
+## Web 应用（位图管线）
+
+- 用户认证（账户申请审批制）、图纸上传、OpenCV 自动分析（轮廓=房间面积/周长、
+  Hough=墙长、门窗计数）、标注叠加、HTML 报告、管理员面板。
+- 处理流程：上传 → 预处理（灰度/去噪/二值化/形态学）→ 轮廓检测 → 线检测 →
+  构件识别 → 标注叠加 → 报告生成。
+- 注意：位图管线无语义、无比例标定，精度有天然上限；有 DXF/矢量 PDF 时一律走主线。
 
 ## 快速开始
 
 ### 本地开发
 
 ```bash
-# 1. 进入项目目录
 cd decoration-quantity
-
-# 2. 创建虚拟环境
 python3 -m venv venv
-source venv/bin/activate  # macOS/Linux
-# venv\Scripts\activate   # Windows
-
-# 3. 安装依赖
+source venv/bin/activate  # macOS/Linux；Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# 4. 运行
-python3 run.py
+python3 run.py            # http://localhost:5000
 ```
-
-访问 http://localhost:5000
 
 ### Docker 部署
 
@@ -83,20 +92,23 @@ python -m flask db stamp head            # 将已有库标记为已迁移（一�
 > 若 venv 是从别处移动过来的，`flask`/`python` 裸命令可能失效，改用绝对路径
 > `venv/bin/python -m flask ...` 与 `venv/bin/python ...`。
 
-## 默认管理员
+## 管理员账号（无默认密码）
 
-| 邮箱 | 密码 |
-|------|------|
-| admin@decoration-quant.com | admin123456 |
+系统**不再内置默认密码**。首次启动 seed admin 时：
 
-⚠️ **生产环境请务必修改默认密码！**
+- 设置了环境变量 `ADMIN_PASSWORD` → 直接使用；
+- 未设置 → 自动生成**一次性随机密码，仅在启动日志打印一次**，请立即登录修改。
+
+```bash
+export ADMIN_EMAIL="you@example.com"
+export ADMIN_PASSWORD="强密码"    # 推荐写入 .env（参考 .env.example）
+```
 
 ## 技术栈
 
-- **后端**：Python 3.9 / Flask / SQLAlchemy
+- **后端**：Python 3.9 / Flask / SQLAlchemy（Alembic 迁移，SQLite↔PG）
+- **矢量解析**：PyMuPDF（PDF drawings/text）、ezdxf、shapely、numpy/OpenCV（栅格辅助目视验证）
 - **前端**：HTML / CSS / JavaScript (Jinja2 模板)
-- **数据库**：SQLite（开发）/ PostgreSQL（生产）
-- **图像处理**：OpenCV / NumPy
 - **部署**：Docker / Gunicorn / Nginx
 
 ## 项目结构
@@ -104,31 +116,25 @@ python -m flask db stamp head            # 将已有库标记为已迁移（一�
 ```
 decoration-quantity/
 ├── app/
-│   ├── __init__.py      # Flask 应用工厂
+│   ├── __init__.py      # Flask 应用工厂（含 admin seed）
 │   ├── models.py        # 数据模型
 │   ├── auth.py          # 认证路由
 │   ├── routes.py        # 主路由
 │   ├── api.py           # API 路由
-│   ├── processing.py    # 图像处理引擎
+│   ├── processing.py    # 位图图像管线（遗留路线）
+│   ├── orchestrator/    # 矢量图纸识读/标定/分区/审计（主线）
 │   ├── templates/       # HTML 模板
-│   └── static/          # 静态文件
-│       ├── css/
-│       ├── js/
-│       ├── uploads/     # 上传的图纸
-│       └── reports/     # 生成的报告
+│   └── static/          # 静态文件（uploads/ reports/）
+├── modeling/            # DXF→模型与各专业 takeoff（主线）
+├── docs/                # 算量手册与专题文档
+├── outputs/model/       # 封账产出（各专业 takeoff 表、MEP M1-M4 报告）
+├── scripts/             # 健康检查/迁移等工具脚本
+├── tests/               # E2E 与 golden 回归测试
 ├── deploy/              # 部署文档
-├── Dockerfile
-├── docker-compose.yml
+├── migrations/          # Alembic
+├── Dockerfile / docker-compose.yml
 ├── config.py            # 配置
 └── run.py               # 入口
 ```
 
-## 处理流程
-
-1. **上传图纸** — 拖拽或选择平面图
-2. **图像预处理** — 灰度化、去噪、二值化、形态学操作
-3. **轮廓检测** — 查找房间边界轮廓，过滤噪声
-4. **线检测** — Hough 变换检测墙体线段
-5. **构件识别** — 检测门窗等构件
-6. **标注叠加** — 在原图上绘制检测结果
-7. **报告生成** — 汇总所有测量数据，生成 HTML 报告
+> 原始图纸目录 `装修图纸/` 体积大且涉密，已在 `.gitignore` 中排除，不入库。

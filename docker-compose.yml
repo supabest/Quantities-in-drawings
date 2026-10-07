@@ -31,7 +31,7 @@ services:
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
       - FLASK_DEBUG=0
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@decoration-quant.com}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123456}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-quant}:${POSTGRES_PASSWORD:-quant_dev_pw}@db:5432/decoration_quant
     volumes:
       - ./app/static/uploads:/app/app/static/uploads
