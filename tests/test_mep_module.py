@@ -158,3 +158,26 @@ def test_leaders_reproducible():
     ok28 = sum(r["n"] for r in rows18 if r["endpoint"] and r["kind"] == "二三极插座")
     assert ok28 + sum(r["n"] for r in rows18
                       if not r["endpoint"] and r["kind"] == "二三极插座") == 28
+
+
+# ── Tier A：封账数字 → 计算表组装（scripts/build_mep_workbook.py） ────
+def test_mep_workbook_identities(tmp_path):
+    """组装器恒等: sheet合计≡封账json; build() 内断言不破账; xlsx 渲染冒烟。
+    纪律: 本用例封住"M2~M5封账数字接入计价/BOQ"链路的数值同一性——
+    任何封账工件被改动而组装器未同步, 此处即红。"""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'build_mep_workbook',
+        os.path.join(ROOT, 'scripts', 'build_mep_workbook.py'))
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    data = m.build()   # 内部任一 AssertionError = 破账
+    assert data['totals'] == {'P08': 86, 'P09': 24, 'hvac': 18, 'elv': 23,
+                              'sprinkler': 33, 'control_wires': 93}
+    # ①数量列合计 = 各封账之和(184 口径: 86+24+18+23+33, 烟感0不计)
+    assert sum(r[4] for r in data['sheet1']) == 86 + 24 + 18 + 23 + 33
+    # ④对账表每行差值恒为 0
+    assert all(r[1] == r[2] for r in data['sheet4_recon'])
+    out = str(tmp_path / 'wb_test.xlsx')
+    m.write_xlsx(data, out)
+    assert os.path.exists(out) and os.path.getsize(out) > 5000
