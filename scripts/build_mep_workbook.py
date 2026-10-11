@@ -39,22 +39,45 @@ def _unit(kind):
     return '台' if any(b in kind for b in BOX_UNIT_KINDS) else '个'
 
 
-def _agg_rows(rows):
-    """rows → OrderedDict[(kind, room)] = {'n': Σn, 'parts': [每行n]}，按 kind/room 排序稳定。"""
+def _agg_rows(rows, flags=None):
+    """rows → OrderedDict[(kind, room, 待核)] = {'n': Σn, 'parts': [每行n]}，排序稳定。
+
+    按"是否待核"拆行聚合(同一 kind+room 内部分行撞车时不会误标全组)，总量恒等不变。"""
+    flags = flags or [False] * len(rows)
     g = defaultdict(lambda: {'n': 0, 'parts': []})
-    for r in rows:
-        k = (r['kind'], r['room'])
+    for r, f in zip(rows, flags):
+        k = (r['kind'], r['room'], bool(f))
         g[k]['n'] += r['n']
         g[k]['parts'].append(r['n'])
     out = OrderedDict()
-    for k in sorted(g, key=lambda x: (x[0], x[1])):
+    for k in sorted(g, key=lambda x: (x[0], x[1], x[2])):
         out[k] = g[k]
     return out
 
 
-def _state(room):
+def _collision_flags(rows):
+    """行→ bool: 该引线端点是否与其**他专业类别**的行共用同一落点。
+
+    失效模式(M5c §8): 行走器遇长直线(墙线/轴网/尺寸界线)会骑上去直走，
+    同一注记簇里多条文字都骑同一条线 → 收敛到同一落点。不同类别的点位
+    物理上不可能共点 → 这些行的房间归属不可信(数量仍可信)。
+    未追通行无端点 → False(已是"未能读取"挂账, 优先级更高)。
+    同类共用的行不算在内(可能为 X2 乘数表达), 另作附加披露。
+    """
+    g = defaultdict(list)
+    for r in rows:
+        if r.get('endpoint'):
+            g[tuple(round(v, 1) for v in r['endpoint'])].append(r['kind'])
+    return [bool(r.get('endpoint'))
+            and len(set(g[tuple(round(v, 1) for v in r['endpoint'])])) > 1
+            for r in rows]
+
+
+def _state(room, collide=False):
     if room == '未能归属':
         return '未能读取(挂账)'
+    if collide:
+        return '归属待核(端点与其类引线共用)'
     if room.startswith('(无名'):
         return '落域·房间名待核'
     return '已确认'
@@ -98,17 +121,28 @@ def build():
 
     # ── Sheet 点位数量账(A 层图纸实测) ──
     s1 = []   # (专业, kind, room, unit, n, formula, trace, state)
+    pend = {}     # tag -> {'rows': 待核行数, 'n': 待核件数}
+    by_tag = {}   # tag -> (rows, flags)
     for tag, rows, closed, page in (('P08', rows8, m2['18'], 'P08 强电点位平面图'),
                                     ('P09', rows9, t9, 'P09 给排水点位平面图')):
-        agg = _agg_rows(rows)
-        kinds = sorted({k for k, _ in agg})
+        flags = _collision_flags(rows)
+        by_tag[tag] = (rows, flags)
+        kept = [(r, f) for r, f in zip(rows, flags) if f and r['room'] != '未能归属']
+        pend[tag] = {'rows': len(kept), 'n': sum(r['n'] for r, _ in kept),
+                     'rows_all': sum(1 for f in flags if f)}
+        agg = _agg_rows(rows, flags)
+        kinds = sorted({k for k, _, _ in agg})
         for kind in kinds:
-            sub = {r: v for (k, r), v in agg.items() if k == kind}
-            for room, v in sub.items():
+            sub = {(r, pd): v for (k, r, pd), v in agg.items() if k == kind}
+            for (room, is_pend), v in sub.items():
                 expr = f"{v['n']}" if len(v['parts']) == 1 else 'Σ' + '+'.join(map(str, v['parts']))
                 s1.append(('强电' if tag == 'P08' else '给排水', kind, room, _unit(kind),
                            v['n'], f'{expr}（{tag}归属行{len(v["parts"])}条聚合）',
-                           page, _state(room)))
+                           page, _state(room, is_pend)))
+    # 拆行聚合(新增待核维度)不得丢量/重量: 每页拆后Σ仍须等于封账
+    for tag, page in (('P08', 'P08 强电点位平面图'), ('P09', 'P09 给排水点位平面图')):
+        got = sum(r[4] for r in s1 if r[6] == page)
+        assert got == totals[tag], f'{tag} 待核拆行后聚合Σ{got} != 封账{totals[tag]}(丢量或重量)'
     for pg, disc, note in (('23', '空调通风', 'M4已逐点落域,明细见m2_attribution.json'),
                            ('24', '智能化弱电', 'M4已逐点落域,明细见m2_attribution.json')):
         for kind, v in sorted(m2[pg].items()):
@@ -180,11 +214,31 @@ def build():
         ('烟感/水浸布置、给水管网、冷媒/喷淋/弱电管网、配电系统图', '图上没有 → 走D层单方或缺图披露', 'M4§4 三态总账'),
     ]
 
+    # 归属待核清单: 数量已计入账, 但引线端点与其类共用 → 房间归属不可信(M5c §8)
+    s4_pend = []
+    for tag in ('P08', 'P09'):
+        rows, flags = by_tag[tag]
+        grp = defaultdict(lambda: {'n': 0, 'rooms': set(), 'pts': set()})
+        for r, f in zip(rows, flags):
+            if f and r['room'] != '未能归属':
+                k = (r['kind'], r['room'])
+                grp[k]['n'] += r['n']
+                grp[k]['rooms'].add(r['room'])
+                grp[k]['pts'].add(tuple(round(v) for v in r['endpoint']))
+        for (kind, room), v in sorted(grp.items()):
+            pts = ', '.join(f'({x},{y})' for x, y in sorted(v['pts']))
+            s4_pend.append((f'{tag} {kind} ×{v["n"]}', room, pts))
+    pend_n = pend['P08']['n'] + pend['P09']['n']
+    s4_pend.append(('合计', f'{pend["P08"]["rows"] + pend["P09"]["rows"]} 行 / {pend_n} 件',
+                    f'另有撞车但已属挂账 {pend["P08"]["rows_all"] + pend["P09"]["rows_all"] - pend["P08"]["rows"] - pend["P09"]["rows"]} 行(计在上方挂账清单); '
+                    '数量已计且计入Σ恒等, 仅房间归属存疑, 修好引线追踪后自动消除'))
+
     return {
         'totals': totals,
+        'pending': pend,
         'sheet1': s1,
         'sheet2': s2, 'sheet3': s3, 'sheet3_len': s3_len,
-        'sheet4_recon': s4_recon, 'sheet4_open': s4_open,
+        'sheet4_recon': s4_recon, 'sheet4_open': s4_open, 'sheet4_pend': s4_pend,
         'd_meta': {'type': t['label'], 'factor': f_, 'S': DEC_AREA_S,
                    'disclaimer': ind['meta']['disclaimer'], 'version': ind['meta']['version']},
     }
@@ -200,6 +254,7 @@ def write_xlsx(data, path=OUT_PATH):
     head_fill = PatternFill('solid', fgColor='4472C4')
     sect_fill = PatternFill('solid', fgColor='D9E1F2')
     open_fill = PatternFill('solid', fgColor='FFF2CC')
+    pend_fill = PatternFill('solid', fgColor='FCE4D6')   # 归属待核(区别于挂账)
     bold = Font(bold=True)
     wrap = Alignment(vertical='top', wrap_text=True)
 
@@ -281,12 +336,20 @@ def write_xlsx(data, path=OUT_PATH):
         ws.append([src, a, b, a - b, note])
         assert a == b, f'对账破账: {src} {a} != {b}'
     ws.append([])
-    ws.append(['挂账清单(未能读取/待复核, 如实单列)', '', '', '', ''])
+    ws.append(['挂账清单(未能读取, 如实单列)', '', '', '', ''])
     ws[ws.max_row][0].font = bold
     for item, why, src in data['sheet4_open']:
         ws.append([item, '', '', '', f'{why} | 来源: {src}'])
         for c in ws[ws.max_row]:
             c.fill = open_fill
+    ws.append([])
+    ws.append(['归属待核清单(数量已计, 房间归属存疑 — 引线端点与其类共用)', '', '', '', ''])
+    ws[ws.max_row][0].font = bold
+    for item, room, pts in data['sheet4_pend']:
+        detail = f'{room} | {pts}' if item == '合计' else f'现判房间={room} | 共用端点 {pts}'
+        ws.append([item, '', '', '', detail])
+        for c in ws[ws.max_row]:
+            c.fill = pend_fill
     finish(ws, ws.max_row, 5)
 
     wb.save(path)
@@ -300,6 +363,9 @@ def main():
     print('恒等断言全部通过:')
     for k, v in t.items():
         print(f'  {k} = {v}')
+    pd = data['pending']
+    print(f"归属待核(数量已计, 端点与其类引线共用, 房间待修追踪后重判): "
+          f"P08 {pd['P08']['rows']}行/{pd['P08']['n']}件, P09 {pd['P09']['rows']}行/{pd['P09']['n']}件")
     print('产物:', p)
 
 

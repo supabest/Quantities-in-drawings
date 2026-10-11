@@ -176,6 +176,11 @@ def test_mep_workbook_identities(tmp_path):
                               'sprinkler': 33, 'control_wires': 93}
     # ①数量列合计 = 各封账之和(184 口径: 86+24+18+23+33, 烟感0不计)
     assert sum(r[4] for r in data['sheet1']) == 86 + 24 + 18 + 23 + 33
+    # 归属待核(M5c §8: 引线端点与其专业类别共用 → 房间不可信, 数量不动仅状态降级)
+    assert data['pending'] == {'P08': {'rows': 33, 'n': 37, 'rows_all': 33},
+                               'P09': {'rows': 10, 'n': 10, 'rows_all': 10}}
+    # 待核拆行聚合不得丢量/重量: 待核件数 47 = 37(P08) + 10(P09)
+    assert sum(r[4] for r in data['sheet1'] if r[7].startswith('归属待核')) == 47
     # ④对账表每行差值恒为 0
     assert all(r[1] == r[2] for r in data['sheet4_recon'])
     out = str(tmp_path / 'wb_test.xlsx')
