@@ -1,0 +1,669 @@
+{
+ "page": 18,
+ "sealed_by": "M5f 补账裁定 2026-10-11: ①并类(§7.2.1) + 带防水按防水盖计 + ②选B(盒类不计/灯带线计点) + ③照数",
+ "m2_closed": 86,
+ "supplement_n": 21,
+ "resealed": 107,
+ "visible_n": 14,
+ "invisible_n": 10,
+ "rows": [
+  {
+   "kind": "厨电10A(符号)",
+   "n": 1,
+   "anchor": [
+    541.4,
+    300.3
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": false,
+   "wall_dist": 5.7,
+   "bbox": [
+    541.3,
+    300.0,
+    541.5,
+    300.6
+   ],
+   "label": "3孔插座",
+   "text": "3孔插座",
+   "size": 0.18,
+   "visible": false,
+   "leader": false,
+   "boq": "图例\"3孔普通厨电插座250V,10A\"; 清单无同名项",
+   "basis": "①已裁: 3孔单列不并类",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "二三极插座",
+   "n": 1,
+   "anchor": [
+    666.4,
+    316.6
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": false,
+   "wall_dist": 0.8,
+   "bbox": [
+    666.3,
+    316.3,
+    666.5,
+    316.9
+   ],
+   "label": "5孔插座",
+   "text": "5孔插座",
+   "size": 0.18,
+   "visible": false,
+   "leader": false,
+   "boq": "ZS02-B-061 单相二、三极插座(227审31)",
+   "basis": "①已裁: 5孔=二三极同物(图例无独立5孔型号)",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "二三极插座",
+   "n": 1,
+   "anchor": [
+    541.4,
+    317.2
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": false,
+   "wall_dist": 5.7,
+   "bbox": [
+    541.3,
+    317.0,
+    541.5,
+    317.5
+   ],
+   "label": "5孔插座",
+   "text": "5孔插座",
+   "size": 0.18,
+   "visible": false,
+   "leader": false,
+   "boq": "ZS02-B-061 单相二、三极插座(227审31)",
+   "basis": "①已裁: 5孔=二三极同物(图例无独立5孔型号)",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "二三极插座",
+   "n": 1,
+   "anchor": [
+    541.4,
+    334.2
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": false,
+   "wall_dist": 5.7,
+   "bbox": [
+    541.3,
+    333.9,
+    541.5,
+    334.4
+   ],
+   "label": "5孔插座",
+   "text": "5孔插座",
+   "size": 0.18,
+   "visible": false,
+   "leader": false,
+   "boq": "ZS02-B-061 单相二、三极插座(227审31)",
+   "basis": "①已裁: 5孔=二三极同物(图例无独立5孔型号)",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "二三极插座",
+   "n": 1,
+   "anchor": [
+    664.0,
+    343.6
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 1.6,
+   "bbox": [
+    663.9,
+    343.3,
+    664.1,
+    343.9
+   ],
+   "label": "5孔插座",
+   "text": "5孔插座",
+   "size": 0.18,
+   "visible": false,
+   "leader": false,
+   "boq": "ZS02-B-061 单相二、三极插座(227审31)",
+   "basis": "①已裁: 5孔=二三极同物(图例无独立5孔型号)",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "二三极插座",
+   "n": 1,
+   "anchor": [
+    664.0,
+    346.0
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 1.6,
+   "bbox": [
+    663.9,
+    345.7,
+    664.1,
+    346.3
+   ],
+   "label": "5孔插座",
+   "text": "5孔插座",
+   "size": 0.18,
+   "visible": false,
+   "leader": false,
+   "boq": "ZS02-B-061 单相二、三极插座(227审31)",
+   "basis": "①已裁: 5孔=二三极同物(图例无独立5孔型号)",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "防水插座",
+   "n": 1,
+   "anchor": [
+    614.6,
+    280.1
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": false,
+   "wall_dist": 1.7,
+   "bbox": [
+    614.1,
+    280.0,
+    615.2,
+    280.2
+   ],
+   "label": "5孔插座带防水",
+   "text": "5孔插座带防水",
+   "size": 0.18,
+   "visible": false,
+   "leader": false,
+   "boq": "ZS02-B-061 单相二、三极防溅插座(227审7)",
+   "basis": "①推论+M5f裁定: 按带防水盖计; 注:符号未画图例规定的W",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "防水插座",
+   "n": 1,
+   "anchor": [
+    617.2,
+    280.1
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": false,
+   "wall_dist": 1.7,
+   "bbox": [
+    616.6,
+    280.0,
+    617.7,
+    280.2
+   ],
+   "label": "5孔插座带防水",
+   "text": "5孔插座带防水",
+   "size": 0.18,
+   "visible": false,
+   "leader": false,
+   "boq": "ZS02-B-061 单相二、三极防溅插座(227审7)",
+   "basis": "①推论+M5f裁定: 按带防水盖计; 注:符号未画图例规定的W",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "防水插座",
+   "n": 1,
+   "anchor": [
+    619.7,
+    280.1
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": false,
+   "wall_dist": 1.7,
+   "bbox": [
+    619.2,
+    280.0,
+    620.2,
+    280.2
+   ],
+   "label": "5孔插座带防水",
+   "text": "5孔插座带防水",
+   "size": 0.18,
+   "visible": false,
+   "leader": false,
+   "boq": "ZS02-B-061 单相二、三极防溅插座(227审7)",
+   "basis": "①推论+M5f裁定: 按带防水盖计; 注:符号未画图例规定的W",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "冰箱插座",
+   "n": 1,
+   "anchor": [
+    565.8,
+    314.5
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 18.7,
+   "bbox": [
+    558.7,
+    312.5,
+    572.9,
+    316.5
+   ],
+   "label": "冰箱插座",
+   "text": "冰箱插座",
+   "size": 3.78,
+   "visible": true,
+   "leader": false,
+   "boq": "ZS02-B-072 冰箱插座(227审4)",
+   "basis": "④用途名单列",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "冰箱插座",
+   "n": 1,
+   "anchor": [
+    565.8,
+    331.7
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 18.1,
+   "bbox": [
+    558.7,
+    329.7,
+    572.9,
+    333.7
+   ],
+   "label": "冰箱插座",
+   "text": "冰箱插座",
+   "size": 3.78,
+   "visible": true,
+   "leader": false,
+   "boq": "ZS02-B-072 冰箱插座(227审4)",
+   "basis": "④用途名单列",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "备用插座",
+   "n": 1,
+   "anchor": [
+    640.8,
+    331.4
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 17.9,
+   "bbox": [
+    633.7,
+    329.4,
+    647.9,
+    333.4
+   ],
+   "label": "备用插座",
+   "text": "备用插座",
+   "size": 3.78,
+   "visible": true,
+   "leader": false,
+   "boq": "建议并入 ZS02-B-061 单相二、三极插座(227审31)",
+   "basis": "③照数; 非专用电器, 台面备用",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "水槽插座",
+   "n": 1,
+   "anchor": [
+    611.0,
+    309.2
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 27.4,
+   "bbox": [
+    603.9,
+    307.2,
+    618.1,
+    311.2
+   ],
+   "label": "水槽插座",
+   "text": "水槽插座",
+   "size": 3.78,
+   "visible": true,
+   "leader": false,
+   "boq": "清单无同名项(计价时需定并入项)",
+   "basis": "③照数(定位待橱柜深化)",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "洗碗机电源",
+   "n": 1,
+   "anchor": [
+    612.2,
+    320.5
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 31.6,
+   "bbox": [
+    603.3,
+    318.5,
+    621.1,
+    322.5
+   ],
+   "label": "洗碗机电源",
+   "text": "洗碗机电源",
+   "size": 3.78,
+   "visible": true,
+   "leader": false,
+   "boq": "清单无同名项(计价时需定并入项)",
+   "basis": "③照数(定位待橱柜深化)",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "烟机电源",
+   "n": 1,
+   "anchor": [
+    640.3,
+    313.3
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 15.7,
+   "bbox": [
+    633.2,
+    311.3,
+    647.4,
+    315.3
+   ],
+   "label": "烟机电源",
+   "text": "烟机电源",
+   "size": 3.78,
+   "visible": true,
+   "leader": false,
+   "boq": "ZS02-B-072 单相三极油烟机防溅插座(227审1)",
+   "basis": "③照数; 清单为独立列项故不单并入防水类",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "烤箱插座",
+   "n": 1,
+   "anchor": [
+    565.8,
+    297.7
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 15.9,
+   "bbox": [
+    558.7,
+    295.7,
+    572.9,
+    299.7
+   ],
+   "label": "烤箱插座",
+   "text": "烤箱插座",
+   "size": 3.78,
+   "visible": true,
+   "leader": false,
+   "boq": "ZS02-B-070 蒸烤箱插座(227审1)",
+   "basis": "④用途名单列",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "除螨插座",
+   "n": 1,
+   "anchor": [
+    945.3,
+    482.5
+   ],
+   "endpoint": [
+    788.4,
+    439.4
+   ],
+   "len": 176.2,
+   "room": "卧室一",
+   "in_face": false,
+   "wall_dist": null,
+   "bbox": [
+    921.1,
+    478.5,
+    969.5,
+    486.5
+   ],
+   "label": "除螨插座",
+   "text": "除螨插座+1150HT",
+   "size": 7.21,
+   "visible": true,
+   "leader": true,
+   "boq": "清单无同名项",
+   "basis": "④用途名单列",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "柜藏灯带电源",
+   "n": 1,
+   "anchor": [
+    956.0,
+    473.6
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "未能归属",
+   "in_face": false,
+   "wall_dist": null,
+   "bbox": [
+    920.5,
+    469.6,
+    991.4,
+    477.7
+   ],
+   "label": "预留柜藏灯电源线",
+   "text": "预留柜藏灯电源线+500HT",
+   "size": 7.21,
+   "visible": true,
+   "leader": true,
+   "boq": "清单无同名项; 同类\"镜柜灯带电源\"封账已计4件",
+   "basis": "②选B: 灯带电源线计点(与既有口径自洽)",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "热水器回水插座",
+   "n": 1,
+   "anchor": [
+    488.5,
+    60.4
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "未能归属",
+   "in_face": false,
+   "wall_dist": null,
+   "bbox": [
+    446.4,
+    56.4,
+    530.7,
+    64.5
+   ],
+   "label": "预留热水器回水插座",
+   "text": "预留热水器回水插座+1700HT",
+   "size": 7.25,
+   "visible": true,
+   "leader": true,
+   "boq": "清单无同名项",
+   "basis": "④用途名单列",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "热水器插座",
+   "n": 1,
+   "anchor": [
+    496.4,
+    47.7
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "未能归属",
+   "in_face": false,
+   "wall_dist": null,
+   "bbox": [
+    460.8,
+    43.7,
+    532.1,
+    51.8
+   ],
+   "label": "预留热水器插座",
+   "text": "预留热水器插座+1830HT",
+   "size": 7.25,
+   "visible": true,
+   "leader": true,
+   "boq": "清单无同名项(角阀见 ZS03-A-149)",
+   "basis": "④用途名单列",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "柜藏灯带电源",
+   "n": 1,
+   "anchor": [
+    658.8,
+    108.0
+   ],
+   "endpoint": [
+    600.0,
+    109.4
+   ],
+   "len": 565.6,
+   "room": "未能归属",
+   "in_face": false,
+   "wall_dist": null,
+   "bbox": [
+    619.9,
+    103.9,
+    697.7,
+    112.0
+   ],
+   "label": "预留西厨柜藏光灯带电源线",
+   "text": "预留西厨柜藏光灯带电源线",
+   "size": 7.25,
+   "visible": true,
+   "leader": true,
+   "boq": "同上",
+   "basis": "②选B: 灯带电源线计点",
+   "src": "M5f补账",
+   "note": "文字位置未落域, 改取引线端点"
+  }
+ ],
+ "excluded_box": [
+  {
+   "kind": "预留电源(藏光预留接线盒)",
+   "n": 1,
+   "anchor": [
+    582.1,
+    343.8
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 8.9,
+   "bbox": [
+    575.0,
+    341.8,
+    589.2,
+    345.8
+   ],
+   "label": "插座线盒",
+   "text": "插座线盒",
+   "size": 3.78,
+   "visible": true,
+   "leader": false,
+   "boq": "新增 预留电源(227审0)",
+   "basis": "②裁定: 盒类不计点位",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "预留电源(藏光预留接线盒)",
+   "n": 1,
+   "anchor": [
+    639.1,
+    323.3
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 25.5,
+   "bbox": [
+    633.8,
+    321.3,
+    644.4,
+    325.3
+   ],
+   "label": "灯线盒",
+   "text": "灯线盒",
+   "size": 3.78,
+   "visible": true,
+   "leader": false,
+   "boq": "新增 预留电源(227审0)",
+   "basis": "②裁定: 盒类不计点位",
+   "src": "M5f补账"
+  },
+  {
+   "kind": "预留电源(藏光预留接线盒)",
+   "n": 1,
+   "anchor": [
+    607.6,
+    344.5
+   ],
+   "endpoint": null,
+   "len": 0,
+   "room": "中厨",
+   "in_face": true,
+   "wall_dist": 8.2,
+   "bbox": [
+    607.2,
+    344.4,
+    608.0,
+    344.6
+   ],
+   "label": "预留接线盒",
+   "text": "预留接线盒",
+   "size": 0.18,
+   "visible": false,
+   "leader": false,
+   "boq": "新增 预留电源(227审0)",
+   "basis": "②裁定: 盒类不计点位",
+   "src": "M5f补账"
+  }
+ ],
+ "note": "M2 封账 m2_counts_clean.json[\"18\"]=86 一字未改; 本工件为并入后的重封账依据, 恒等: Σ(m5_P08_rows) + Σ(本rows.n) ≡ 107 (build_mep_workbook 断言)。10 条 invisible 者文字 0.18pt 打印不可读但符号可见(m5e_5 接触表实证), 非幻影。"
+}

@@ -2,14 +2,16 @@
 """scripts/build_mep_workbook.py — 227户型 M2~M5 机电封账数字 → 工程量计算表(xlsx)。
 
 纪律(与 golden 测试同构, 违反即构建失败):
-  1. 只读封账工件(m2_counts_clean / m2_textcounts / m5_*_rows / m3_circuits /
-     p24_sprinkler_split / mep_cost_indicators), 本脚本不新增不修改任何数字;
-  2. 恒等断言: 每类归属 Σ ≡ M2 封账计数、面板 Σ控制线 ≡ 93、喷淋 24+9 ≡ 33,
-     破账直接 AssertionError, 不产出文件;
+  1. 只读封账工件(m2_counts_clean / m2_textcounts / m5_*_rows / m5f_supplement_P08 /
+     m3_circuits / p24_sprinkler_split / mep_cost_indicators), 本脚本不新增不修改任何数字;
+  2. 恒等断言: 每类归属 Σ ≡ M2 封账计数、P08 重封账 ≡ M2 86 + M5f 补账 21 = 107、
+     面板 Σ控制线 ≡ 93、喷淋 24+9 ≡ 33, 破账直接 AssertionError, 不产出文件;
+     (M2 原封账 m2_counts_clean["18"]=86 不改写, 补账另立工件并列可审计)
   3. 三态如实: "未能归属"行照列挂账(状态=未能读取), 不硬落域;
+     补账中带标高注记者(+HT)定位出自尚未修复的引线追踪器(M5 §8), 未撞车也判待核;
      "图上没有"项(烟感/水浸/管网)走 D 层披露, 不臆造;
   4. A 层图纸实测账与 D 层单方估算账分 sheet 并列, 永久不混
-     (口径纪律见 docs/MEP_COST_INDICATORS.md)。
+     (口径纪律见 docs/MEP_COST_INDICATORS.md); 计价清单仅作开发期校验, 不作数据源。
 
 每行带计算式与图纸追溯, 可独立复算审计。
 运行: venv/bin/python scripts/build_mep_workbook.py
@@ -73,21 +75,43 @@ def _collision_flags(rows):
             for r in rows]
 
 
-def _state(room, collide=False):
+def _state(room, collide=False, pend_why='端点与其类引线共用'):
     if room == '未能归属':
         return '未能读取(挂账)'
     if collide:
-        return '归属待核(端点与其类引线共用)'
+        return f'归属待核({pend_why})'
     if room.startswith('(无名'):
         return '落域·房间名待核'
     return '已确认'
 
 
+def _supp_row(r, verdict):
+    """补账行 → Sheet⑤ 一行: 每条自带字号/打印可见性/坐标/落域依据/清单对应项/裁定依据。"""
+    pos = f"({r['anchor'][0]},{r['anchor'][1]})"
+    if r.get('endpoint') and r['room'] == '未能归属':
+        pos += f" → 端点({r['endpoint'][0]},{r['endpoint'][1]})"
+        why = (f"引线追踪链{r['len']}pt 仍未落域(疑骑长直线, §8.2 失效模式) → 如实挂账")
+    elif r.get('endpoint'):
+        pos += f" → 端点({r['endpoint'][0]},{r['endpoint'][1]})"
+        why = f"引线追踪链{r['len']}pt(追踪器待修§8)"
+    elif r.get('in_face'):
+        why = f"图面直接标注, 落在房间面内(离墙{r['wall_dist']}pt)"
+    elif r.get('wall_dist') is not None:
+        why = f"图面直接标注, 贴墙容差内落域(离边{r['wall_dist']}pt)"
+    else:
+        why = '文字位置未落域(离最近面>12pt容差), 位置待核'
+    return (r['text'], r['kind'], verdict, pos, f"{r['size']}pt"
+            f"/{r['size'] * 0.3528:.2f}mm", '可读' if r['visible'] else '✗不可读(符号可见)',
+            r['room'], why, r['boq'], r['basis'])
+
+
 def build():
-    """组装四张表的数据并做恒等断言。返回 dict(totals/sheets...)；不写文件。"""
+    """组装五张表的数据并做恒等断言。返回 dict(totals/sheets...)；不写文件。"""
     m2 = _load('m2_counts_clean.json')
     rows8 = _load('m5_P08_rows.json')
     rows9 = _load('m5_P09_rows.json')
+    supp = _load('m5f_supplement_P08.json')
+    srows8 = supp['rows']
     t9 = _load('m2_textcounts.json')['19']['counts']
     circ = _load('m3_circuits.json')
     spr = _load('p24_sprinkler_split.json')
@@ -109,38 +133,55 @@ def build():
     assert n_wires == circ['total_control_wires'], f'面板Σ控制线{n_wires} != 封账{circ["total_control_wires"]}'
     assert len(spr['down']) + len(spr['side']) == 33, '喷淋 M4 封账=33(下24+侧9)'
     assert len(spr['down']) == 24 and len(spr['side']) == 9
+    # M5f 补账账账相符: M2 原封账未被改写 + 补账条数/重封账总额钉死
+    m2_n = sum(v['total'] for v in m2['18'].values())
+    supp_n = sum(r['n'] for r in srows8)
+    assert m2_n == supp['m2_closed'], f'M2 封账漂移: 工件{m2_n} != 补账记载{supp["m2_closed"]}'
+    assert supp_n == supp['supplement_n'], f'补账Σn{supp_n} != 记载{supp["supplement_n"]}'
 
     totals = {
-        'P08': sum(got8.values()),
+        'P08': m2_n + supp_n,
         'P09': sum(got9.values()),
         'hvac': sum(v['total'] for v in m2['23'].values()),
         'elv': sum(v['total'] for v in m2['24'].values()),
         'sprinkler': 33,
         'control_wires': n_wires,
     }
+    assert totals['P08'] == supp['resealed'], f"P08 重封账{totals['P08']} != 补账工件{supp['resealed']}"
+    assert supp_n == 21 and totals['P08'] == 107, 'P08 口径钉死: M2 86 + M5f 补账 21 = 107'
 
     # ── Sheet 点位数量账(A 层图纸实测) ──
     s1 = []   # (专业, kind, room, unit, n, formula, trace, state)
     pend = {}     # tag -> {'rows': 待核行数, 'n': 待核件数}
-    by_tag = {}   # tag -> (rows, flags)
-    for tag, rows, closed, page in (('P08', rows8, m2['18'], 'P08 强电点位平面图'),
-                                    ('P09', rows9, t9, 'P09 给排水点位平面图')):
-        flags = _collision_flags(rows)
-        by_tag[tag] = (rows, flags)
+    page8, page9 = 'P08 强电点位平面图', 'P09 给排水点位平面图'
+    # 撞车判定在**合并池**上做一次: 补账落点若与 M2 账共点同样要揪出来
+    merged8 = rows8 + srows8
+    flags8 = _collision_flags(merged8)
+    for i in range(len(rows8), len(merged8)):   # 补账注记行(+HT): 追踪器缺陷未修(§8), 未撞车也判待核
+        if merged8[i].get('leader') and merged8[i]['room'] != '未能归属':
+            flags8[i] = True
+    by_tag = {'P08': (merged8, flags8), 'P09': (rows9, _collision_flags(rows9))}
+    for tag, (rows, flags) in by_tag.items():
         kept = [(r, f) for r, f in zip(rows, flags) if f and r['room'] != '未能归属']
         pend[tag] = {'rows': len(kept), 'n': sum(r['n'] for r, _ in kept),
                      'rows_all': sum(1 for f in flags if f)}
+
+    def emit(rows, flags, label, page, pend_why='端点与其类引线共用'):
         agg = _agg_rows(rows, flags)
-        kinds = sorted({k for k, _, _ in agg})
-        for kind in kinds:
+        for kind in sorted({k for k, _, _ in agg}):
             sub = {(r, pd): v for (k, r, pd), v in agg.items() if k == kind}
             for (room, is_pend), v in sub.items():
                 expr = f"{v['n']}" if len(v['parts']) == 1 else 'Σ' + '+'.join(map(str, v['parts']))
-                s1.append(('强电' if tag == 'P08' else '给排水', kind, room, _unit(kind),
-                           v['n'], f'{expr}（{tag}归属行{len(v["parts"])}条聚合）',
-                           page, _state(room, is_pend)))
+                s1.append(('强电' if label.startswith('P08') else '给排水', kind, room,
+                           _unit(kind), v['n'],
+                           f'{expr}（{label}归属行{len(v["parts"])}条聚合）',
+                           page, _state(room, is_pend, pend_why)))
+
+    emit(rows8, flags8[:len(rows8)], 'P08', page8)
+    emit(srows8, flags8[len(rows8):], 'P08 M5f补账', page8, '补账注记·引线追踪器待修')
+    emit(rows9, by_tag['P09'][1], 'P09', page9)
     # 拆行聚合(新增待核维度)不得丢量/重量: 每页拆后Σ仍须等于封账
-    for tag, page in (('P08', 'P08 强电点位平面图'), ('P09', 'P09 给排水点位平面图')):
+    for tag, page in (('P08', page8), ('P09', page9)):
         got = sum(r[4] for r in s1 if r[6] == page)
         assert got == totals[tag], f'{tag} 待核拆行后聚合Σ{got} != 封账{totals[tag]}(丢量或重量)'
     for pg, disc, note in (('23', '空调通风', 'M4已逐点落域,明细见m2_attribution.json'),
@@ -185,7 +226,8 @@ def build():
 
     # ── Sheet④ 对账 + 挂账清单 ──
     s4_recon = [
-        ('P08 强电点位', totals['P08'], m2['18'] and sum(v['total'] for v in m2['18'].values()), '锚点口径(USB双注2锚=1件,定案6件见M5通注)'),
+        ('P08 强电点位', totals['P08'], m2_n + supp_n,
+         f'M2封账{m2_n}锚 + M5f补账{supp_n}(§9); 锚点口径(USB双注2锚=1件,定案6件见M5通注)'),
         ('P09 给排水点位', totals['P09'], sum(t9.values()), 'm2_textcounts["19"]'),
         ('空调风口', totals['hvac'], totals['hvac'], 'm2_counts_clean["23"] S7/R7/E4'),
         ('智能化弱电', totals['elv'], totals['elv'], 'm2_counts_clean["24"]'),
@@ -193,12 +235,17 @@ def build():
         ('控制线', totals['control_wires'], n_wires, 'M3定案 Σ受控对象(保守上界,注⑪以华为深化为准)'),
     ]
     s4_open = []
-    open8 = defaultdict(int)
-    for r in rows8:
+    open8 = defaultdict(int)      # (kind, 账面来源) -> 挂账件数: 补账/M2 分道披露
+    for r in merged8:
         if r['room'] == '未能归属':
-            open8[r['kind']] += r['n']
-    for kind, n in sorted(open8.items()):
-        s4_open.append((f'P08 {kind} ×{n}', '归属未达(引线未追通/端点超容差)', 'M5报告§2/§6'))
+            open8[(r['kind'], 'M5f补账' if r.get('src') else 'M2账')] += r['n']
+    for (kind, prov), n in sorted(open8.items()):
+        why = '归属未达(引线未追通/端点超容差)'
+        ref = 'M5报告§2/§6'
+        if prov == 'M5f补账':
+            why = '文字位置离最近房间面>12pt容差, 引线未追通 → 不猜位置'
+            ref = 'M5报告§9'
+        s4_open.append((f'P08 {kind} ×{n} [{prov}]', why, ref))
     open9 = defaultdict(int)
     for r in rows9:
         if r['room'] == '未能归属':
@@ -209,8 +256,17 @@ def build():
         ('LD-22', '有标签无回路注记,疑与LD-03编号笔误配对', 'M4§2 / m3_circuits.LD_missing'),
         ('ALD 定位', '需灯具明细表(图纸集无机读源)', 'M4§3'),
         ('水浸传感器 / USB双注', 'M5c 人工看图维持挂账:端点落柱角无落域依据 / 引线链末回折端点不可信', 'M5§7.1'),
-        ('P08 口径漏项 25 条(中厨/西厨/卫浴图面内直接标注 + 4 条注记未含类)',
-         '图上明确标注但 M2 未入账;①并类口径已裁(5孔→二三极插座,3孔单列),待②③后一次性重封账(86→86+N)', 'M5§7.2/§7.2.1'),
+        (f'P08 口径漏项 24 条 → M5f 已补账并入 {supp_n} 件({m2_n}→{totals["P08"]})',
+         '裁定: ①5孔并类二三极/3孔单列; ②盒类不计点位(另列3处); ③厨房电器照数(定位待橱柜深化). '
+         '其中10条为0.18pt不可见文字(打印后0.064mm纸上读不到, 但设备符号可见, 接触表m5e_5实证)',
+         'M5§7.2勘误/§9 逐条证据见⑤'),
+        ('P08 预留电源(藏光预留接线盒) 3 处',
+         '②裁定不计插座点位(已排除于107之外); 清单该项 227 审核量=0 → 计价时需单独列项', 'M5§9 / ⑤补账明细'),
+        ('P08 清单校验差异: 二三极 33vs31、冰箱 5vs4、紧急按钮 4vs5',
+         '清单仅作开发期校验(非数据源), 不据此改图面值; 差异待电气专业DXF到位后复核', 'M5§9.4'),
+        ('P08 分房间归属总量待核',
+         '引线追踪器缺陷未修(M5§8箭头普查定案本PDF上不可行), 房间列仅供参照; 数量账不受影响',
+         'M5§8 / 待电气专业DWG/DXF'),
         ('烟感/水浸布置、给水管网、冷媒/喷淋/弱电管网、配电系统图', '图上没有 → 走D层单方或缺图披露', 'M4§4 三态总账'),
     ]
 
@@ -233,12 +289,20 @@ def build():
                     f'另有撞车但已属挂账 {pend["P08"]["rows_all"] + pend["P09"]["rows_all"] - pend["P08"]["rows"] - pend["P09"]["rows"]} 行(计在上方挂账清单); '
                     '数量已计且计入Σ恒等, 仅房间归属存疑, 修好引线追踪后自动消除'))
 
+    # ── Sheet⑤ M5f 补账明细(逐条证据, 与①同账可回溯) ──
+    s5 = [_supp_row(r, '计入点位') for r in supp['rows']] \
+        + [_supp_row(r, '不计点位(另立)') for r in supp['excluded_box']]
+
     return {
         'totals': totals,
         'pending': pend,
         'sheet1': s1,
         'sheet2': s2, 'sheet3': s3, 'sheet3_len': s3_len,
         'sheet4_recon': s4_recon, 'sheet4_open': s4_open, 'sheet4_pend': s4_pend,
+        'sheet5': s5,
+        'supp_meta': {'m2': m2_n, 'supp': supp_n, 'sealed': totals['P08'],
+                      'box_n': len(supp['excluded_box']), 'sealed_by': supp['sealed_by'],
+                      'note': supp['note']},
         'd_meta': {'type': t['label'], 'factor': f_, 'S': DEC_AREA_S,
                    'disclaimer': ind['meta']['disclaimer'], 'version': ind['meta']['version']},
     }
@@ -290,8 +354,10 @@ def write_xlsx(data, path=OUT_PATH):
                 c.fill = open_fill
         i += 1
     ws.append([])
+    sm = data['supp_meta']
     ws.append(['', '合计(A层点位)', '', '', '', sum(r[4] for r in data['sheet1']),
-               'P08锚点+P09+风口+智能化+喷淋(烟感0)', 'Σ≡各页M2/M4封账(见④对账)', ''])
+               f"P08(锚点{sm['m2']}+M5f补账{sm['supp']}={sm['sealed']})+P09+风口+智能化+喷淋(烟感0)",
+               'Σ≡各页M2/M4封账+M5f补账(见④对账)', ''])
     for c in ws[ws.max_row]:
         c.font = bold
     finish(ws, ws.max_row + 1, 9)
@@ -352,6 +418,30 @@ def write_xlsx(data, path=OUT_PATH):
             c.fill = pend_fill
     finish(ws, ws.max_row, 5)
 
+    # ⑤ M5f 补账明细(逐条证据)
+    sm = data['supp_meta']
+    ws = sheet('⑤M5f补账明细', ['序号', '图面标注原文', '入账类别', '点位口径', '坐标(PDF pt)',
+                              '字号/打印尺', '纸上可读性', '落域房间', '定位依据',
+                              '清单对应列项(仅校验)', '裁定依据'],
+               [6, 24, 16, 16, 26, 14, 18, 12, 34, 34, 34])
+    for j, row in enumerate(data['sheet5'], 1):
+        ws.append([j] + list(row))
+        if row[3].startswith('不计') or row[7] == '未能归属':
+            for c in ws[ws.max_row]:
+                c.fill = open_fill
+    ws.append([])
+    ws.append(['', f"重封账: M2 {sm['m2']} + 补账 {sm['supp']} = {sm['sealed']} 锚点"
+                     f"(USB双注2锚=1件 → {sm['sealed'] - 1} 件)", '',
+               f"盒类另立 {sm['box_n']} 处不计点位", '', '', '', '', '',
+               sm['sealed_by'], sm['note']])
+    for c in ws[ws.max_row]:
+        c.font = bold
+    ws.append(['', '注: 0.18pt 文字打印后 0.064mm 纸上读不到, 但设备符号可见(接触表 '
+                    'outputs/preview/vlm/mep/m5e_5_隐藏标注_符号接触表.png 逐点实证) —— '
+                    '属真漏项而非幻影; 清单列项仅用于开发期校验, 生产不作数据源。'])
+    ws[ws.max_row][0].font = Font(italic=True, color='808080')
+    finish(ws, ws.max_row + 1, 11)
+
     wb.save(path)
     return path
 
@@ -360,11 +450,14 @@ def main():
     data = build()
     p = write_xlsx(data)
     t = data['totals']
+    sm = data['supp_meta']
     print('恒等断言全部通过:')
     for k, v in t.items():
         print(f'  {k} = {v}')
+    print(f"  P08 重封账 = M2 {sm['m2']} + M5f 补账 {sm['supp']} = {sm['sealed']} "
+          f"(盒类另立 {sm['box_n']} 处不计点位)")
     pd = data['pending']
-    print(f"归属待核(数量已计, 端点与其类引线共用, 房间待修追踪后重判): "
+    print(f"归属待核(数量已计, 端点与其类引线共用/补账注记追踪器待修, 房间待重判): "
           f"P08 {pd['P08']['rows']}行/{pd['P08']['n']}件, P09 {pd['P09']['rows']}行/{pd['P09']['n']}件")
     print('产物:', p)
 

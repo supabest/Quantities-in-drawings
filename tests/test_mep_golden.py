@@ -28,7 +28,10 @@ SEALED = {
     "sprinkler_side": 9,
     "vents_S": 7, "vents_R": 7, "vents_E": 4,
     "usb": 6,                # P08 通注"共配置6个"；图上第7锚=双注
-    "p08_anchors": 86,       # P08 注记锚点（USB 去重后 85 件）
+    "p08_anchors": 86,       # M2 封账 P08 注记锚点（USB 去重后 85 件），M5f 不改写
+    "p08_supplement": 21,    # M5f 补账计入（24 命中 − 3 盒类另立不计点位）
+    "p08_resealed": 107,     # 重封账 = 86 + 21（锚点口径，106 件）
+    "p08_splash": 9,         # 防水类 = 马桶防水 4 + 防水 2 + 补账 3（≡清单227审 7+2）
     "mep_total_wifi": 6, "mep_total_mc": 6,
 }
 
@@ -65,6 +68,30 @@ def test_p08_anchor_count_sealed():
     total = sum(v["total"] for v in j["18"].values())
     assert total == SEALED["p08_anchors"], f"P08 锚点 {total} != 封账 {SEALED['p08_anchors']}"
     assert j["18"]["USB插座"]["total"] == 7  # 锚点7 → 去重后 6（通注定案）
+
+
+@pytest.mark.skipif(not os.path.exists(os.path.join(ART, "m5f_supplement_P08.json")),
+                    reason="补账工件 m5f_supplement_P08.json 不在库")
+def test_p08_resealed_with_m5f_supplement():
+    """M5f 补账账账相符：M2 原封账不改写 + 计入 21 + 盒类另立 3 + 重封账 107。
+
+    并钉住两个裁定结果：5孔并类二三极/3孔单列不并类，带防水按防水盖计（防水类 9）。
+    """
+    s = _load("m5f_supplement_P08.json")
+    m2 = _load("m2_counts_clean.json")["18"]
+    assert s["m2_closed"] == sum(v["total"] for v in m2.values()) == SEALED["p08_anchors"]
+    assert sum(r["n"] for r in s["rows"]) == s["supplement_n"] == SEALED["p08_supplement"]
+    assert s["resealed"] == s["m2_closed"] + s["supplement_n"] == SEALED["p08_resealed"]
+    assert len(s["excluded_box"]) == 3, "灯线盒/插座线盒/预留接线盒 → 另立项不计点位"
+    assert all(not r["kind"].startswith("5孔") for r in s["rows"]), "①并类已执行，图面名不入账"
+    kinds = {r["kind"]: 0 for r in s["rows"]}
+    for r in s["rows"]:
+        kinds[r["kind"]] += r["n"]
+    assert kinds["二三极插座"] == 5 and kinds["厨电10A(符号)"] == 1, "5孔×5并类、3孔×1单列"
+    splash = m2["马桶防水插座"]["total"] + m2["防水插座"]["total"] + kinds["防水插座"]
+    assert kinds["防水插座"] == 3 and splash == SEALED["p08_splash"], "带防水按防水盖计 ≡ 清单防溅 7+2"
+    # 不可见文字不得当作“图上可读标注”，但必须全量记录为补账证据（符号可见）
+    assert sum(1 for r in s["rows"] + s["excluded_box"] if not r["visible"]) == 10
 
 
 # ── Tier B：PDF 全量复算（图纸仅本地，不入库） ────────────────────────

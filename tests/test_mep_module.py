@@ -172,15 +172,21 @@ def test_mep_workbook_identities(tmp_path):
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
     data = m.build()   # 内部任一 AssertionError = 破账
-    assert data['totals'] == {'P08': 86, 'P09': 24, 'hvac': 18, 'elv': 23,
+    assert data['totals'] == {'P08': 107, 'P09': 24, 'hvac': 18, 'elv': 23,
                               'sprinkler': 33, 'control_wires': 93}
-    # ①数量列合计 = 各封账之和(184 口径: 86+24+18+23+33, 烟感0不计)
-    assert sum(r[4] for r in data['sheet1']) == 86 + 24 + 18 + 23 + 33
-    # 归属待核(M5c §8: 引线端点与其专业类别共用 → 房间不可信, 数量不动仅状态降级)
-    assert data['pending'] == {'P08': {'rows': 33, 'n': 37, 'rows_all': 33},
+    # ①数量列合计 = 各封账之和(205 口径: 107+24+18+23+33, 烟感0不计)
+    assert sum(r[4] for r in data['sheet1']) == 107 + 24 + 18 + 23 + 33
+    # P08 重封账链不得断: M2 封账 86 + M5f 补账 21 = 107，且①内 P08 两路行数可追
+    sm = data['supp_meta']
+    assert (sm['m2'], sm['supp'], sm['sealed']) == (86, 21, 107)
+    assert sm['box_n'] == 3, '盒类 3 处另立项，已在 107 之外排除'
+    assert len(data['sheet5']) == 24, '⑤补账明细 = 计入21 + 不计3'
+    assert sum(r[2].startswith('计入') for r in data['sheet5']) == 21
+    # 归属待核(M5c §8 撞车 + M5f 补账注记追踪器待修): 数量不动仅状态降级
+    assert data['pending'] == {'P08': {'rows': 34, 'n': 38, 'rows_all': 34},
                                'P09': {'rows': 10, 'n': 10, 'rows_all': 10}}
-    # 待核拆行聚合不得丢量/重量: 待核件数 47 = 37(P08) + 10(P09)
-    assert sum(r[4] for r in data['sheet1'] if r[7].startswith('归属待核')) == 47
+    # 待核拆行聚合不得丢量/重量: 待核件数 48 = 38(P08) + 10(P09)
+    assert sum(r[4] for r in data['sheet1'] if r[7].startswith('归属待核')) == 48
     # ④对账表每行差值恒为 0
     assert all(r[1] == r[2] for r in data['sheet4_recon'])
     out = str(tmp_path / 'wb_test.xlsx')
