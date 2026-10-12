@@ -45,8 +45,9 @@ SEALED = {
     "wall_gross_ifc": 599.13,  # 模型 IfcSpace 顶高毛墙 → 验吊顶标高已入模
     "wall_net_qty": 505.28,    # 净墙 = 毛墙 − 洞口
     "openings_m2": 93.59,
-    "ceiling_zones_m2": 97.78,  # P3b P02 已确认分级水平面 Σ（19 域）
-    "zone_split_hang": 0.34,    # 域119 左窄带无符号 → 挂账不计
+    "ceiling_zones_m2": 97.78,  # P3b P02 已确认分级水平面 Σ（21 域 = 原 19 洪水域，域119 切分为 3）
+    "zone_2650_m2": 6.58,       # +2650 分级 Σ（含 2026-10-12 用户裁定并入的龛左窄带 0.34）
+    "cove_accepted_m": 16.89,   # 暗藏灯槽采信长度（12 链 17.73 剔除 #10 入户门弧弦 0.84）
 }
 TOL = 0.02       # 逐行四舍五入累加
 TOL_ZONE = 0.07  # 洪水填充像素切割 0.06 + 四舍五入
@@ -166,7 +167,11 @@ def test_ifc_crosscheck_height_agnostic_guard():
 
 
 def test_ceiling_zone_reconciliation_closes():
-    """P3b 分级水平面：明细/分级两表互相一致，且与 P3 投影口径关系已披露。"""
+    """P3b 分级水平面：明细/分级两表**逐标高组**互约，且与 P3 投影口径关系已披露。
+
+    2026-10-12 用户裁定后：0.34㎡ 已从挂账归入 +2650，因此不得再出现挂账行；
+    分组校验必须逐标高做，否则“把面积记错标高”这类错仅靠总 Σ 看不出来。
+    """
     _need_reports()
     head = open(ZONES, encoding="utf-8").read()
     m = re.search(r"已确认[^\n]*?Σ=([\d.]+)㎡", head)
@@ -174,16 +179,44 @@ def test_ceiling_zone_reconciliation_closes():
 
     zone_rows = [c for c in _rows(ZONES, section="## 1. 水平分区面", npage=5)]
     amounts = [_num(c[2]) for c in zone_rows if _num(c[2]) is not None]
+    assert len(amounts) == 21, f"域行数应 21（原 19 洪水域+切分 2）, 实得{len(amounts)}"
     assert abs(sum(amounts) - SEALED["ceiling_zones_m2"]) < TOL_ZONE, sum(amounts)
-    # 挂账行(图上无符号)必须在明细中标注且不计入标高分组
+
+    # 挂账必须已清零（待裁定域不得静默漂在账上）
     hang = [c for c in zone_rows if c[1] == "挂账"]
-    assert len(hang) == 1 and _num(hang[0][2]) == SEALED["zone_split_hang"], hang
-    # 分级合计表只列有标高域(不含挂账0.34)→ 加回挂账后必须等于明细 Σ，两表不得各自漂移
-    lvl = [_num(c[1]) for c in _rows(ZONES, section="分级合计", npage=2) if _num(c[1])]
-    assert lvl and abs(sum(lvl) + SEALED["zone_split_hang"] - sum(amounts)) < 0.05, \
-        (sum(lvl), sum(amounts))
+    assert not hang, f"存在未裁定挂账域: {hang}"
+
+    def _lvl_key(s):
+        return re.sub(r"[（(].*?[）)]", "", s).strip()     # 分级表键带“（窗帘盒）”等后缀
+
+    detail = {}
+    for c in zone_rows:
+        if _num(c[2]) is not None:
+            detail[_lvl_key(c[1])] = round(detail.get(_lvl_key(c[1]), 0.0) + _num(c[2]), 4)
+    grouped = {_lvl_key(c[0]): _num(c[1])
+               for c in _rows(ZONES, section="分级合计", npage=2) if _num(c[1])}
+    assert set(detail) == set(grouped), (set(detail) ^ set(grouped))
+    # 逐组容差 0.02：两表各自按两位小数舍入，累加允许漂（+2600 组实测差 0.01）
+    drift = {k: (detail[k], grouped[k]) for k in detail if abs(detail[k] - grouped[k]) > 0.02}
+    assert not drift, f"明细分组 Σ 与分级合计表漂移: {drift}"
+    assert abs(grouped["+2650"] - SEALED["zone_2650_m2"]) < 0.02, grouped["+2650"]
+
     # 与 P3 投影的差额必须逐行披露，不得静默吞掉
     assert "51.66" in head and f'{SEALED["ceiling_zones_m2"]}㎡' in head
+
+
+def test_ceiling_cove_and_rulings_are_tracked():
+    """2026-10-12 用户裁定必须可追溯：灯槽采信值、裁定条目、门窗假设口径。"""
+    _need_reports()
+    head = open(ZONES, encoding="utf-8").read()
+    m = re.search(r"采信 Σ=([\d.]+)m", head)
+    assert m and float(m.group(1)) == SEALED["cove_accepted_m"], \
+        f"灯槽采信长度应为 {SEALED['cove_accepted_m']}m, 文内读出 {m and m.group(1)}"
+    assert "入户门弧弦" in head and "不计入灯槽" in head, "#10 剔除依据未披露"
+    assert "用户裁定（2026-10-12）" in head, "10-12 裁定条目不在账本里"
+    # 裁定后的分级总面积不得因“挂账改归属”而漂（只换组不改量）
+    assert abs(SEALED["zone_2650_m2"] - 0.34 - 6.24) < 1e-9, \
+        "0.34 并入前 +2650 应为 6.24（裁定只改归属不改面积）"
 
 
 @pytest.mark.skipif(not os.path.isdir(DRAWINGS), reason="图纸未入库，仅本地可复算")
