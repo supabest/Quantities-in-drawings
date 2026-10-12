@@ -263,9 +263,10 @@ Stage 5  校验: **几何为准, BOQ 仅交叉校验**【R13,R14】+ `modeling/b
 - ✅ **已完成**: P11(DXF WALL层)墙线围合算净面积 + `gross_area()` 含墙校验 + BOQ清单分组对账 (`modeling/boq_ref.py`)。详见 `docs/AREA_CALIBRATION_INVESTIGATION.md`。
 - **待核 45.5㎡ 地面落实**：从中厨/衣帽间/浴室一二三/储物/收纳的做法表(G-06~09)/立面确定（**做法表正文机读缺，需用户补料**）。
 - **c 铺材 → 材料代号**：铺装图用 HATCH 图案而非文字代号，探索 `pattern_name`/纹理分类给 c 贴片定材料。
-- **产品化**：Stage 1–5 封装为 `floor_takeoff()`；用 §3.4 基准值建 pytest 回归。
+- **产品化**：Stage 1–5 封装为 `floor_takeoff()`；接入 Web/计价尚未做。
+- ✅ **回归锚点已建**（2026-10-12）：`tests/test_takeoff_golden.py` 钉住 §7.4 全专业封账、§4.5 三维交叉校验三护栏、§5.3 吊顶分级闭合；Tier A 只解析已入库报告（CI 可跑、零图纸），Tier B `slow` 仍需本地图纸全链复算。
 - **泛化**：415 板房等复跑检验规则普适性。
-- **后续部分**：墙面→第四部分（已实现 `wall_geometry`）、天花→第五部分（已实现 `ceiling_takeoff`）、固装→第六部分（已实现 `furniture_takeoff`）、汇总/管线→第七部分（`summary`）；**机电**（P04-P14）尚未实现，待加为第八部分。
+- **后续部分**：墙面→第四部分（已实现 `wall_geometry`）、天花→第五部分（已实现 `ceiling_takeoff`）、固装→第六部分（已实现 `furniture_takeoff`）、汇总/管线→第七部分（`summary`）；**机电**（P04-P14）**已实现但走独立线**（`app/orchestrator/mep/` + `scripts/build_mep_workbook.py`，口径/封账/待核见 `outputs/model/mep_takeoff_m5.md` §8~§11），本手册第八部分尚未编写。
 
 ## 3.7 可复用参数表
 | 参数 | 值 | 含义 |
@@ -415,6 +416,8 @@ Stage 5  校验: **几何为准, BOQ 仅交叉校验**【R13,R14】+ `modeling/b
 ./venv/bin/python -m modeling.cabinet_area         # P4b 诊断
 ./venv/bin/python -m modeling.summary              # P5 总表(含 BOQ 校验列, 开发期)
 ./venv/bin/python -m modeling.summary --no-check   # 生产形态: 剔除校验/判定列, 数值不变
+./venv/bin/python -m pytest tests/test_takeoff_golden.py -m "not slow"   # 封账回归锚(CI 可跑, 零图纸)
+./venv/bin/python -m pytest tests/test_takeoff_golden.py -m "slow"       # 本机全链复算(需 227 户型图纸, ≈55s)
 ```
 
 ## 7.3 输出行格式（全部位统一）
@@ -439,4 +442,4 @@ Stage 5  校验: **几何为准, BOQ 仅交叉校验**【R13,R14】+ `modeling/b
 - ✅ **P3b 逐间吊顶标高净高已落地**（`modeling/ceiling_levels.py`→`ceiling_levels.md`；`base_extract` 自动挂 `soffit_mm`）：平面 05 +2xxx 标高按几何映射房间（13/16 命中），墙面净高/`IfcSpace` 高均改用主吊顶，交叉校验验吊顶已传播（−0.04%）。**造型吊顶展开面积：分级水平面已自动化、侧带不可全自动（见 §5.3）**。
 - ~~**P3b 造型吊顶展开面积**~~ → **部分落地（2026-10-04）**：P02 分级水平面 97.78㎡ 已自动化交付（`outputs/model/ceiling_zones.md`，带三态）；跌级侧带仅下界 2.25㎡，余留人工（见 §5.3）。
 - **P4b** 柜体/台面 m²——诊断结论为不可自动提取（见 §6.3）。
-- **机电**（P04-P14）尚未实现，待第八部分。
+- ~~**机电**（P04-P14）尚未实现，待第八部分~~ → **机电已实现（走独立线，不属本手册）**：`app/orchestrator/mep/` + `scripts/build_mep_workbook.py`，口径/封账/待核均见 `outputs/model/mep_takeoff_m5.md`（§8~§11）；本手册第八部分尚未编写。

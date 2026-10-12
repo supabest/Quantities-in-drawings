@@ -15,7 +15,8 @@ jobs:
           python-version: '3.11'
       - name: Install deps
         run: pip install -r requirements-dev.txt
-      # 全量非 slow：MEP Tier A（封账工件/纯函数）+ 主管线 e2e（PNG识别→分区→审计→API）。
-      # Tier B（PDF 复算/全量配准）图纸不入库，slow 标记排除 + skipif 自动跳，本地全量执行。
-      - name: Test suite (MEP golden + orchestrator e2e)
+      # 全量非 slow：装修 golden（解析已入库算量报告，零图纸）+ MEP Tier A（封账工件/纯函数）
+      # + 主管线 e2e（PNG识别→分区→审计→API）。
+      # Tier B（PDF 复算/全量配准/建模全链复算）图纸不入库，slow 标记排除 + skipif 自动跳，本地全量执行。
+      - name: Test suite (takeoff golden + MEP golden + orchestrator e2e)
         run: pytest tests/ -v -m "not slow"
