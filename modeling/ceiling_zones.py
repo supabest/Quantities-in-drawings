@@ -15,11 +15,13 @@
 `meta.source_sha256`；载入或重跑时本地文件指纹与钉值不符 → 立即报错，
 禁止拿过期工件出数（范式沿用机电线 mep/arrows.py 的 meta.rows_md5）。
 
-尚未固化的阶段（诚实标注，勿当作已复现）：zone_bands / bands_bridge（侧带 2.25㎡）、
-dashes / coves / coves_accepted（灯槽 16.89m）的生成器仍缺，见 TODO_STAGES。
+尚未固化的阶段（诚实标注，勿当作已复现）：dashes / coves / coves_accepted
+（灯槽采信 16.89m）的生成器仍缺，见 TODO_STAGES。侧带链（zone_bands / bands_bridge，
+2.25㎡）已于 2026-10-13 重建，19 行周长与 6 条带逐字复现存档值。
 
-用法: ./venv/bin/python -m modeling.ceiling_zones          # 重跑并校验
+用法: ./venv/bin/python -m modeling.ceiling_zones          # 重跑、校验、写侧带工件
       ./venv/bin/python -m modeling.ceiling_zones --check   # 只校验不写盘
+      ./venv/bin/python -m modeling.ceiling_zones --write-flood   # 额外覆盖洪水工件（谨慎，见 main 注）
 """
 import hashlib
 import json
@@ -207,10 +209,144 @@ ADJUDICATIONS = {
 }
 
 TODO_STAGES = (
-    "zone_bands / bands_bridge（侧带 2.25㎡ 下界）与 dashes / coves / coves_accepted"
-    "（灯槽采信 16.89m）的生成器尚未重建；这 5 个工件目前是**无源数据**，"
-    "在其生成器补齐并逐一复现前，引用其数值须标注“不可复现，仅存档值”。"
+    "dashes / coves / coves_accepted（灯槽采信 16.89m）的生成器尚未重建；这 3 个工件目前"
+    "是**无源数据**，在其生成器补齐并逐一复现前，引用其数值须标注“不可复现，仅存档值”。"
+    "（侧带链 zone_bands / bands_bridge 已于 2026-10-13 重建并逐字复现。）"
 )
+
+# ── MACHINE：侧带（跌级竖向带）口径 ────────────────────────────────────
+# 界面长 = 两域各膨胀 BRIDGE_ITERS 后的接触像素 / (2×膨胀半径)；侧带面积 = L×Δh。
+# 2026-10-13 反推确认：6 条带的 len_m/dh_m/area_m2 与存档 p02_bands_bridge.json 逐字相同；
+# 周长口径为“4 邻域跳出域的转移次数×PX2M”，19/19 与存档 perim_m 逐字相同。
+BRIDGE_ITERS = 12          # ≈4.3pt@1:100；膨胀后仍不接触的界面一律不计（不猜）
+
+# 标高未经互证的域 → 不参与侧带（报告 §1 已披露“平面05 无 2450 锚 → 冲突披露”）。
+# 这是数据质量裁定，不是几何判据，必须显式列定而非从图中“推”出。
+LEVEL_UNCONFIRMED = {
+    840: "+2450 无平面05 互证锚（报告 §1 冲突披露）→ 与 791(+2650) 的接触带不计",
+}
+
+# 存档参照（2026-10-04 产物；elev/ 不入库，故关键值钉在此处供逐字比对）
+ARCHIVE_PERIM_M2 = {
+    361: 92.53, 155: 91.36, 672: 34.49, 119: 50.77, 895: 28.32, 707: 31.24,
+    30: 17.22, 345: 26.82, 555: 41.40, 465: 46.36, 83: 17.04, 335: 21.31,
+    641: 20.55, 513: 18.36, 309: 9.17, 611: 10.82, 467: 7.87, 840: 9.60, 791: 7.24,
+}
+ARCHIVE_BANDS = [      # (z1, z2, v1, v2, len_m, dh_m, area_m2)
+    (361, 465, 2950, 2600, 0.94, 0.35, 0.328),
+    (555, 672, 2600, 2950, 3.96, 0.35, 1.387),
+    (309, 335, 2550, 2620, 0.16, 0.07, 0.012),
+    (611, 155, 2650, 2600, 3.51, 0.05, 0.175),
+    (707, 155, 2950, 2600, 0.95, 0.35, 0.332),
+    (641, 791, 2600, 2650, 0.31, 0.05, 0.016),
+]
+ARCHIVE_BAND_SUM_M2 = 2.25
+
+
+def _numeric(v):
+    return isinstance(v, str) and v.isdigit()
+
+
+def domain_level(vals):
+    """域标高：标记转录值全同 → '2600'；数值不一致 → 'CONFLICT:2600/2650'；代号原样保留。"""
+    uniq = list(dict.fromkeys(vals))
+    if len(uniq) == 1:
+        return str(uniq[0]) if uniq[0] is not None else "UNREAD"
+    nums = sorted({v for v in uniq if isinstance(v, int)})
+    if len(nums) == len(uniq):
+        return "CONFLICT:" + "/".join(str(n) for n in nums)
+    return "CONFLICT:" + "/".join(sorted(str(v) for v in uniq))
+
+
+def perimeter_px(mask):
+    """域周长(px) = 4 邻域跳出 mask 的转移次数（存档 19/19 逐字相同的口径）。"""
+    m = mask.astype(np.uint8)
+    p = np.pad(m, 1)
+    t = 0
+    for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        sh = p[1 + dy:m.shape[0] + 1 + dy, 1 + dx:m.shape[1] + 1 + dx]
+        t += int(((m > 0) & (sh == 0)).sum())
+    return t
+
+
+def build_domains(rows):
+    """洪水行 → 域表（面积/标记/标高），按面积降序（与存档 rows 同序）。"""
+    per = {}
+    for r in rows:
+        if r["state"] != "closed":
+            continue
+        d = per.setdefault(r["lid"], {"lid": r["lid"], "area_m2": r["zone_m2"],
+                                      "markers": [], "vals": []})
+        d["markers"].append(r["m"])      # 同域各标记的 zone_m2 必然同值（同一 lid）
+        d["vals"].append(r["v"])
+    out = []
+    for d in per.values():
+        d["markers"].sort()
+        d["lvl"] = domain_level(d["vals"])
+        out.append(d)
+    out.sort(key=lambda d: -d["area_m2"])
+    return out
+
+
+def zone_bands(lab, domains):
+    """域周长 + 直接邻接侧带（未膨胀，下界）。实测 bands 全空：洪水域必被墨线隔开。"""
+    k3 = np.ones((3, 3), np.uint8)
+    masks = {d["lid"]: (lab == d["lid"]) for d in domains}
+    rows_out = []
+    for d in domains:
+        edge = cv2.dilate(masks[d["lid"]].astype(np.uint8), k3, iterations=1) > 0
+        bands = []
+        for o in domains:
+            if o["lid"] == d["lid"] or not _numeric(d["lvl"]) or not _numeric(o["lvl"]):
+                continue
+            n = int((edge & masks[o["lid"]]).sum())
+            if n:
+                dh = abs(int(d["lvl"]) - int(o["lvl"])) / 1000.0
+                bands.append({"z2": o["lid"], "len_m": round(n * PX2M, 2),
+                              "dh_m": round(dh, 3), "area_m2": round(n * PX2M * dh, 3)})
+        rows_out.append({"lid": d["lid"], "lvl": d["lvl"], "area_m2": d["area_m2"],
+                         "perim_m": round(perimeter_px(masks[d["lid"]]) * PX2M, 2),
+                         "band_m2": round(sum(b["area_m2"] for b in bands), 3),
+                         "bands": bands, "markers": d["markers"]})
+    return rows_out
+
+
+def bands_bridge(lab, domains, iters=BRIDGE_ITERS):
+    """确证邻接域对 → 跌级侧带 A=L×Δh（与存档 p02_bands_bridge.json 同构）。
+
+    z1/z2 出场序 = 域的首个标记序号（存档 6 带同序）；剔除项带原因写进 skipped，
+    不静默丢弃。Δh=0（同标高）与非数值标高（CONFLICT/SLAN-100/UNREAD）本质不是跌级。
+    """
+    k3 = np.ones((3, 3), np.uint8)
+    order = sorted(domains, key=lambda d: min(d["markers"]))
+    dil = {d["lid"]: cv2.dilate((lab == d["lid"]).astype(np.uint8), k3, iterations=iters)
+           for d in order}
+    bands, skipped = [], []
+    for i, a in enumerate(order):
+        for b in order[i + 1:]:
+            n = int(((dil[a["lid"]] > 0) & (dil[b["lid"]] > 0)).sum())
+            if not n:
+                continue
+            len_m = n * PX2M / (2 * iters)
+            v1, v2 = a["lvl"], b["lvl"]
+            reason = None
+            if not _numeric(v1) or not _numeric(v2):
+                reason = "标高非数值(%s/%s)：CONFLICT/代号/未读域不计" % (v1, v2)
+            elif int(v1) == int(v2):
+                reason = "同标高 %s：Δh=0" % v1
+            elif a["lid"] in LEVEL_UNCONFIRMED:
+                reason = LEVEL_UNCONFIRMED[a["lid"]]
+            elif b["lid"] in LEVEL_UNCONFIRMED:
+                reason = LEVEL_UNCONFIRMED[b["lid"]]
+            if reason:
+                skipped.append({"z1": a["lid"], "z2": b["lid"], "v1": v1, "v2": v2,
+                                "len_m": round(len_m, 2), "why": reason})
+                continue
+            dh = abs(int(v1) - int(v2)) / 1000.0
+            bands.append({"z1": a["lid"], "z2": b["lid"], "v1": int(v1), "v2": int(v2),
+                          "len_m": round(len_m, 2), "dh_m": round(dh, 3),
+                          "area_m2": round(len_m * dh, 3)})
+    return bands, skipped
 
 
 def build_flood_rows(lab, stats, cands, vlm=ELEV_VLM_READ):
@@ -241,6 +377,10 @@ def regenerate():
     parts, cut_ink, raw = decompose_domain(SPLIT_119_LID, lab, stats, lab2, stats2)
     split, split_lids = split_119(parts, lab2, stats2, cut_ink,
                                   (cands[14], cands[26]), raw)
+    # 侧带链：域表 → 周长/直接邻接下界 → 膨胀桥接（全部 MACHINE，标高只参与筛选不参与计算）
+    domains = build_domains(rows)
+    zb_rows = zone_bands(lab, domains)
+    bands, skipped = bands_bridge(lab, domains)
     return {
         "meta": {"source": os.path.basename(PDF), "source_sha256": SOURCE_SHA256,
                  "page_idx": PAGE_IDX, "dpi": DPI, "dilate": 2,
@@ -252,6 +392,17 @@ def regenerate():
                       "grouping_lids": split_lids, "cut_lines_pt": CUT_119_PT,
                       "sealed_reference": ADJUDICATIONS["split_119"]["parts_m2"],
                       "provenance": "面积=MACHINE、切线与归级=USER_RULING"},
+        "zone_bands": {"dpi": DPI, "dilate": 2, "px2m": PX2M,
+                       "sum_area": sum(r["area_m2"] for r in zb_rows),
+                       "sum_band_lower": round(sum(r["band_m2"] for r in zb_rows), 3),
+                       "note": "侧带仅计标记域间直接邻接(下界); 靠墙/灯槽带/泄漏域未计",
+                       "rows": zb_rows},
+        "bands_bridge": {"iters": BRIDGE_ITERS, "bands": bands,
+                         "sum_band_m2": round(sum(b["area_m2"] for b in bands), 2),
+                         "skipped_pairs": skipped,
+                         "level_unconfirmed": {str(k): v for k, v in LEVEL_UNCONFIRMED.items()},
+                         "provenance": "接触像素/长度/面积=MACHINE、标高=VLM_READ、"
+                                       "未经互证域剔除=报告 §1 披露"},
         "pending_stages": TODO_STAGES,
     }
 
@@ -281,11 +432,29 @@ def check_sealed(art, sealed_total=97.78):
                - ref["左窄带(无符号)"] - ref["切割线像素"]) < 0.005, "窄带+切线不闭合"
     assert sp["龛内(+2650,⊕14)"] == ref["龛内(+2650,⊕14)"] \
         and sp["右带(+2600,⊕26)"] == ref["右带(+2600,⊕26)"], "龛内/右带未逐字复现"
+
+    # 侧带链：周长 19 行逐字 + 6 条带逐字 + 总量 2.25
+    zr = art["zone_bands"]["rows"]
+    assert {r["lid"] for r in zr} == set(ARCHIVE_PERIM_M2), \
+        "域集与存档不一致: %s" % sorted(r["lid"] for r in zr)
+    bad = [r["lid"] for r in zr if abs(r["perim_m"] - ARCHIVE_PERIM_M2[r["lid"]]) > 0.005]
+    print("  侧带下界（直接邻接）%.3f㎡；周长 %d/%d 行与存档逐字一致" % (
+        art["zone_bands"]["sum_band_lower"], len(zr) - len(bad), len(zr)))
+    assert not bad, "周长未复现（口径错）: %s" % bad
+    got = [(b["z1"], b["z2"], b["v1"], b["v2"], b["len_m"], b["dh_m"], b["area_m2"])
+           for b in art["bands_bridge"]["bands"]]
+    print("  确证邻接侧带 %d 条 Σ=%.2f㎡（存档 %.2f）；剔除 %d 对（原因写于 skipped_pairs）" % (
+        len(got), art["bands_bridge"]["sum_band_m2"], ARCHIVE_BAND_SUM_M2,
+        len(art["bands_bridge"]["skipped_pairs"])))
+    assert got == list(ARCHIVE_BANDS), \
+        "侧带与存档不逐字相同:\n    得 %s\n    存 %s" % (got, ARCHIVE_BANDS)
+    assert abs(art["bands_bridge"]["sum_band_m2"] - ARCHIVE_BAND_SUM_M2) < 0.005
     return s
 
 
 def main():
     check = "--check" in sys.argv
+    write_flood = "--write-flood" in sys.argv
     art = regenerate()
     print("=" * 62)
     print("P3b 复算链（源图纸哈希锁 %s…）" % art["meta"]["source_sha256"][:12])
@@ -293,12 +462,25 @@ def main():
     s = check_sealed(art)
     if not check:
         os.makedirs(OUTDIR, exist_ok=True)
-        p = os.path.join(OUTDIR, "p02_zones_flood.json")
-        with open(p, "w") as f:
-            json.dump({"dpi": DPI, "dilate": 2, "rows": art["rows"],
-                       "split_119": ADJUDICATIONS["split_119"], "meta": art["meta"]},
-                      f, ensure_ascii=False, indent=1)
-        print("  工件已写: %s" % p)
+        # 默认只写本模块已成为唯一生成器的侧带两工件（与存档逐字段全等，已验）。
+        # p02_zones_flood.json 不默认覆盖：存档件里 ⊕14/⊕26 的 zone_m2 是**切分后**值
+        # （4.37/1.52），_p3b_leader.py / _p3b_split.py 读的就是这一列；本模块 rows 是
+        # 切分前原值 6.28（切分结果在 split_119 块）。要覆盖需显式 --write-flood。
+        for name, key in (("p02_zone_bands.json", "zone_bands"),
+                          ("p02_bands_bridge.json", "bands_bridge")):
+            p = os.path.join(OUTDIR, name)
+            with open(p, "w") as f:
+                payload = dict(art[key])
+                payload["meta"] = art["meta"]
+                json.dump(payload, f, ensure_ascii=False, indent=1)
+            print("  工件已写: %s" % p)
+        if write_flood:
+            p = os.path.join(OUTDIR, "p02_zones_flood.json")
+            with open(p, "w") as f:
+                json.dump({"dpi": DPI, "dilate": 2, "rows": art["rows"],
+                           "split_119": ADJUDICATIONS["split_119"], "meta": art["meta"]},
+                          f, ensure_ascii=False, indent=1)
+            print("  工件已写（⚠ 切分前 rows，旧 _p3b_* 脚本依赖的 4.37/1.52 会变 6.28）: %s" % p)
     print("  ⚠ %s" % TODO_STAGES)
     return s
 

@@ -1,0 +1,234 @@
+{
+ "dpi": 200,
+ "dilate": 2,
+ "px2m": 0.012700007999999999,
+ "sum_area": 97.78000000000002,
+ "sum_band_lower": 0,
+ "note": "侧带仅计标记域间直接邻接(下界); 靠墙/灯槽带/泄漏域未计",
+ "rows": [
+  {
+   "lid": 361,
+   "lvl": "2950",
+   "area_m2": 29.48,
+   "perim_m": 92.53,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    0
+   ]
+  },
+  {
+   "lid": 155,
+   "lvl": "2600",
+   "area_m2": 13.16,
+   "perim_m": 91.36,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    11,
+    18
+   ]
+  },
+  {
+   "lid": 672,
+   "lvl": "2950",
+   "area_m2": 8.11,
+   "perim_m": 34.49,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    4
+   ]
+  },
+  {
+   "lid": 119,
+   "lvl": "CONFLICT:2600/2650",
+   "area_m2": 6.28,
+   "perim_m": 50.77,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    14,
+    26
+   ]
+  },
+  {
+   "lid": 895,
+   "lvl": "2550",
+   "area_m2": 6.24,
+   "perim_m": 28.32,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    1
+   ]
+  },
+  {
+   "lid": 707,
+   "lvl": "2950",
+   "area_m2": 5.51,
+   "perim_m": 31.24,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    10
+   ]
+  },
+  {
+   "lid": 30,
+   "lvl": "2950",
+   "area_m2": 4.91,
+   "perim_m": 17.22,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    17
+   ]
+  },
+  {
+   "lid": 345,
+   "lvl": "2600",
+   "area_m2": 4.89,
+   "perim_m": 26.82,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    13
+   ]
+  },
+  {
+   "lid": 555,
+   "lvl": "2600",
+   "area_m2": 4.4,
+   "perim_m": 41.4,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    3
+   ]
+  },
+  {
+   "lid": 465,
+   "lvl": "2600",
+   "area_m2": 3.95,
+   "perim_m": 46.36,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    2
+   ]
+  },
+  {
+   "lid": 83,
+   "lvl": "SLAN-100",
+   "area_m2": 2.55,
+   "perim_m": 17.04,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    22
+   ]
+  },
+  {
+   "lid": 335,
+   "lvl": "2620",
+   "area_m2": 1.87,
+   "perim_m": 21.31,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    7
+   ]
+  },
+  {
+   "lid": 641,
+   "lvl": "2600",
+   "area_m2": 1.83,
+   "perim_m": 20.55,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    12,
+    28
+   ]
+  },
+  {
+   "lid": 513,
+   "lvl": "2600",
+   "area_m2": 1.25,
+   "perim_m": 18.36,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    29
+   ]
+  },
+  {
+   "lid": 309,
+   "lvl": "2550",
+   "area_m2": 0.97,
+   "perim_m": 9.17,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    6
+   ]
+  },
+  {
+   "lid": 611,
+   "lvl": "2650",
+   "area_m2": 0.79,
+   "perim_m": 10.82,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    9
+   ]
+  },
+  {
+   "lid": 467,
+   "lvl": "2650",
+   "area_m2": 0.63,
+   "perim_m": 7.87,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    25
+   ]
+  },
+  {
+   "lid": 840,
+   "lvl": "2450",
+   "area_m2": 0.51,
+   "perim_m": 9.6,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    24
+   ]
+  },
+  {
+   "lid": 791,
+   "lvl": "2650",
+   "area_m2": 0.45,
+   "perim_m": 7.24,
+   "band_m2": 0,
+   "bands": [],
+   "markers": [
+    27
+   ]
+  }
+ ],
+ "meta": {
+  "source": "广州珠实金融城住宅项目--227户型施工图纸.pdf",
+  "source_sha256": "0681015aa370fcc8d5b64761218b2bf271f5bceee1755d3ebbfbe8bd0931bc71",
+  "page_idx": 12,
+  "dpi": 200,
+  "dilate": 2,
+  "provenance_legend": {
+   "MACHINE": "几何确定性算出",
+   "VLM_READ": "人工放大读图转录标高数字",
+   "USER_RULING": "用户裁定的归属/口径"
+  }
+ }
+}

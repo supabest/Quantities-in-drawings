@@ -54,6 +54,8 @@ SEALED = {
     "cove_accepted_m": 16.89,   # 暗藏灯槽采信长度（12 链 17.73 剔除 #10 入户门弧弦 0.84）
     "split_119_niche_m2": 4.37,  # 域119 龛内(+2650)=3.77+0.60（已由 ceiling_zones 机器复现）
     "split_119_right_m2": 1.52,  # 域119 右带(+2600)（机器原值 6.28 经切线 x=564.0/637.9 拆得）
+    "ceiling_bands_m2": 2.25,    # P3b 跌级侧带下界 Σ（确证邻接 6 对；已由 ceiling_zones 机器复现）
+    "ceiling_bands_n": 6,        # 侧带对数（域各膨胀 12px 后仍不接触的界面一律不计）
 }
 TOL = 0.02       # 逐行四舍五入累加
 TOL_ZONE = 0.07  # 洪水填充像素切割 0.06 + 四舍五入
@@ -221,6 +223,27 @@ def test_ceiling_zone_reconciliation_closes():
     assert f'{SEALED["ceiling_zones_m2"]}㎡' in head
 
 
+def test_ceiling_sidebands_are_lower_bound_and_self_consistent():
+    """P3b 跌级侧带：报告 §2 明细 = 封账 2.25㎡，且每行 A=L×Δh 自洽（Tier A）。
+
+    侧带是**下界**：只有“域各膨胀 12px 后确证接触”的界面才计，其余如实留空；
+    不得反过来把它当完整展开面积。**封账 2.25 不是猜出来的，而是“至少这么多”。**
+    """
+    _need_reports()
+    head = open(ZONES, encoding="utf-8").read()
+    rows = [c for c in _rows(ZONES, section="跌级侧带", npage=5)
+            if _num(c[2]) is not None and _num(c[4]) is not None]
+    assert len(rows) == SEALED["ceiling_bands_n"], \
+        f"确证邻接侧带应为 {SEALED['ceiling_bands_n']} 对, 实得{len(rows)}"
+    tot = sum(_num(c[4]) for c in rows)
+    assert abs(tot - SEALED["ceiling_bands_m2"]) < 0.005, f"侧带 Σ{tot:.3f} vs 封账 2.25"
+    for c in rows:                       # 逐行恒等式：A = L×Δh（不得有裸数字行）
+        # 容差 0.002：报告只披露两位小数的 L，0.005×Δh(≤0.35) 的舍入误差会泄进 A
+        #   （实测 3.96×0.35=1.386 vs 行值 1.387），不是算错。
+        assert abs(_num(c[2]) * _num(c[3]) - _num(c[4])) < 0.002, c
+    assert "下界" in head and "不猜" in head, "侧带口径（下界/不猜）未披露"
+
+
 def test_ceiling_cove_and_rulings_are_tracked():
     """2026-10-12 用户裁定必须可追溯：灯槽采信值、裁定条目、门窗假设口径。"""
     _need_reports()
@@ -287,5 +310,17 @@ def test_ceiling_zones_chain_rerun_matches_seal():
     vals = {r["m"]: r["v"] for r in art["rows"]}
     assert vals[30] is None, "⊕30 应=未能读取（三态），不得被填值"
     assert vals[22] == "SLAN-100", "⊕22 是灯槽物料代号非标高"
+    # 侧带链（2026-10-13 重建）：周长/接触长度/面积全机器值，check_sealed 已逐字比对存档参照；
+    # 此处只绑 golden 总量，并验证“剔除不静默”：每一对被丢下的界面都必须带原因。
+    zb, bb = art["zone_bands"], art["bands_bridge"]
+    assert abs(zb["sum_band_lower"]) < 1e-9, "直接邻接下界应=0（洪水域必被墨线隔开）"
+    assert len(bb["bands"]) == SEALED["ceiling_bands_n"], bb["bands"]
+    assert abs(bb["sum_band_m2"] - SEALED["ceiling_bands_m2"]) < 0.005, bb["sum_band_m2"]
+    assert bb["skipped_pairs"] and all(s.get("why") for s in bb["skipped_pairs"]), \
+        "剔除的域对必须逐对披露原因"
+    unconf = set(int(k) for k in bb["level_unconfirmed"])
+    hit = [s for s in bb["skipped_pairs"] if {s["z1"], s["z2"]} & unconf]
+    assert unconf == {840} and hit, "未经互证域（+2450）的剔除必须存在且可追溯"
+    assert all({840} & {b["z1"], b["z2"]} == set() for b in bb["bands"]), "840 不得出现在采信侧带里"
     # 几何字段全部来于机器，不得含人工录入痕迹
     assert all(r["provenance_geom"] == "MACHINE" for r in art["rows"])
