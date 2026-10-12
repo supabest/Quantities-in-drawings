@@ -62,6 +62,7 @@ def rows(data=None):
             by_name[nm] = r
     cboq = load_ceiling_boq()
     out = []
+    covered = set()
     for boq_room, model_names in wall_geometry.ROOM_MAP.items():
         seen = set()
         geo = 0.0
@@ -71,6 +72,7 @@ def rows(data=None):
             if r is None or r["comp_id"] in seen:
                 continue
             seen.add(r["comp_id"])
+            covered.add(r["comp_id"])
             part = "+".join(r["names"])
             fp = by_part.get(part)
             if fp:
@@ -82,6 +84,19 @@ def rows(data=None):
         formula = "Σ天棚(=房间净顶): " + " + ".join(sub[:3]) + (" +…" if len(sub) > 3 else "")
         out.append(Q.row(boq_room, "天棚刮腻子/涂料(基层)", "m2", formula,
                          geo, "05平面围合", check=cboq.get(boq_room)))
+    # ROOM_MAP 是按 BOQ 清单列建的——BOQ 无该列的空间会在上面被静默丢弃。**2026-10-12 用户裁定**:
+    # 电梯厅/过厅属精装范围, P1 地面/P3b 吊顶均已计, 天花基层须同口径补计 → 不依赖 BOQ 有无列。
+    # 图上无房间名的块按 R12 不补(不猜范围)。
+    for r in rooms:
+        if r["is_out"] or not r["names"] or r["comp_id"] in covered:
+            continue
+        part = "+".join(r["names"])
+        fp = by_part.get(part)
+        if not fp:
+            continue
+        out.append(Q.row(part, "天棚刮腻子/涂料(基层)", "m2",
+                         "Σ天棚(=房间净顶): %s[%.2f](BOQ无此列, 纯几何)" % (part[:10], fp["value"]),
+                         fp["value"], "05平面围合", check=cboq.get(part)))
     return out
 
 

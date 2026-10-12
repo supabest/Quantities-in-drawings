@@ -28,6 +28,7 @@ MD = os.path.join(ROOT, "outputs", "model")
 SUMMARY = os.path.join(MD, "TAKEOFF_SUMMARY.md")
 IFC_XCHK = os.path.join(MD, "wall_vs_ifc.md")
 ZONES = os.path.join(MD, "ceiling_zones.md")
+CEILING = os.path.join(MD, "ceiling_takeoff.md")
 DRAWINGS = os.path.join(ROOT, "装修图纸", "227户型dxf")
 
 # ── 封账清单（手册 §7.4 / §4.5 / §5.3 定案值） ────────────────────────
@@ -35,10 +36,12 @@ SEALED = {
     "floor_m2": 163.75,      # P1 地面·16行
     "wall_m2": 391.68,       # P2 墙面基层·10行（已按逐间主吊顶净高，非一刀切3020）
     "skirting_m": 148.14,    # P2 踢脚线·10行
-    "ceiling_m2": 149.44,    # P3 天花净顶投影·10行
+    "ceiling_m2": 162.15,    # P3 天花净顶投影·12行（2026-10-12 用户裁定补计电梯厅11.63+过厅1.08；
+                             #   原 149.44·10行系 BOQ ROOM_MAP 无该列→静默丢弃；恒等式
+                             #   162.15 = P1 163.75 − 无标注块 1.60 精确闭合）
     "furniture_pcs": 21,     # P4 固装·20行（含餐厅柜×2；柜体 m² 不可自动提取，见 §6.3）
-    "total_m2": 704.87,
-    "total_rows": 66,
+    "total_m2": 717.57,
+    "total_rows": 68,
     "perimeter_qty": 210.02,   # P2c 高度无关护栏：算量 Σ 边
     "perimeter_ifc": 210.10,   # 模型 IfcSpace 边长汇总
     "wall_gross_qty": 598.87,  # 毛墙(主吊顶净高)
@@ -201,8 +204,18 @@ def test_ceiling_zone_reconciliation_closes():
     assert not drift, f"明细分组 Σ 与分级合计表漂移: {drift}"
     assert abs(grouped["+2650"] - SEALED["zone_2650_m2"]) < 0.02, grouped["+2650"]
 
-    # 与 P3 投影的差额必须逐行披露，不得静默吞掉
-    assert "51.66" in head and f'{SEALED["ceiling_zones_m2"]}㎡' in head
+    # 与 P3 投影的差额必须逐行披露，不得静默吞掉。
+    # 2026-10-12: 原断言把“51.66”写死为字面量，P3 补计电梯厅/过厅后基数一变就假失败；
+    #   改为仍从两份报告实算差额校验（护栏变强：同时验证 ceiling_takeoff.md 的合计就是封账值）。
+    p3txt = open(CEILING, encoding="utf-8").read()
+    m3 = re.search(r"\*\*m2 合计 ([\d.]+)\*\*", p3txt)
+    assert m3, "ceiling_takeoff.md 未读到 m2 合计"
+    assert abs(float(m3.group(1)) - SEALED["ceiling_m2"]) < TOL, \
+        f"P3 报告合计 {m3.group(1)} 与封账 {SEALED['ceiling_m2']} 不符"
+    gap = round(float(m3.group(1)) - SEALED["ceiling_zones_m2"], 2)
+    assert f"{gap:.2f}" in head, \
+        f"ceiling_zones.md 未披露与 P3 投影 {m3.group(1)}㎡ 的差额 {gap:.2f}㎡"
+    assert f'{SEALED["ceiling_zones_m2"]}㎡' in head
 
 
 def test_ceiling_cove_and_rulings_are_tracked():
