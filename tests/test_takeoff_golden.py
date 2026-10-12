@@ -52,6 +52,8 @@ SEALED = {
     "ceiling_zones_m2": 97.78,  # P3b P02 已确认分级水平面 Σ（21 域 = 原 19 洪水域，域119 切分为 3）
     "zone_2650_m2": 6.58,       # +2650 分级 Σ（含 2026-10-12 用户裁定并入的龛左窄带 0.34）
     "cove_accepted_m": 16.89,   # 暗藏灯槽采信长度（12 链 17.73 剔除 #10 入户门弧弦 0.84）
+    "split_119_niche_m2": 4.37,  # 域119 龛内(+2650)=3.77+0.60（已由 ceiling_zones 机器复现）
+    "split_119_right_m2": 1.52,  # 域119 右带(+2600)（机器原值 6.28 经切线 x=564.0/637.9 拆得）
 }
 TOL = 0.02       # 逐行四舍五入累加
 TOL_ZONE = 0.07  # 洪水填充像素切割 0.06 + 四舍五入
@@ -258,3 +260,32 @@ def test_wall_vs_ifc_rerun_matches_seal():
     assert _num(per[4]) == SEALED["perimeter_qty"], per
     gross = [c for c in rows if "算量毛墙合计" in c[1]][0]
     assert _num(gross[4]) == SEALED["wall_gross_qty"], gross
+
+
+@pytest.mark.skipif(not os.path.isdir(DRAWINGS), reason="图纸未入库，仅本地可复算")
+@pytest.mark.slow
+def test_ceiling_zones_chain_rerun_matches_seal():
+    """P3b 天花分级吊顶**复算链**重跑 = 封账（Tier B）。
+
+    此链以前只存在于报告文本与若干**无生成器**的 JSON 里（2026-10-12 实测：
+    elev/ 下 12 个工件有 7 个全仓无 .py 引用，含 97.78 的载体）——本测试把
+    它钉成可重跑、可报错的单一入口，并逆验数据哈希锁与三类值分离契约。
+    """
+    from modeling import ceiling_zones as CZ
+    CZ.verify_source()                       # 源图纸指纹不符即抛异常
+    art = CZ.regenerate()
+    assert art["meta"]["source_sha256"] == CZ.SOURCE_SHA256
+    s = CZ.check_sealed(art, sealed_total=SEALED["ceiling_zones_m2"])   # 内含断言
+    assert abs(s - SEALED["ceiling_zones_m2"]) < TOL, s
+    # 切分硬值逐字复现（龛内 4.37 / 右带 1.52）
+    sp = art["split_119"]["machine_grouped"]
+    assert sp["龛内(+2650,⊕14)"] == SEALED["split_119_niche_m2"]
+    assert sp["右带(+2600,⊕26)"] == SEALED["split_119_right_m2"]
+    # 三类值分离契约：标高数字全部标 VLM_READ，且保留“未能读取”这一态（不猜）
+    prov = {r["provenance_v"] for r in art["rows"]}
+    assert prov == {"VLM_READ"}, prov
+    vals = {r["m"]: r["v"] for r in art["rows"]}
+    assert vals[30] is None, "⊕30 应=未能读取（三态），不得被填值"
+    assert vals[22] == "SLAN-100", "⊕22 是灯槽物料代号非标高"
+    # 几何字段全部来于机器，不得含人工录入痕迹
+    assert all(r["provenance_geom"] == "MACHINE" for r in art["rows"])
