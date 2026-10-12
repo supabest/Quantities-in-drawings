@@ -52,6 +52,7 @@ SEALED = {
     "ceiling_zones_m2": 97.78,  # P3b P02 已确认分级水平面 Σ（21 域 = 原 19 洪水域，域119 切分为 3）
     "zone_2650_m2": 6.58,       # +2650 分级 Σ（含 2026-10-12 用户裁定并入的龛左窄带 0.34）
     "cove_accepted_m": 16.89,   # 暗藏灯槽采信长度（12 链 17.73 剔除 #10 入户门弧弦 0.84）
+                                # ⚠ 存档值，非机器值：机制已重建但 12 条只逐字复现 9 条（§7.5）
     "split_119_niche_m2": 4.37,  # 域119 龛内(+2650)=3.77+0.60（已由 ceiling_zones 机器复现）
     "split_119_right_m2": 1.52,  # 域119 右带(+2600)（机器原值 6.28 经切线 x=564.0/637.9 拆得）
     "ceiling_bands_m2": 2.25,    # P3b 跌级侧带下界 Σ（确证邻接 6 对；已由 ceiling_zones 机器复现）
@@ -322,5 +323,22 @@ def test_ceiling_zones_chain_rerun_matches_seal():
     hit = [s for s in bb["skipped_pairs"] if {s["z1"], s["z2"]} & unconf]
     assert unconf == {840} and hit, "未经互证域（+2450）的剔除必须存在且可追溯"
     assert all({840} & {b["z1"], b["z2"]} == set() for b in bb["bands"]), "840 不得出现在采信侧带里"
+    # 灯槽链（2026-10-13 重建机制）：它是一块**反例**——机制可复现、数值不可升格。
+    # 此处只绑三件事：存档内部恒等式、固定的 9/12 逐字复现名单、以及“机器值不得越封账”。
+    dc = art["dash_chains"]
+    assert len(dc["archive_accepted"]) == 12, len(dc["archive_accepted"])
+    assert abs(dc["archive_raw_sum_m"] - 17.73) < 0.005, dc["archive_raw_sum_m"]
+    assert abs(dc["archive_sealed_m"] - SEALED["cove_accepted_m"]) < 0.005, \
+        "16.89 必须恰等于存档 Σ(12) 剔除 #10"
+    assert tuple(dc["reproduced_idx"]) == CZ.COVE_REPRO_IDX, dc["reproduced_idx"]
+    assert abs(dc["reproduced_span_m"] - CZ.COVE_REPRO_SPAN_M) < 0.005
+    assert dc["n_chains"] == CZ.COVE_MACHINE_ANCHOR["n_chains"] \
+        and dc["n_accepted"] == CZ.COVE_MACHINE_ANCHOR["n_accepted"], \
+        "桶宽/池窗/门槛漂移（机器条数与 Σ 不得只靠文字记忆守）"
+    assert dc["machine_sum_m"] > SEALED["cove_accepted_m"], \
+        "机器 Σ 竟≤封账：截断口径可能被凑出来了，须人工重估而不是直接采信"
+    assert "存档值" in dc["verdict"] and dc["rejected_causes"] and "存档值" in dc["provenance"], \
+        "不可复现部分必须写进口径，不得只留在注释里"
+    assert dc["machine_sum_m"] > dc["reproduced_span_m"], "机器 Σ 应大于逐字复现部分"
     # 几何字段全部来于机器，不得含人工录入痕迹
     assert all(r["provenance_geom"] == "MACHINE" for r in art["rows"])
