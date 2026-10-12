@@ -245,8 +245,11 @@ def load(path: str):
 
 
 if __name__ == '__main__':
-    import sys
-    doc = load(sys.argv[1] if len(sys.argv) > 1 else 'electrical.dxf')
+    import sys, os
+    # 默认自检图 = 227 户型平面 DXF（工控项目已退出算量范围，2026-10-12）
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+    default = os.path.join(root, '装修图纸/227户型dxf/05.227户型平面图 （施工图纸） rev-33.dxf')
+    doc = load(sys.argv[1] if len(sys.argv) > 1 else default)
     bc = count_blocks(doc)
     print(f'顶层 INSERT 组合数（图层,块名）: {len(bc)}，总块数 {sum(bc.values())}')
     wl = measure_wire_lengths(doc, unit_to_m=layer_length_units['mm_to_m'])
