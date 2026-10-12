@@ -781,7 +781,7 @@ class TopologyGraph:
 | **Phase 4** | 确定性异常规则 + LLM 综合审计（语义冲突） | 原 §五 Phase 8 中的 AI 总审计拆前，规则先行 | ✅ 完成 |
 | **Phase 4.5** | **2D 拓扑预校验**（门窗挂墙 / 闭合性 / 面积守恒） | **本轮新增**：§11.5 "低垂果实" 提前实现 | 🎯 计划中 |
 | **Phase 5a** | PostgreSQL 迁移 + Alembic + 双跑 | 原 §五 Phase 2 DB 部分前移，解除 SQLite 写锁 | ⏳ |
-| **Phase 5b** | DXF 解析（ezdxf + libredwg）+ `electrical.dxf` 对账验收 | 原 §五 Phase 1 的 CAD 部分 | ⏳ |
+| **Phase 5b** | DXF 解析（ezdxf + libredwg）+ **227 户型 DXF** 对账验收（原 `electrical.dxf` 工控基准已随 2026-10-12 范围裁定退出） | 原 §五 Phase 1 的 CAD 部分 | ⏳ |
 | **Phase 5c** | PDF 解析（PyMuPDF + 可选 OCR）+ §9.1 权威域分工 | 原 §五 Phase 1 的 PDF 部分，从隐含拆出显式 | ⏳ |
 | **Phase 5d** | 融合去重 + §9.3 冲突仲裁 + §十一 2.5D 实体落库 | 原 §五 Phase 2 + Phase 3 的融合，按 §十一 硬约束 | ⏳ |
 | **Phase 6** | QuantityRuleEngine（Shapely）+ 挤出/拓扑进引擎 | 原 §五 Phase 4 + Phase 6 前段合并 | ⏳ |
@@ -877,8 +877,8 @@ Phase 6 · 升级到真 2.5D 拓扑（§11.3 完整五条）
 | 项 | 内容 |
 |----|------|
 | 目标 | 把 DWG/DXF 变成 `drawing_elements` 表的结构化几何 |
-| 交付 | 1) `requirements.txt` 新增 `ezdxf / shapely`；<br>2) DWG→DXF 转换链路（ODA File Converter Docker 或 libredwg）；<br>3) `app/core/cad_parser/dxf_extractor.py`：九类实体提取（LINE/LWPOLYLINE/ARC/CIRCLE/HATCH/INSERT/DIMENSION/TEXT-MTEXT/LAYER）；<br>4) `drawing_pages` / `drawing_elements` 新表（§3.1）；<br>5) `electrical.dxf` 对照 `outputs/营销中心…表.xlsx` 验收报告 |
-| 验收 | 九类实体均可提取；`electrical.dxf` 中灯具/开关/插座图块计数与手算表偏差 <2%（对应 KPI 中"CAD 解析成功率 >95%"） |
+| 交付 | 1) `requirements.txt` 新增 `ezdxf / shapely`；<br>2) DWG→DXF 转换链路（ODA File Converter Docker 或 libredwg）；<br>3) `app/core/cad_parser/dxf_extractor.py`：九类实体提取（LINE/LWPOLYLINE/ARC/CIRCLE/HATCH/INSERT/DIMENSION/TEXT-MTEXT/LAYER）；<br>4) `drawing_pages` / `drawing_elements` 新表（§3.1）；<br>5) **`装修图纸/227户型dxf/05.227户型平面图 （施工图纸） rev-33.dxf`** 对照 227 封账（`outputs/model/TAKEOFF_SUMMARY.md` + `tests/test_takeoff_golden.py` SEALED）的验收报告<br>⚠ 原基准「`electrical.dxf` 对照 `outputs/营销中心…表.xlsx` 验收报告」**作废**——工控属另一项目，文件已从仓库清出 |
+| 验收 | 九类实体均可提取；**227 户型平面 DXF** 的墙线 / INSERT 块 / TEXT 计数与 `modeling/` 封账逐项一致（对应 KPI 中"CAD 解析成功率 >95%"） |
 | 风险 | DWG 版本兼容性（AutoCAD 2018+）；中文图层名乱码；DIMENSION 实体实测值 override |
 | 依赖 | Phase 5a（写入 PG） |
 
@@ -889,7 +889,7 @@ Phase 6 · 升级到真 2.5D 拓扑（§11.3 完整五条）
 | 目标 | 把矢量 PDF 变成 `drawing_elements` 表的**语义数据**；与 DXF 同表不同行 |
 | 交付 | 1) `requirements.txt` 新增 `PyMuPDF / pdfplumber / pytesseract`；<br>2) `app/core/cad_parser/pdf_extractor.py`：文字块 + bbox + 材料号正则 `[A-Z]{2}-\d{2}` + 图例表 + 尺寸标注；<br>3) **§9.1 权威域分工硬落地**：PDF 元素写入时 `source_type='pdf_text'`，`source_authority='semantic_only'`（**禁止参与几何计算**）；<br>4) 扫描版 PDF 分支：pytesseract OCR 后降级 `source_authority='fallback_ocr'`，自动射 🟡 中置信度 |
 | 验收 | 材料号 `ST-01`、房间名、图例表行均能提取；对同一份 DXF+PDF，材料号与 DXF TEXT 重合度 ≥ 80% |
-| 风险 | 无现成 PDF 验收样本——**需从 `营销中心…dwg` 导出 PDF 作 5c 验收物料**（ODA/QCAD） |
+| 风险 | ~~无现成 PDF 验收样本——需从 `营销中心…dwg` 导出 PDF~~ → **已消解**：`装修图纸/227户型dxf/广州珠实金融城住宅项目--227户型施工图纸.pdf`（矢量，idx0–80）即 227 现成验收物料，已为 `tests/test_mep_module.py` 的输入 |
 | 依赖 | Phase 5a、5b（同表写入） |
 
 #### **12.5.4 Phase 5d · 融合去重 + §9.3 冲突仲裁 + §十一 实体落库**（预计 1.5 周，**本轮重点拆分**）
@@ -927,7 +927,7 @@ Phase 6 · 升级到真 2.5D 拓扑（§11.3 完整五条）
 工作量：**4-5 天**（建表 + Alembic + 写入链路 + 拓扑外键约束）。
 
 **验收标准**（Phase 5d 整体）：
-1. `electrical.dxf` 与手算表工程量误差 ≤ 5%（KPI）；
+1. **227 户型** DXF 解析结果与 227 封账（golden SEALED）工程量误差 ≤ 5%（KPI）；⚠ 原「`electrical.dxf` 与工控手算表对账」作废；
 2. 同实体多源归并后 **只出一条 Measurement**（SQL 断言）；
 3. 五类冲突仲裁 fixture 全部命中预期降级行为；
 4. 无 handle 时 IoU 去重回归：向已知实体集注射人工衍变的“同一墙体三个微变体”，应只保留一条。
@@ -1037,7 +1037,9 @@ Phase 5a 的 PostgreSQL 迁移不受本决策影响，可**即刻开工**。
 
 ### 12.7 Phase 5b · DXF 解析设计决策（v1.2 追加，基于 `electrical.dxf` 实测普查）
 
-> 本节结论全部来自对 `electrical.dxf`（23MB，AC1032/AutoCAD 2018，代码页 ANSI_936 GBK）
+> ⚠ **范围声明（2026-10-12）**：本节数据源 `electrical.dxf` 与 `outputs/营销中心…表.xlsx` 属**工控（营销中心售楼部）另一项目**，已按用户范围裁定从仓库清出，**不再作为任何阶段的验收基准**。保留理由：其结论（图层命名习惯、代码页 ANSI_936/GBK、DIMENSION 实测值 override、块计数方法）是 DXF 解析的**通用工程经验**，与具体户型无关。
+>
+> 原始普查对象：对 `electrical.dxf`（23MB，AC1032/AutoCAD 2018，代码页 ANSI_936 GBK）
 > 与手算表 `outputs/营销中心…表.xlsx` 的**实测普查**，非纸面推断。
 
 #### **12.7.1 图纸画像（实测）**
