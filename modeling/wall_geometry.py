@@ -200,8 +200,12 @@ def group_geo(results, names):
 def build_rows(results, boq):
     """按 BOQ 分组把几何产出→墙面基层(m2)+踢脚线(m)行。单一真源, main/rows 共用。"""
     base_rows, bboard_rows = [], []
+    covered = set()
     for boq_room, model_names in ROOM_MAP.items():
         g = group_geo(results, model_names)
+        # covered = “已被该 BOQ 组考虑过”，与是否成行无关——置于 net 判空之前，
+        # 否则几何为 0 的组会漏标 covered，其空间跌入下方补计分支产出幻影行。
+        covered.update(id(r) for r in results if any(n in r["name"] for n in model_names))
         if not g["net"]:
             continue
         nface = len([r for r in results if any(n in r["name"] for n in model_names)])
@@ -216,6 +220,23 @@ def build_rows(results, boq):
         bboard_rows.append(Q.row(boq_room, "踢脚线", "m",
                                  "净周长%.2f − 门洞%.2f" % (g["perimeter_mm"] / 1e3, g["door_w_mm"] / 1e3),
                                  round(bb_m, 2), "05平面围合", check=None))
+    # 同上: BOQ 无对应列的空间不得静默丢弃。**2026-10-12 用户裁定**: 电梯厅/过厅属精装范围,
+    # 墙面与天花同口径补计。图上无房间名的窄条不出行——它紧靠电梯厅, 两侧会把同一道墙重复计一次。
+    for res in results:
+        if id(res) in covered or res["name"].startswith("("):
+            continue
+        havg = (res["gross_m2"] * 1e6 / res["perimeter_mm"] / 1e3) if res["perimeter_mm"] else 0.0
+        base_rows.append(Q.row(res["name"], "墙面抹灰/腻子/涂料基层", "m2",
+                               "Σ各间(边×主吊顶净高)=%.2fm²毛; 均高%.3fm; 扣门%.2f×%.2f 窗%.2f×%.2f"
+                               " (BOQ无此列, 纯几何; 1间)" % (
+                                   res["gross_m2"], havg, res["door_w_mm"] / 1e3, H_DOOR / 1e3,
+                                   res["win_w_mm"] / 1e3, H_WIN / 1e3),
+                               res["net_m2"], "05平面围合", check=None))
+        bboard_rows.append(Q.row(res["name"], "踢脚线", "m",
+                                 "净周长%.2f − 门洞%.2f (BOQ无此列)" % (
+                                     res["perimeter_mm"] / 1e3, res["door_w_mm"] / 1e3),
+                                 round((res["perimeter_mm"] - res["door_w_mm"]) / 1000.0, 2),
+                                 "05平面围合", check=None))
     return base_rows, bboard_rows
 
 
