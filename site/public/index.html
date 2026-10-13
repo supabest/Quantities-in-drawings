@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>总览 · 227户型装修工程量计算表</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="./index.html">📐 227户型样板房 · 装修工程量</a>
+    <nav>
+      <a href="./index.html" class="on">总览</a>
+      <a href="./boq.html" class="">工程量计算表</a>
+      <a href="./pending.html" class="">待确认与挂账</a>
+      <a href="./notes.html" class="">口径与假设</a>
+      <a class="dl" href="./download/227%E6%88%B7%E5%9E%8B%E8%A3%85%E4%BF%AE%E5%B7%A5%E7%A8%8B%E9%87%8F%E8%AE%A1%E7%AE%97%E8%A1%A8.xlsx">⬇️ 下载 Excel</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+<h1>工程量计算表（装修 · 227 户型样板房）</h1>
+<p class="sub">
+  封账基准：m² 763.12 ｜ m 166.73 ｜ 离散件 21 ｜ 72 行；数值全部由几何从图纸独立算出，每行带计算式与追溯<br>
+  数值全部由几何从图纸独立算出，逐行带【计算式】+【尺寸追溯】；不能确定的量在<strong>备注列逐行写明原因</strong>，
+  读不出/裁定不计的部分进<a href="./pending.html">挂账清单</a>单独披露，不混进 72 行。
+</p>
+
+<div class="cards">
+  <div class="card"><div class="v">72</div><div class="k">清单行数（地 16 / 墙 24 / 顶 12 / 固装 20）</div></div>
+  <div class="card"><div class="v">763.12<span style="font-size:15px"> m²</span></div><div class="k">面积合计（封账口径）</div>
+    <div class="n">本表逐行取 2 位后相加 763.13；未舍入真值 763.115</div></div>
+  <div class="card"><div class="v">166.73<span style="font-size:15px"> m</span></div><div class="k">长度合计（墙面抹灰/踢脚线）</div></div>
+  <div class="card"><div class="v">21<span style="font-size:15px"> 件</span></div><div class="k">离散件（固装柜体/柜台）</div></div>
+</div>
+
+<div class="note">
+  <strong>末位舍入口径（先说清，免得被当成账实不符）：</strong>封账 m² 763.12 是各模块“先求和、再取 2 位小数显示”的值
+  （未舍入真值 763.115）；本页与 Excel 是逐行取 2 位后再相加，得 763.13，与封账差 ≤0.02。
+  这属逐行舍入末位差，<strong>不得为此改封账</strong>（恒等断言一律用未舍入真值 + 容差 0.011）。
+</div>
+
+<div class="note ok">
+  <strong>恒等断言在构建时执行，破账不产出本站。</strong>
+  顶 162.15 = 地 163.75 − 无标注块 1.60 ｜ 墙 437.22 = 全间净墙 505.28 − 无标注窄条 68.06 ｜
+  P3b 97.78 = 97.39 + 0.34 + 0.05 ｜ 灯槽 16.89 = 17.73 − 0.84 ｜ 备注规则命中 0 行即构建失败。
+</div>
+
+<h2>一、分部汇总</h2>
+<div class="panel scroller">
+<table>
+  <thead><tr><th>分部</th><th>行数</th><th>m²</th><th>m</th><th>件</th><th>低置信行</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><a href="./boq.html">1·楼地面工程</a></td>
+      <td class="num">16</td>
+      <td class="num">163.76</td>
+      <td class="num">—</td>
+      <td class="num">—</td>
+      <td class="num">2</td>
+    </tr>
+    <tr>
+      <td><a href="./boq.html">2·墙柱面工程</a></td>
+      <td class="num">12</td>
+      <td class="num">437.22</td>
+      <td class="num">—</td>
+      <td class="num">—</td>
+      <td class="num">1</td>
+    </tr>
+    <tr>
+      <td><a href="./boq.html">5·踢脚线工程</a></td>
+      <td class="num">12</td>
+      <td class="num">—</td>
+      <td class="num">166.73</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+    </tr>
+    <tr>
+      <td><a href="./boq.html">3·天棚工程</a></td>
+      <td class="num">12</td>
+      <td class="num">162.15</td>
+      <td class="num">—</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+    </tr>
+    <tr>
+      <td><a href="./boq.html">6·固定柜台工程</a></td>
+      <td class="num">20</td>
+      <td class="num">—</td>
+      <td class="num">—</td>
+      <td class="num">21</td>
+      <td class="num">7</td>
+    </tr>
+  <tr class="total-row"><td>合计</td><td class="num">72</td><td class="num">763.13</td>
+      <td class="num">166.73</td><td class="num">21</td><td class="num">10</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="sub">注：上方卡片里的“墙 24”是<strong>图纸段次</strong>(P2 墙面共 24 行)；按清单分部记账时拆成
+  2·墙柱面工程(m²，12 行) 与 5·踢脚线工程(m，12 行)——同一批行的两种数法，不重复计量。</p>
+
+<h2>二、置信度分布与用法</h2>
+<div class="cards">
+  <div class="card">
+    <div class="v" style="color:#52c41a">14</div>
+    <div class="k">🟢 高置信度</div>
+    <div class="n">可直接用于内部组价和对外报价</div>
+    <div class="n">涉及 m² 162.16 ｜ m 0 ｜ 件 0</div>
+  </div>
+  <div class="card">
+    <div class="v" style="color:#faad14">48</div>
+    <div class="k">🟡 中置信度</div>
+    <div class="n">建议复核后再用于对外报价</div>
+    <div class="n">涉及 m² 563.24 ｜ m 166.73 ｜ 件 14</div>
+  </div>
+  <div class="card">
+    <div class="v" style="color:#ff4d4f">10</div>
+    <div class="k">🔴 低置信度</div>
+    <div class="n">禁止直接用于对外报价，须现场复量或设计师确认</div>
+    <div class="n">涉及 m² 37.73 ｜ m 0 ｜ 件 7</div>
+  </div>
+</div>
+<div class="note">
+  置信度低<strong>不代表数量可以随意改</strong>，只代表口径/归属仍需外部资料收敛（图纸读不出、无可机读门窗表、
+  大样比例不可标定等）。低置信的 10 行已逐行写明"不确定原因"与"需补充的资料"，见
+  <a href="./pending.html">待确认与挂账</a>。
+</div>
+
+<h2>三、挂账（未计入 72 行的部分）</h2>
+<p class="sub">共 7 条。这些量要么被裁定不计、要么图上读不出，单列披露而不是硬凑进封账。</p>
+<div class="panel scroller">
+<table>
+  <thead><tr><th>项目</th><th>量</th><th>算式/口径</th><th>状态</th></tr></thead>
+  <tbody>
+    <tr><td>墙面·无标注窄条</td><td>68.06㎡</td><td class="f">全间净墙 505.28 − 窄条 68.06 = 封账 437.22</td><td><span class="tag">USER_RULING</span></td></tr>
+    <tr><td>天花·无标注块</td><td>1.60㎡</td><td class="f">地面 163.75 − 1.60 = 天花 162.15</td><td><span class="tag">MACHINE+待命名</span></td></tr>
+    <tr><td>天花·跌级侧带展开面积</td><td>仅确证 6 对 2.25㎡(下界)</td><td class="f">P3b §2 侧带</td><td><span class="tag">MACHINE(下界)+口径</span></td></tr>
+    <tr><td>灯槽(藏灯虚线)长度</td><td>存档 16.89m；机器口径 46.57~64.15m</td><td class="f">17.73 − 0.84 = 16.89</td><td><span class="tag">ARCHIVE_ONLY</span></td></tr>
+    <tr><td>固装·柜体/台面面积</td><td>未出行</td><td class="f">P4b 待精算</td><td><span class="tag">MACHINE+待办</span></td></tr>
+    <tr><td>门窗洞口面积</td><td>按假设值</td><td class="f">门 2.10m 高 / 窗 1.50m 高 / 窗台 0</td><td><span class="tag">MACHINE+假设</span></td></tr>
+    <tr><td>电梯厅 5.73m 开口性质</td><td>±3.43㎡</td><td class="f">36.13㎡(按窗) vs 32.70㎡(按通高门)</td><td><span class="tag">MACHINE+待核</span></td></tr>
+  </tbody>
+</table>
+</div>
+<p><a class="btn ghost" href="./pending.html">看挂账全文与逐行待确认 →</a></p>
+
+<h2>四、从这里继续</h2>
+<div class="links">
+  <a class="btn" href="./download/227%E6%88%B7%E5%9E%8B%E8%A3%85%E4%BF%AE%E5%B7%A5%E7%A8%8B%E9%87%8F%E8%AE%A1%E7%AE%97%E8%A1%A8.xlsx">⬇️ 下载 工程量计算表.xlsx（4 sheet 含备注列）</a>
+  <a class="btn ghost" href="./boq.html">📋 72 行全表（可按分部/置信度筛选）</a>
+  <a class="btn ghost" href="./pending.html">⚠️ 待确认 58 行 + 挂账 7 条</a>
+  <a class="btn ghost" href="./notes.html">📖 口径、假设与依据（15 条）</a>
+</div>
+</main>
+<footer class="fingerprint">
+  <div>
+    构建 2026-10-13 11:10 ｜ commit <code>c51b0ee</code> ｜
+    72 行 ｜ 封账 m² <b>763.12</b> / m <b>166.73</b> / 件 <b>21</b>
+    （本表逐行取 2 位后相加：m² 763.13 / m 166.73 / 件 21）
+    ｜ xlsx sha256 <code>b4f12168fe834900</code> ｜ 源图 sha256 <code>0681015aa370fcc8</code>
+  </div>
+  <p class="readonly">
+    本站是封账数据的<strong>只读快照</strong>：72 行的计算式、尺寸追溯、三态来源与备注全部可查、可打印、可下载同一份 Excel。
+    上传图纸重算、备注回填、组价报价等操作不在本站，仍在应用内（本地/服务器部署的 Web 端）。
+  </p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工程量计算表 · 227户型装修工程量计算表</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="./index.html">📐 227户型样板房 · 装修工程量</a>
+    <nav>
+      <a href="./index.html" class="">总览</a>
+      <a href="./boq.html" class="on">工程量计算表</a>
+      <a href="./pending.html" class="">待确认与挂账</a>
+      <a href="./notes.html" class="">口径与假设</a>
+      <a class="dl" href="./download/227%E6%88%B7%E5%9E%8B%E8%A3%85%E4%BF%AE%E5%B7%A5%E7%A8%8B%E9%87%8F%E8%AE%A1%E7%AE%97%E8%A1%A8.xlsx">⬇️ 下载 Excel</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+<h1>工程量计算表 · 72 行</h1>
+<p class="sub">
+  列顺序与下载的 xlsx「工程量计算表」sheet 完全一致；<span class="badge low">低</span> 置信行整行高亮，
+  与 xlsx 的黄色底纹同一口径。<strong>最后一列不是装饰</strong>——每行的不确定原因与需补资料都在这里，空值一律显式写"无"。
+</p>
+
+<div class="filters no-print">
+  <div class="chips" id="div-chips">
+    <button class="chip on" data-div="">全部分部</button>
+<button class="chip" data-div="1">1·楼地面工程（16）</button><button class="chip" data-div="2">2·墙柱面工程（12）</button><button class="chip" data-div="5">5·踢脚线工程（12）</button><button class="chip" data-div="3">3·天棚工程（12）</button><button class="chip" data-div="6">6·固定柜台工程（20）</button>  </div>
+  <div class="chips" id="conf-chips">
+    <button class="chip on" data-conf="">全部置信</button>
+    <button class="chip" data-conf="high">🟢 高（14）</button>
+    <button class="chip" data-conf="medium">🟡 中（48）</button>
+    <button class="chip" data-conf="low">🔴 低（10）</button>
+  </div>
+  <input type="search" id="q" placeholder="搜房间 / 列项 / 计算式 / 备注关键词…">
+  <div class="stat" id="stat"></div>
+</div>
+
+<div class="panel scroller">
+<table id="t">
+  <thead><tr>
+    <th>序号</th><th>分部</th><th>部位/房间</th><th>列项(项目名称)</th><th>单位</th><th>工程量</th>
+    <th>几何计算式</th><th>尺寸追溯</th><th>数据来源(三态)</th><th>置信度</th>
+    <th>备注(不确定原因)</th><th>需补充的资料</th>
+  </tr></thead>
+  <tbody>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="11.63" data-txt="电梯厅 楼面完成面积 σ矩形: 2.00×5.60 + 收边0.43 05平面图rev-33·围合29082px 无  ">
+      <td class="num">1</td>
+      <td>1·楼地面工程</td>
+      <td>电梯厅</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">11.63</td>
+      <td class="f">Σ矩形: 2.00×5.60 + 收边0.43</td>
+      <td>05平面图rev-33·围合29082px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="low" data-div="1" data-conf="low"
+        data-unit="m²" data-qty="0.46" data-txt="(无标注@52163,227813) 楼面完成面积 σ矩形: 2.48×0.30 − 去重0.29 05平面图rev-33·围合1146px 该围合域在 p01 平面布置图/p11 砌筑图上均无房间名标注，仅按坐标挂账；面积=几何实测(可信)，空间归属与面层做法无法判定 需设计师提供该域房间命名与做法归属(04空间做法表正文为图片，不可机读) f1_anon_zone">
+      <td class="num">2</td>
+      <td>1·楼地面工程</td>
+      <td>(无标注@52163,227813)</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">0.46</td>
+      <td class="f">Σ矩形: 2.48×0.30 − 去重0.29</td>
+      <td>05平面图rev-33·围合1146px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge low">低</span></td>
+      <td class="r">该围合域在 P01 平面布置图/P11 砌筑图上均无房间名标注，仅按坐标挂账；面积=几何实测(可信)，空间归属与面层做法无法判定</td>
+      <td class="r">需设计师提供该域房间命名与做法归属(04空间做法表正文为图片，不可机读)</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="4.3" data-txt="生活阳台 楼面完成面积 σ矩形: 4.24×1.00 + 收边0.06 05平面图rev-33·围合10741px 无  ">
+      <td class="num">3</td>
+      <td>1·楼地面工程</td>
+      <td>生活阳台</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">4.3</td>
+      <td class="f">Σ矩形: 4.24×1.00 + 收边0.06</td>
+      <td>05平面图rev-33·围合10741px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="9.87" data-txt="中厨 楼面完成面积 σ矩形: 1.72×2.60 + 1.14×2.40 + 0.80×1.90 + 0.54×2.40 − 去重0.16 05平面图rev-33·围合24665px 无  ">
+      <td class="num">4</td>
+      <td>1·楼地面工程</td>
+      <td>中厨</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">9.87</td>
+      <td class="f">Σ矩形: 1.72×2.60 + 1.14×2.40 + 0.80×1.90 + 0.54×2.40 − 去重0.16</td>
+      <td>05平面图rev-33·围合24665px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="low" data-div="1" data-conf="low"
+        data-unit="m²" data-qty="1.14" data-txt="(无标注@52168,227803) 楼面完成面积 σ矩形: 0.10×5.40 + 3.34×0.10 + 收边0.26 05平面图rev-33·围合2842px 该围合域在 p01 平面布置图/p11 砌筑图上均无房间名标注，仅按坐标挂账；面积=几何实测(可信)，空间归属与面层做法无法判定 需设计师提供该域房间命名与做法归属(04空间做法表正文为图片，不可机读) f1_anon_zone">
+      <td class="num">5</td>
+      <td>1·楼地面工程</td>
+      <td>(无标注@52168,227803)</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">1.14</td>
+      <td class="f">Σ矩形: 0.10×5.40 + 3.34×0.10 + 收边0.26</td>
+      <td>05平面图rev-33·围合2842px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge low">低</span></td>
+      <td class="r">该围合域在 P01 平面布置图/P11 砌筑图上均无房间名标注，仅按坐标挂账；面积=几何实测(可信)，空间归属与面层做法无法判定</td>
+      <td class="r">需设计师提供该域房间命名与做法归属(04空间做法表正文为图片，不可机读)</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="78.36" data-txt="客厅/茶室+餐厅+玄关 楼面完成面积 σ矩形: 3.24×10.80 + 2.66×7.10 + 0.46×7.20 + 0.30×7.20 + 0.18×11.00 + 0.18×10.80 +…(25类) + 收边4.41 05平面图rev-33·围合195887px 无  ">
+      <td class="num">6</td>
+      <td>1·楼地面工程</td>
+      <td>客厅/茶室+餐厅+玄关</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">78.36</td>
+      <td class="f">Σ矩形: 3.24×10.80 + 2.66×7.10 + 0.46×7.20 + 0.30×7.20 + 0.18×11.00 + 0.18×10.80 +…(25类) + 收边4.41</td>
+      <td>05平面图rev-33·围合195887px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="9.36" data-txt="卧室一 楼面完成面积 σ矩形: 1.10×3.50 + 0.74×3.20 + 0.48×3.40 + 0.20×3.20 + 0.16×2.70 + 0.14×2.90 05平面图rev-33·围合23403px 无  ">
+      <td class="num">7</td>
+      <td>1·楼地面工程</td>
+      <td>卧室一</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">9.36</td>
+      <td class="f">Σ矩形: 1.10×3.50 + 0.74×3.20 + 0.48×3.40 + 0.20×3.20 + 0.16×2.70 + 0.14×2.90</td>
+      <td>05平面图rev-33·围合23403px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="7.54" data-txt="主人浴室 楼面完成面积 σ矩形: 2.90×2.40 + 0.36×1.00 + 收边0.22 05平面图rev-33·围合18850px 无  ">
+      <td class="num">8</td>
+      <td>1·楼地面工程</td>
+      <td>主人浴室</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">7.54</td>
+      <td class="f">Σ矩形: 2.90×2.40 + 0.36×1.00 + 收边0.22</td>
+      <td>05平面图rev-33·围合18850px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="3.67" data-txt="浴室三 楼面完成面积 σ矩形: 0.52×2.90 + 0.48×3.00 + 0.34×2.10 05平面图rev-33·围合9180px 无  ">
+      <td class="num">9</td>
+      <td>1·楼地面工程</td>
+      <td>浴室三</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">3.67</td>
+      <td class="f">Σ矩形: 0.52×2.90 + 0.48×3.00 + 0.34×2.10</td>
+      <td>05平面图rev-33·围合9180px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="2.19" data-txt="储物间 楼面完成面积 σ矩形: 0.88×1.40 + 0.60×1.60 05平面图rev-33·围合5465px 无  ">
+      <td class="num">10</td>
+      <td>1·楼地面工程</td>
+      <td>储物间</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">2.19</td>
+      <td class="f">Σ矩形: 0.88×1.40 + 0.60×1.60</td>
+      <td>05平面图rev-33·围合5465px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="17.15" data-txt="主人衣帽间+主人卧室 楼面完成面积 σ矩形: 1.72×5.20 + 0.50×5.90 + 0.50×3.50 + 0.24×5.40 + 0.50×1.90 + 0.14×5.20 + 收边0.53 05平面图rev-33·围合42874px 无  ">
+      <td class="num">11</td>
+      <td>1·楼地面工程</td>
+      <td>主人衣帽间+主人卧室</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">17.15</td>
+      <td class="f">Σ矩形: 1.72×5.20 + 0.50×5.90 + 0.50×3.50 + 0.24×5.40 + 0.50×1.90 + 0.14×5.20 + 收边0.53</td>
+      <td>05平面图rev-33·围合42874px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="2.81" data-txt="浴室二 楼面完成面积 σ矩形: 0.94×1.30 + 0.94×1.10 + 0.60×1.10 − 去重0.10 05平面图rev-33·围合7033px 无  ">
+      <td class="num">12</td>
+      <td>1·楼地面工程</td>
+      <td>浴室二</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">2.81</td>
+      <td class="f">Σ矩形: 0.94×1.30 + 0.94×1.10 + 0.60×1.10 − 去重0.10</td>
+      <td>05平面图rev-33·围合7033px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="1.08" data-txt="过厅 楼面完成面积 σ矩形: 0.80×1.30 05平面图rev-33·围合2691px 无  ">
+      <td class="num">13</td>
+      <td>1·楼地面工程</td>
+      <td>过厅</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">1.08</td>
+      <td class="f">Σ矩形: 0.80×1.30</td>
+      <td>05平面图rev-33·围合2691px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="1.6" data-txt="收纳间 楼面完成面积 σ矩形: 1.30×1.20 05平面图rev-33·围合4010px 无  ">
+      <td class="num">14</td>
+      <td>1·楼地面工程</td>
+      <td>收纳间</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">1.6</td>
+      <td class="f">Σ矩形: 1.30×1.20</td>
+      <td>05平面图rev-33·围合4010px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="9.79" data-txt="卧室二 楼面完成面积 σ矩形: 2.00×3.50 + 0.54×3.40 + 0.30×3.70 − 去重0.16 05平面图rev-33·围合24464px 无  ">
+      <td class="num">15</td>
+      <td>1·楼地面工程</td>
+      <td>卧室二</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">9.79</td>
+      <td class="f">Σ矩形: 2.00×3.50 + 0.54×3.40 + 0.30×3.70 − 去重0.16</td>
+      <td>05平面图rev-33·围合24464px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="high" data-div="1" data-conf="high"
+        data-unit="m²" data-qty="2.81" data-txt="浴室一 楼面完成面积 σ矩形: 0.76×2.30 + 0.36×1.40 + 0.28×1.80 + 收边0.06 05平面图rev-33·围合7032px 无  ">
+      <td class="num">16</td>
+      <td>1·楼地面工程</td>
+      <td>浴室一</td>
+      <td>楼面完成面积</td>
+      <td>m²</td>
+      <td class="num">2.81</td>
+      <td class="f">Σ矩形: 0.76×2.30 + 0.36×1.40 + 0.28×1.80 + 收边0.06</td>
+      <td>05平面图rev-33·围合7032px</td>
+      <td><span class="tag">MACHINE</span></td>
+      <td><span class="badge high">高</span></td>
+      <td class="r">无</td>
+      <td class="r">无</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="172.78" data-txt="开放区(玄关/餐厅/厨房/客厅/安全间) 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=209.73m²毛; 均高2.901m; 扣门8.55×2.10 窗12.66×1.50 (3间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed">
+      <td class="num">17</td>
+      <td>2·墙柱面工程</td>
+      <td>开放区(玄关/餐厅/厨房/客厅/安全间)</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">172.78</td>
+      <td class="f">Σ各间(边×主吊顶净高)=209.73m²毛; 均高2.901m; 扣门8.55×2.10 窗12.66×1.50 (3间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="49.6" data-txt="主卧+衣帽间 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=55.45m²毛; 均高2.950m; 扣门1.50×2.10 窗1.80×1.50 (1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed">
+      <td class="num">18</td>
+      <td>2·墙柱面工程</td>
+      <td>主卧+衣帽间</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">49.6</td>
+      <td class="f">Σ各间(边×主吊顶净高)=55.45m²毛; 均高2.950m; 扣门1.50×2.10 窗1.80×1.50 (1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="32.01" data-txt="卧室一 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=37.55m²毛; 均高2.750m; 扣门2.64×2.10 窗0.00×1.50 (1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed">
+      <td class="num">19</td>
+      <td>2·墙柱面工程</td>
+      <td>卧室一</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">32.01</td>
+      <td class="f">Σ各间(边×主吊顶净高)=37.55m²毛; 均高2.750m; 扣门2.64×2.10 窗0.00×1.50 (1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="34.14" data-txt="卧室二 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=37.62m²毛; 均高2.950m; 扣门0.00×2.10 窗2.32×1.50 (1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed">
+      <td class="num">20</td>
+      <td>2·墙柱面工程</td>
+      <td>卧室二</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">34.14</td>
+      <td class="f">Σ各间(边×主吊顶净高)=37.62m²毛; 均高2.950m; 扣门0.00×2.10 窗2.32×1.50 (1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="8.83" data-txt="收纳间 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=13.11m²毛; 均高2.601m; 扣门2.04×2.10 窗0.00×1.50 (1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed">
+      <td class="num">21</td>
+      <td>2·墙柱面工程</td>
+      <td>收纳间</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">8.83</td>
+      <td class="f">Σ各间(边×主吊顶净高)=13.11m²毛; 均高2.601m; 扣门2.04×2.10 窗0.00×1.50 (1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="23.83" data-txt="主卫 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=29.59m²毛; 均高2.620m; 扣门0.97×2.10 窗2.48×1.50 (1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed">
+      <td class="num">22</td>
+      <td>2·墙柱面工程</td>
+      <td>主卫</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">23.83</td>
+      <td class="f">Σ各间(边×主吊顶净高)=29.59m²毛; 均高2.620m; 扣门0.97×2.10 窗2.48×1.50 (1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="15.35" data-txt="浴室一 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=19.36m²毛; 均高2.650m; 扣门1.18×2.10 窗1.02×1.50 (1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed">
+      <td class="num">23</td>
+      <td>2·墙柱面工程</td>
+      <td>浴室一</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">15.35</td>
+      <td class="f">Σ各间(边×主吊顶净高)=19.36m²毛; 均高2.650m; 扣门1.18×2.10 窗1.02×1.50 (1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="17.19" data-txt="浴室二 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=19.73m²毛; 均高2.650m; 扣门1.21×2.10 窗0.00×1.50 (1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed">
+      <td class="num">24</td>
+      <td>2·墙柱面工程</td>
+      <td>浴室二</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">17.19</td>
+      <td class="f">Σ各间(边×主吊顶净高)=19.73m²毛; 均高2.650m; 扣门1.21×2.10 窗0.00×1.50 (1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="20.05" data-txt="浴室三 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=22.73m²毛; 均高2.649m; 扣门1.28×2.10 窗0.00×1.50 (1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed">
+      <td class="num">25</td>
+      <td>2·墙柱面工程</td>
+      <td>浴室三</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">20.05</td>
+      <td class="f">Σ各间(边×主吊顶净高)=22.73m²毛; 均高2.649m; 扣门1.28×2.10 窗0.00×1.50 (1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="17.9" data-txt="生活阳台 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=28.49m²毛; 均高2.749m; 扣门0.00×2.10 窗7.06×1.50 (1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed">
+      <td class="num">26</td>
+      <td>2·墙柱面工程</td>
+      <td>生活阳台</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">17.9</td>
+      <td class="f">Σ各间(边×主吊顶净高)=28.49m²毛; 均高2.749m; 扣门0.00×2.10 窗7.06×1.50 (1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="low" data-div="2" data-conf="low"
+        data-unit="m²" data-qty="36.13" data-txt="电梯厅 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=45.13m²毛; 均高2.950m; 扣门0.19×2.10 窗5.73×1.50 (boq无此列, 纯几何; 1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测；待核：电梯厅 5.73m 宽开口的性质(真窗 vs 电梯门开口)尚未判定；若为通高门(2.10m)则本行净墙应为 32.70㎡(−3.43㎡)，当前按窗(1.50m)扣减；清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 p1/p3b 统一口径纯几何补计(非漏算回填) 需门窗表(可机读版)以实测洞口尺寸替换假设高度 / 需立面图/门窗表确认该开口性质与高度 w1_opener_assumed w2_elev_window_pend w3_no_boq_column">
+      <td class="num">27</td>
+      <td>2·墙柱面工程</td>
+      <td>电梯厅</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">36.13</td>
+      <td class="f">Σ各间(边×主吊顶净高)=45.13m²毛; 均高2.950m; 扣门0.19×2.10 窗5.73×1.50 (BOQ无此列, 纯几何; 1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设 + MACHINE+待核 + USER_RULING</span></td>
+      <td><span class="badge low">低</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测；<strong>待核</strong>：电梯厅 5.73m 宽开口的性质(真窗 vs 电梯门开口)尚未判定；若为通高门(2.10m)则本行净墙应为 32.70㎡(−3.43㎡)，当前按窗(1.50m)扣减；清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 P1/P3b 统一口径纯几何补计(非漏算回填)</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度 / 需立面图/门窗表确认该开口性质与高度</td>
+    </tr>
+    <tr class="medium" data-div="2" data-conf="medium"
+        data-unit="m²" data-qty="9.41" data-txt="过厅 墙面抹灰/腻子/涂料基层 σ各间(边×主吊顶净高)=10.97m²毛; 均高2.600m; 扣门0.74×2.10 窗0.00×1.50 (boq无此列, 纯几何; 1间) 05平面围合 洞口扣减按假设尺寸(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(s04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测；清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 p1/p3b 统一口径纯几何补计(非漏算回填) 需门窗表(可机读版)以实测洞口尺寸替换假设高度 w1_opener_assumed w3_no_boq_column">
+      <td class="num">28</td>
+      <td>2·墙柱面工程</td>
+      <td>过厅</td>
+      <td>墙面抹灰/腻子/涂料基层</td>
+      <td>m²</td>
+      <td class="num">9.41</td>
+      <td class="f">Σ各间(边×主吊顶净高)=10.97m²毛; 均高2.600m; 扣门0.74×2.10 窗0.00×1.50 (BOQ无此列, 纯几何; 1间)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设 + USER_RULING</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">洞口扣减按<strong>假设尺寸</strong>(门高2.10m/窗高1.50m/窗台0.00m)：图纸集无可机读门窗表(S04 门窗表正文为图片)，墙边长与吊顶净高为几何实测，洞口面积非图上实测；清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 P1/P3b 统一口径纯几何补计(非漏算回填)</td>
+      <td class="r">需门窗表(可机读版)以实测洞口尺寸替换假设高度</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="63.73" data-txt="开放区(玄关/餐厅/厨房/客厅/安全间) 踢脚线 净周长72.29 − 门洞8.55 05平面围合 净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) k1_skirt_no_win_cut">
+      <td class="num">29</td>
+      <td>5·踢脚线工程</td>
+      <td>开放区(玄关/餐厅/厨房/客厅/安全间)</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">63.73</td>
+      <td class="f">净周长72.29 − 门洞8.55</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="17.3" data-txt="主卧+衣帽间 踢脚线 净周长18.80 − 门洞1.50 05平面围合 净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) k1_skirt_no_win_cut">
+      <td class="num">30</td>
+      <td>5·踢脚线工程</td>
+      <td>主卧+衣帽间</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">17.3</td>
+      <td class="f">净周长18.80 − 门洞1.50</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="11.02" data-txt="卧室一 踢脚线 净周长13.65 − 门洞2.64 05平面围合 净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) k1_skirt_no_win_cut">
+      <td class="num">31</td>
+      <td>5·踢脚线工程</td>
+      <td>卧室一</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">11.02</td>
+      <td class="f">净周长13.65 − 门洞2.64</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="12.75" data-txt="卧室二 踢脚线 净周长12.75 − 门洞0.00 05平面围合 净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) k1_skirt_no_win_cut">
+      <td class="num">32</td>
+      <td>5·踢脚线工程</td>
+      <td>卧室二</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">12.75</td>
+      <td class="f">净周长12.75 − 门洞0.00</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="3.0" data-txt="收纳间 踢脚线 净周长5.04 − 门洞2.04 05平面围合 净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) k1_skirt_no_win_cut">
+      <td class="num">33</td>
+      <td>5·踢脚线工程</td>
+      <td>收纳间</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">3.0</td>
+      <td class="f">净周长5.04 − 门洞2.04</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="10.32" data-txt="主卫 踢脚线 净周长11.29 − 门洞0.97 05平面围合 净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) k1_skirt_no_win_cut">
+      <td class="num">34</td>
+      <td>5·踢脚线工程</td>
+      <td>主卫</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">10.32</td>
+      <td class="f">净周长11.29 − 门洞0.97</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="6.12" data-txt="浴室一 踢脚线 净周长7.30 − 门洞1.18 05平面围合 净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) k1_skirt_no_win_cut">
+      <td class="num">35</td>
+      <td>5·踢脚线工程</td>
+      <td>浴室一</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">6.12</td>
+      <td class="f">净周长7.30 − 门洞1.18</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="6.24" data-txt="浴室二 踢脚线 净周长7.44 − 门洞1.21 05平面围合 净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) k1_skirt_no_win_cut">
+      <td class="num">36</td>
+      <td>5·踢脚线工程</td>
+      <td>浴室二</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">6.24</td>
+      <td class="f">净周长7.44 − 门洞1.21</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="7.3" data-txt="浴室三 踢脚线 净周长8.58 − 门洞1.28 05平面围合 净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) k1_skirt_no_win_cut">
+      <td class="num">37</td>
+      <td>5·踢脚线工程</td>
+      <td>浴室三</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">7.3</td>
+      <td class="f">净周长8.58 − 门洞1.28</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="10.36" data-txt="生活阳台 踢脚线 净周长10.36 − 门洞0.00 05平面围合 净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) k1_skirt_no_win_cut">
+      <td class="num">38</td>
+      <td>5·踢脚线工程</td>
+      <td>生活阳台</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">10.36</td>
+      <td class="f">净周长10.36 − 门洞0.00</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="15.11" data-txt="电梯厅 踢脚线 净周长15.30 − 门洞0.19 (boq无此列) 05平面围合 清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 p1/p3b 统一口径纯几何补计(非漏算回填)；净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) w3_no_boq_column k1_skirt_no_win_cut">
+      <td class="num">39</td>
+      <td>5·踢脚线工程</td>
+      <td>电梯厅</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">15.11</td>
+      <td class="f">净周长15.30 − 门洞0.19 (BOQ无此列)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">USER_RULING + MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 P1/P3b 统一口径纯几何补计(非漏算回填)；净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="5" data-conf="medium"
+        data-unit="m" data-qty="3.48" data-txt="过厅 踢脚线 净周长4.22 − 门洞0.74 (boq无此列) 05平面围合 清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 p1/p3b 统一口径纯几何补计(非漏算回填)；净周长与门洞宽为几何实测；未扣落地窗/门联窗断点(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大 需门窗表窗台高度(或现场确认踢脚是否断开) w3_no_boq_column k1_skirt_no_win_cut">
+      <td class="num">40</td>
+      <td>5·踢脚线工程</td>
+      <td>过厅</td>
+      <td>踢脚线</td>
+      <td>m</td>
+      <td class="num">3.48</td>
+      <td class="f">净周长4.22 − 门洞0.74 (BOQ无此列)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">USER_RULING + MACHINE+假设</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 P1/P3b 统一口径纯几何补计(非漏算回填)；净周长与门洞宽为几何实测；<strong>未扣落地窗/门联窗断点</strong>(图面无窗台高度标注)，若现场踢脚在窗处断开则本行偏大</td>
+      <td class="r">需门窗表窗台高度(或现场确认踢脚是否断开)</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="90.41" data-txt="开放区(玄关/餐厅/厨房/客厅/安全间) 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 客厅/茶室+餐厅+玄[78.36] + 中厨[9.87] + 储物间[2.19] 05平面围合 几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径) 需 cd01~10 天花大样的可标定比例，才能给出展开面积 c1_ceil_caliber">
+      <td class="num">41</td>
+      <td>3·天棚工程</td>
+      <td>开放区(玄关/餐厅/厨房/客厅/安全间)</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">90.41</td>
+      <td class="f">Σ天棚(=房间净顶): 客厅/茶室+餐厅+玄[78.36] + 中厨[9.87] + 储物间[2.19]</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+口径</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="17.15" data-txt="主卧+衣帽间 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 主人衣帽间+主人卧室[17.15] 05平面围合 几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径) 需 cd01~10 天花大样的可标定比例，才能给出展开面积 c1_ceil_caliber">
+      <td class="num">42</td>
+      <td>3·天棚工程</td>
+      <td>主卧+衣帽间</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">17.15</td>
+      <td class="f">Σ天棚(=房间净顶): 主人衣帽间+主人卧室[17.15]</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+口径</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="9.36" data-txt="卧室一 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 卧室一[9.36] 05平面围合 几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径) 需 cd01~10 天花大样的可标定比例，才能给出展开面积 c1_ceil_caliber">
+      <td class="num">43</td>
+      <td>3·天棚工程</td>
+      <td>卧室一</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">9.36</td>
+      <td class="f">Σ天棚(=房间净顶): 卧室一[9.36]</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+口径</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="9.79" data-txt="卧室二 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 卧室二[9.79] 05平面围合 几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径) 需 cd01~10 天花大样的可标定比例，才能给出展开面积 c1_ceil_caliber">
+      <td class="num">44</td>
+      <td>3·天棚工程</td>
+      <td>卧室二</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">9.79</td>
+      <td class="f">Σ天棚(=房间净顶): 卧室二[9.79]</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+口径</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="1.6" data-txt="收纳间 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 收纳间[1.60] 05平面围合 几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径) 需 cd01~10 天花大样的可标定比例，才能给出展开面积 c1_ceil_caliber">
+      <td class="num">45</td>
+      <td>3·天棚工程</td>
+      <td>收纳间</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">1.6</td>
+      <td class="f">Σ天棚(=房间净顶): 收纳间[1.60]</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+口径</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="7.54" data-txt="主卫 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 主人浴室[7.54] 05平面围合 几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径) 需 cd01~10 天花大样的可标定比例，才能给出展开面积 c1_ceil_caliber">
+      <td class="num">46</td>
+      <td>3·天棚工程</td>
+      <td>主卫</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">7.54</td>
+      <td class="f">Σ天棚(=房间净顶): 主人浴室[7.54]</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+口径</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="2.81" data-txt="浴室一 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 浴室一[2.81] 05平面围合 几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径) 需 cd01~10 天花大样的可标定比例，才能给出展开面积 c1_ceil_caliber">
+      <td class="num">47</td>
+      <td>3·天棚工程</td>
+      <td>浴室一</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">2.81</td>
+      <td class="f">Σ天棚(=房间净顶): 浴室一[2.81]</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+口径</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="2.81" data-txt="浴室二 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 浴室二[2.81] 05平面围合 几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径) 需 cd01~10 天花大样的可标定比例，才能给出展开面积 c1_ceil_caliber">
+      <td class="num">48</td>
+      <td>3·天棚工程</td>
+      <td>浴室二</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">2.81</td>
+      <td class="f">Σ天棚(=房间净顶): 浴室二[2.81]</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+口径</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="3.67" data-txt="浴室三 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 浴室三[3.67] 05平面围合 几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径) 需 cd01~10 天花大样的可标定比例，才能给出展开面积 c1_ceil_caliber">
+      <td class="num">49</td>
+      <td>3·天棚工程</td>
+      <td>浴室三</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">3.67</td>
+      <td class="f">Σ天棚(=房间净顶): 浴室三[3.67]</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+口径</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="4.3" data-txt="生活阳台 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 生活阳台[4.30] 05平面围合 几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径) 需 cd01~10 天花大样的可标定比例，才能给出展开面积 c1_ceil_caliber">
+      <td class="num">50</td>
+      <td>3·天棚工程</td>
+      <td>生活阳台</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">4.3</td>
+      <td class="f">Σ天棚(=房间净顶): 生活阳台[4.30]</td>
+      <td>05平面围合</td>
+      <td><span class="tag">MACHINE+口径</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="11.63" data-txt="电梯厅 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 电梯厅[11.63](boq无此列, 纯几何) 05平面围合 清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 p1/p3b 统一口径纯几何补计(非漏算回填)；几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径)；清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，与 p1/p3b 口径统一补计 需 cd01~10 天花大样的可标定比例，才能给出展开面积 w3_no_boq_column c1_ceil_caliber c2_no_boq_column">
+      <td class="num">51</td>
+      <td>3·天棚工程</td>
+      <td>电梯厅</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">11.63</td>
+      <td class="f">Σ天棚(=房间净顶): 电梯厅[11.63](BOQ无此列, 纯几何)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">USER_RULING + MACHINE+口径 + USER_RULING</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 P1/P3b 统一口径纯几何补计(非漏算回填)；几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)；清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，与 P1/P3b 口径统一补计</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="3" data-conf="medium"
+        data-unit="m²" data-qty="1.08" data-txt="过厅 天棚刮腻子/涂料(基层) σ天棚(=房间净顶): 过厅[1.08](boq无此列, 纯几何) 05平面围合 清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 p1/p3b 统一口径纯几何补计(非漏算回填)；几何=单层顶面投影净顶(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 cd 大样比例暂定，维持投影口径)；清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，与 p1/p3b 口径统一补计 需 cd01~10 天花大样的可标定比例，才能给出展开面积 w3_no_boq_column c1_ceil_caliber c2_no_boq_column">
+      <td class="num">52</td>
+      <td>3·天棚工程</td>
+      <td>过厅</td>
+      <td>天棚刮腻子/涂料(基层)</td>
+      <td>m²</td>
+      <td class="num">1.08</td>
+      <td class="f">Σ天棚(=房间净顶): 过厅[1.08](BOQ无此列, 纯几何)</td>
+      <td>05平面围合</td>
+      <td><span class="tag">USER_RULING + MACHINE+口径 + USER_RULING</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，按与 P1/P3b 统一口径纯几何补计(非漏算回填)；几何=<strong>单层顶面投影净顶</strong>(不含跌级立面/灯槽/返沿展开)，属口径选择而非算错；有清单校验值的行系统性偏小(−24.6%%~−47.8%%)=口径差非漏算；交付口径=投影+天花分级明细(2026-10-12 用户裁定 CD 大样比例暂定，维持投影口径)；清单无此列项：2026-10-12 用户裁定电梯厅/过厅属精装范围，与 P1/P3b 口径统一补计</td>
+      <td class="r">需 CD01~10 天花大样的可标定比例，才能给出展开面积</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="开放区 玄关柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">53</td>
+      <td>6·固定柜台工程</td>
+      <td>开放区</td>
+      <td>玄关柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="low" data-div="6" data-conf="low"
+        data-unit="个" data-qty="1" data-txt="其他 不锈钢圆柱？ 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:无大样; 饰面:同其他墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数)；名称未确识(带问号)：cad 自定义字体导致通用 ocr 失效，已按矢量字形重放判读，构件身份与归属待确认；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需设计师确认该构件名称/是否计入固装清单 / 需该构件大样图或物料表规格行 p1_fix_count_not_geom p2_fix_name_provisional p3_fix_no_detail">
+      <td class="num">54</td>
+      <td>6·固定柜台工程</td>
+      <td>其他</td>
+      <td>不锈钢圆柱？</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:无大样; 饰面:同其他墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制</td>
+      <td><span class="tag">MACHINE(位置)+人工清点 + VLM_READ + MACHINE+缺图</span></td>
+      <td><span class="badge low">低</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)；<strong>名称未确识</strong>(带问号)：CAD 自定义字体导致通用 OCR 失效，已按矢量字形重放判读，构件身份与归属待确认；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需设计师确认该构件名称/是否计入固装清单 / 需该构件大样图或物料表规格行</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="2" data-txt="开放区 餐厅柜 定制件 ×2（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">55</td>
+      <td>6·固定柜台工程</td>
+      <td>开放区</td>
+      <td>餐厅柜</td>
+      <td>个</td>
+      <td class="num">2</td>
+      <td class="f">定制件 ×2（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="low" data-div="6" data-conf="low"
+        data-unit="个" data-qty="1" data-txt="开放区 餐厅柜边层架？ 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数)；名称未确识(带问号)：cad 自定义字体导致通用 ocr 失效，已按矢量字形重放判读，构件身份与归属待确认 需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需设计师确认该构件名称/是否计入固装清单 p1_fix_count_not_geom p2_fix_name_provisional">
+      <td class="num">56</td>
+      <td>6·固定柜台工程</td>
+      <td>开放区</td>
+      <td>餐厅柜边层架？</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点 + VLM_READ</span></td>
+      <td><span class="badge low">低</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)；<strong>名称未确识</strong>(带问号)：CAD 自定义字体导致通用 OCR 失效，已按矢量字形重放判读，构件身份与归属待确认</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需设计师确认该构件名称/是否计入固装清单</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="开放区 茶室柜（左边立柜） 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">57</td>
+      <td>6·固定柜台工程</td>
+      <td>开放区</td>
+      <td>茶室柜（左边立柜）</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="开放区 茶室柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">58</td>
+      <td>6·固定柜台工程</td>
+      <td>开放区</td>
+      <td>茶室柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="开放区 电视柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">59</td>
+      <td>6·固定柜台工程</td>
+      <td>开放区</td>
+      <td>电视柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="开放区 安全间柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">60</td>
+      <td>6·固定柜台工程</td>
+      <td>开放区</td>
+      <td>安全间柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD01~05(客厅固装); 饰面:同开放区墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="收纳间 收纳间柜1 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd09~10(储物阳台柜); 饰面:同收纳间墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">61</td>
+      <td>6·固定柜台工程</td>
+      <td>收纳间</td>
+      <td>收纳间柜1</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD09~10(储物阳台柜); 饰面:同收纳间墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="收纳间 收纳间柜2 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd09~10(储物阳台柜); 饰面:同收纳间墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">62</td>
+      <td>6·固定柜台工程</td>
+      <td>收纳间</td>
+      <td>收纳间柜2</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD09~10(储物阳台柜); 饰面:同收纳间墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="主卧 主卧衣柜1 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd06(主卧固装); 饰面:同主卧墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">63</td>
+      <td>6·固定柜台工程</td>
+      <td>主卧</td>
+      <td>主卧衣柜1</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD06(主卧固装); 饰面:同主卧墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="主卧 主卧衣柜2 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd06(主卧固装); 饰面:同主卧墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">64</td>
+      <td>6·固定柜台工程</td>
+      <td>主卧</td>
+      <td>主卧衣柜2</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD06(主卧固装); 饰面:同主卧墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="主卧 主卧玻璃屏风 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd06(主卧固装); 饰面:同主卧墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">65</td>
+      <td>6·固定柜台工程</td>
+      <td>主卧</td>
+      <td>主卧玻璃屏风</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD06(主卧固装); 饰面:同主卧墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="卧室一 卧室一开放式衣柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd07(卧室一固装); 饰面:同卧室一墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">66</td>
+      <td>6·固定柜台工程</td>
+      <td>卧室一</td>
+      <td>卧室一开放式衣柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD07(卧室一固装); 饰面:同卧室一墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="medium" data-div="6" data-conf="medium"
+        data-unit="个" data-qty="1" data-txt="卧室二 卧室二衣柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:gd08(卧室二固装); 饰面:同卧室二墙面(见wall_geometry); 柜体/台面m²:待p4b去噪精算 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) p1_fix_count_not_geom">
+      <td class="num">67</td>
+      <td>6·固定柜台工程</td>
+      <td>卧室二</td>
+      <td>卧室二衣柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:GD08(卧室二固装); 饰面:同卧室二墙面(见wall_geometry); 柜体/台面m²:待P4b去噪精算</td>
+      <td><span class="tag">MACHINE(位置)+人工清点</span></td>
+      <td><span class="badge medium">中</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表)</td>
+    </tr>
+    <tr class="low" data-div="6" data-conf="low"
+        data-unit="个" data-qty="1" data-txt="厨房 橱柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:无大样; 饰面:同厨房墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数)；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需该构件大样图或物料表规格行 p1_fix_count_not_geom p3_fix_no_detail">
+      <td class="num">68</td>
+      <td>6·固定柜台工程</td>
+      <td>厨房</td>
+      <td>橱柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:无大样; 饰面:同厨房墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制</td>
+      <td><span class="tag">MACHINE(位置)+人工清点 + MACHINE+缺图</span></td>
+      <td><span class="badge low">低</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需该构件大样图或物料表规格行</td>
+    </tr>
+    <tr class="low" data-div="6" data-conf="low"
+        data-unit="个" data-qty="1" data-txt="浴室一 浴室一浴室柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:无大样; 饰面:同浴室一墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数)；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需该构件大样图或物料表规格行 p1_fix_count_not_geom p3_fix_no_detail">
+      <td class="num">69</td>
+      <td>6·固定柜台工程</td>
+      <td>浴室一</td>
+      <td>浴室一浴室柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:无大样; 饰面:同浴室一墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制</td>
+      <td><span class="tag">MACHINE(位置)+人工清点 + MACHINE+缺图</span></td>
+      <td><span class="badge low">低</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需该构件大样图或物料表规格行</td>
+    </tr>
+    <tr class="low" data-div="6" data-conf="low"
+        data-unit="个" data-qty="1" data-txt="浴室二 浴室二浴室柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:无大样; 饰面:同浴室二墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数)；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需该构件大样图或物料表规格行 p1_fix_count_not_geom p3_fix_no_detail">
+      <td class="num">70</td>
+      <td>6·固定柜台工程</td>
+      <td>浴室二</td>
+      <td>浴室二浴室柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:无大样; 饰面:同浴室二墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制</td>
+      <td><span class="tag">MACHINE(位置)+人工清点 + MACHINE+缺图</span></td>
+      <td><span class="badge low">低</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需该构件大样图或物料表规格行</td>
+    </tr>
+    <tr class="low" data-div="6" data-conf="low"
+        data-unit="个" data-qty="1" data-txt="浴室三 浴室三浴室柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:无大样; 饰面:同浴室三墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数)；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需该构件大样图或物料表规格行 p1_fix_count_not_geom p3_fix_no_detail">
+      <td class="num">71</td>
+      <td>6·固定柜台工程</td>
+      <td>浴室三</td>
+      <td>浴室三浴室柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:无大样; 饰面:同浴室三墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制</td>
+      <td><span class="tag">MACHINE(位置)+人工清点 + MACHINE+缺图</span></td>
+      <td><span class="badge low">低</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需该构件大样图或物料表规格行</td>
+    </tr>
+    <tr class="low" data-div="6" data-conf="low"
+        data-unit="个" data-qty="1" data-txt="主卫 主卫浴室柜 定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数） 大样:无大样; 饰面:同主卫墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制 数量=图面清点+设计排程；柜体在 dxf 中为未命名块且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 p4b 去噪精算(本表只出行数)；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数) 需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需该构件大样图或物料表规格行 p1_fix_count_not_geom p3_fix_no_detail">
+      <td class="num">72</td>
+      <td>6·固定柜台工程</td>
+      <td>主卫</td>
+      <td>主卫浴室柜</td>
+      <td>个</td>
+      <td class="num">1</td>
+      <td class="f">定制件 ×1（数量=设计排程; 柜为无名块/大样逐柜标注稀疏, 不可几何计数）</td>
+      <td>大样:无大样; 饰面:同主卫墙面(见wall_geometry); 柜体/台面m²:无大样→按现场定制</td>
+      <td><span class="tag">MACHINE(位置)+人工清点 + MACHINE+缺图</span></td>
+      <td><span class="badge low">低</span></td>
+      <td class="r">数量=图面清点+设计排程；柜体在 DXF 中为<strong>未命名块</strong>且大样逐柜标注稀疏 → 件数不可由几何自动计数，柜体/台面展开面积待 P4b 去噪精算(本表只出行数)；无对应大样图 → 无法给出柜体/台面面积，按现场定制计量(仅列件数)</td>
+      <td class="r">需物料表逐柜编号与图面块名的对应关系(或固装明细表) / 需该构件大样图或物料表规格行</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</main>
+<footer class="fingerprint">
+  <div>
+    构建 2026-10-13 11:10 ｜ commit <code>c51b0ee</code> ｜
+    72 行 ｜ 封账 m² <b>763.12</b> / m <b>166.73</b> / 件 <b>21</b>
+    （本表逐行取 2 位后相加：m² 763.13 / m 166.73 / 件 21）
+    ｜ xlsx sha256 <code>b4f12168fe834900</code> ｜ 源图 sha256 <code>0681015aa370fcc8</code>
+  </div>
+  <p class="readonly">
+    本站是封账数据的<strong>只读快照</strong>：72 行的计算式、尺寸追溯、三态来源与备注全部可查、可打印、可下载同一份 Excel。
+    上传图纸重算、备注回填、组价报价等操作不在本站，仍在应用内（本地/服务器部署的 Web 端）。
+  </p>
+</footer>
+<script>
+(function () {
+  var tb = document.querySelectorAll('#t tbody tr');
+  var div = '', conf = '', q = '';
+  var stat = document.getElementById('stat');
+  function apply() {
+    var n = 0, s = {'m²': 0, 'm': 0, '个': 0};
+    for (var i = 0; i < tb.length; i++) {
+      var r = tb[i];
+      var ok = (!div || r.dataset.div === div) && (!conf || r.dataset.conf === conf) &&
+               (!q || r.dataset.txt.toLowerCase().indexOf(q) >= 0);
+      r.style.display = ok ? '' : 'none';
+      if (ok) {
+        n++;
+        var v = parseFloat(r.dataset.qty) || 0;
+        s[r.dataset.unit] = (s[r.dataset.unit] || 0) + v;
+      }
+    }
+    stat.innerHTML = '命中 <b>' + n + '</b>/' + tb.length + ' 行 ｜ m² <b>' + s['m²'].toFixed(2) +
+                     '</b> ｜ m <b>' + s['m'].toFixed(2) + '</b> ｜ 件 <b>' + Math.round(s['个']) + '</b>';
+  }
+  function bind(sel, attr, set) {
+    var box = document.getElementById(sel);
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('.chip'); if (!b) return;
+      box.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('on'); });
+      b.classList.add('on'); set(b.getAttribute(attr) || ''); apply();
+    });
+  }
+  bind('div-chips', 'data-div', function (v) { div = v; });
+  bind('conf-chips', 'data-conf', function (v) { conf = v; });
+  document.getElementById('q').addEventListener('input', function (e) {
+    q = e.target.value.trim(); apply();
+  });
+  apply();
+})();
+</script>
+</body>
+</html>

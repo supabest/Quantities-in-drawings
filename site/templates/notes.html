@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>{{ note_title }}</h1>
+<p class="sub">
+  本页与下载的 xlsx「口径与假设」sheet <strong>同一函数产出</strong>（<code>note_lines()</code>），
+  不存在"网页一套话术、表里另一套"的可能。每条都是构建时已断言的内容。
+</p>
+
+<div class="panel">
+<ol class="notes">
+  {% for n in notes %}<li>{{ n | em }}</li>{% endfor %}
+</ol>
+</div>
+
+<h2>备注规则表（{{ rules | length }} 条，逐行备注由它们生成）</h2>
+<p class="sub">
+  备注不是手写的 72 段话，而是按行内容（分部/列项/计算式/追溯）命中规则拼装；
+  命中 0 行的规则会让构建直接失败——这样口径变了而话术没跟上时，站发不出来。
+</p>
+<div class="panel scroller">
+<table>
+  <thead><tr><th>规则码</th><th>备注话术</th><th>三态</th><th>置信度</th><th>需补充的资料</th><th>命中行数</th></tr></thead>
+  <tbody>
+  {% for ru in rules %}
+    <tr>
+      <td><strong>{{ ru.code }}</strong></td>
+      <td class="r">{{ ru.text | em }}</td>
+      <td><span class="tag">{{ ru.state }}</span></td>
+      <td><span class="badge {{ ru.conf }}">{{ ru.conf_label }}</span></td>
+      <td class="r">{{ (ru.need if ru.need else "—") | em }}</td>
+      <td class="num">{{ ru.hits }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>发布边界（第 1 档）</h2>
+<div class="note warn">
+  本站为 <strong>Cloudflare Pages 静态站</strong>：内容是一次封账快照的 HTML + 预生成的 xlsx，
+  服务器上没有 Python、没有数据库、没有几何链。因此
+  <ul class="tight">
+    <li>能：看 72 行的计算式/追溯/备注、按分部与置信度筛选、打印、下载 Excel、留链接给他人查阅。</li>
+    <li>不能：上传图纸重算、修改备注、组价报价、多人账号 —— 这些仍属应用（Web 端）能力。</li>
+    <li>数据更新方式：本地重跑构建脚本 → 提交 → Pages 自动发布；<strong>访问者侧不依赖任何人的电脑开机</strong>。</li>
+  </ul>
+</div>
+{% endblock %}

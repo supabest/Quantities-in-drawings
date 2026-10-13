@@ -1,0 +1,51 @@
+{
+  "built_at": "2026-10-13 11:10",
+  "git_commit": "c51b0ee",
+  "project": "227户型样板房 · 装修工程量(几何封账)",
+  "n_rows": 72,
+  "row_totals": {
+    "m2": 763.11,
+    "m": 166.73,
+    "ge": 21
+  },
+  "seal": {
+    "n_rows": 72,
+    "m2": 763.12,
+    "m": 166.73,
+    "ge": 21,
+    "floor_m2": 163.75,
+    "wall_m2": 437.22,
+    "wall_m": 166.73,
+    "ceil_m2": 162.15,
+    "sec_rows": [
+      16,
+      24,
+      12,
+      20
+    ],
+    "wall_gross_m2": 505.28,
+    "wall_strip_out_m2": 68.06,
+    "ceil_anon_m2": 1.6,
+    "p3b_total_m2": 97.78,
+    "p3b_flood_m2": 97.39,
+    "p3b_niche_m2": 0.34,
+    "p3b_cut_m2": 0.05,
+    "cove_sealed_m": 16.89,
+    "cove_raw_m": 17.73,
+    "cove_ruling_m": 0.84
+  },
+  "code_hits": {
+    "F1_ANON_ZONE": 2,
+    "W1_OPENER_ASSUMED": 12,
+    "W2_ELEV_WINDOW_PEND": 1,
+    "W3_NO_BOQ_COLUMN": 6,
+    "K1_SKIRT_NO_WIN_CUT": 12,
+    "C1_CEIL_CALIBER": 12,
+    "C2_NO_BOQ_COLUMN": 2,
+    "P1_FIX_COUNT_NOT_GEOM": 20,
+    "P2_FIX_NAME_PROVISIONAL": 2,
+    "P3_FIX_NO_DETAIL": 6
+  },
+  "xlsx_sha256": "b4f12168fe8349005cd276671998ab450733355e6b9067dd909805c29d357177",
+  "source_pdf_sha256": "0681015aa370fcc8d5b64761218b2bf271f5bceee1755d3ebbfbe8bd0931bc71"
+}

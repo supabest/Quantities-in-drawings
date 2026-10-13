@@ -479,6 +479,8 @@ Stage 5  校验: **几何为准, BOQ 仅交叉校验**【R13,R14】+ `modeling/b
 
 - 📦 **装修交付物（工程量计算表 + Web，2026-10-13）**：见 §7.6。
 
+- 🌐 **第 1 档发布——静态站（2026-10-13）**：`site/public/` 已发 Cloudflare Pages，零月费、不依赖任何人的机器开机，见 §7.7。**边界说清**：本站只读（看数/筛选/下载 xlsx）；用户终局目标“其他用户全功能使用（含上传图纸重算）”本站不能满足——几何链要读不入库的图纸且依赖 630MB 原生库，必须走云端常驻服务（第 3 档 Containers／或常开 VPS），属未开支。
+
 - 📌 **机电专业 DWG/DXF 已补齐（2026-10-12，登记待用）**：`装修图纸/样板房机电/…/415-136及227/` 含 **电气**（`136、227户型 样板间电气2026.07.08`）、**给排水**、**暖通**（`227户型暖通平面图`）、**全屋智能** 四专业，dwg+dxf 各一套。这打破了机电线“只有打印 PDF、无图层无块名”的房间归属几何上限（§11.7 待核项）。✅ **待核已消（2026-10-12 用户裁定）：210 户型即 227 户型**，dwg 侧“135户型，210户型”与 dxf 侧“135户型，227户型”指**同一批 227 图面**，不是另一户型；机电开工时这批图可直接作 227 源使用（§3.6 哨兵已把此别名烧进判定函数）。**按用户指令：装修部分上线前不动这批图。** ⚠ **范围约束（2026-10-12）**：这批目录里混着 136/135 户型图面与 227（=210）图面；按范围裁定，开工后**只取其中属于 227 户型的图面**，其余户型页一律不算量、不进测试基准。
 - 🚫 **变更内容（ZN）暂不计算（2026-10-12 用户裁定）**：`设变-ZN-01/ZN-02` 系列智能家居变更图**保留在磁盘**（因含 227 图面，属范围内），但**暂不纳入算量**；机电开工时只算原图面、不算 ZN 变更增量，如需计算由用户另行解绑。同系列 99/131 户型的 ZN 变更图已随磁盘清理删除。
 
@@ -493,7 +495,8 @@ Stage 5  校验: **几何为准, BOQ 仅交叉校验**【R13,R14】+ `modeling/b
 | 计算表 | `outputs/227户型装修工程量计算表.xlsx` | 4 sheet：工程量计算表(72行×12列) / 待确认与挂账清单 / 天花分级明细P3b / 口径与假设 |
 | Web 灌数 | `scripts/seed_227_decoration.py` | 先过同一套恒等断言再写库（幂等清旧行） |
 | Web 导出 | `app/export.py` + `GET /project/<id>/export.xlsx` | 数据源=**库内清单**，不在请求里重跑几何链（秒级） |
-| 回归测试 | `tests/test_decoration_delivery.py` | Tier A 零图纸 3 条 + Tier B `@slow` 2 条（需图纸） |
+| 回归测试 | `tests/test_decoration_delivery.py` | Tier A 零图纸 3 条 + Tier B `@slow` 2 条（需图纸）|
+| 静态站（第 1 档发布）| `scripts/build_static_site.py` + `site/public/` | 零依赖只读站，已发 Cloudflare Pages，见 §7.7 |
 
 ### 7.6.2 备注列——**规则驱动，不手写 72 行**
 `REMARK_RULES` 9 条，按**行内容**（section/part/item/formula/trace）判定，而非按行号——改口径时备注自动跟。两条硬约束：
@@ -519,4 +522,38 @@ Stage 5  校验: **几何为准, BOQ 仅交叉校验**【R13,R14】+ `modeling/b
 ./venv/bin/python -m pytest tests/test_decoration_delivery.py -q -m "not slow"
 ```
 Web：登录后 `/project/2`、`/project/2/boq`（`boq.html` 本已具备备注列与待确认区，**未改页面结构**，只加导出按钮）。
+
+## 7.7 第 1 档发布：静态站（Cloudflare Pages，零月费）
+
+目的：**别人不开我的机器也能看到全部工程量并拿到同一份 Excel**。代价是本站只读——要“上传图纸重算”得等第 2/3 档（云端跑几何链）。
+
+### 7.7.1 为什么产物入库而不是云端构建
+几何链要读 `装修图纸/`（该目录含 DWG/DXF/PDF，刻意不入库），云端拿不到图纸就算不出数；venv 630MB / 201 个 `.so`（cv2+numpy+shapely+ifcopenshell）也装不进 Pages 构建环境。
+所以：**链在本地跑一次 → `site/public/` 产物入库 → Pages 只发静态文件**（Build output dir=`site/public`，build command 留空即可接 Git 自动部署）。
+
+### 7.7.2 产物与单一数据源
+| 页面 | 内容 | 数据/文案来源 |
+|---|---|---|
+| `index.html` | 封账四数 + 分部汇总 + 置信度用法 + 挂账摘要 | `collect_rows()` + `seal_checks()`，**不读 app.db** |
+| `boq.html` | 72 行×12 列（含备注列与需补资料列），分部/置信/关键词筛选 + 实时子合计 | 同上，列序与 xlsx `build_main()` 一致 |
+| `pending.html` | 待确认 58 行（低置信在前）+ 挂账 7 条全文 | `pend_sorted()` / `pend_summary_lines()` / `HANGOVER` |
+| `notes.html` | 口径与假设 15 条 + 备注规则表（含命中行数）| `note_lines()` / `REMARK_RULES` |
+| `download/…xlsx` | 与 `outputs/` 同一文件（sha256 已校）| `verify_xlsx()` 校主表 73 行×12 列且第 11 列为备注 |
+
+本次顺手把三处文案抽成**唯一函数**（`note_lines` / `pend_summary_lines` / `pend_sorted`），xlsx 与网页共用；已验证重构后 xlsx 单元格内容**零差异**。
+
+### 7.7.3 硬约束（构建时炸，不靠人盯）
+- 恒等断言不过 → 不产出站点（与 xlsx 同一套）；
+- `verify_xlsx()`：sheet 名/行数/列数/备注列表头/m² 合计任一项不符 → 构建失败（防“网页一套数、表一套数”）；
+- 逐行取 2 位后相加(763.13) 与封账(763.12) 差 >0.02 → 失败；
+- 产物自检：每行备注与需补资料不得留空、可见文本不得残留 `**`、不得漏 `None`；
+- `robots.txt` = `Disallow: /` + 页面 `noindex`（造价数据不进搜索引擎）。
+
+### 7.7.4 运行
+```bash
+./venv/bin/python scripts/build_static_site.py      # 只建站
+./deploy/deploy_pages.sh                             # 重算 + 建站 + 发布 + 线上自检
+./venv/bin/python -m pytest tests/test_static_site.py -q -m "not slow"   # 零图纸，查已入库产物
+```
+线上：`https://decoration-quantity.pages.dev/`（`/boq` `/pending` `/notes` `/download/…xlsx`）。首次建项目需 `wrangler pages project create <name> --production-branch main --force`（当前 wrangler 会把新建委派给 Workers 而失败，`--force` 直连旧版 Pages；项目建后续命令不需 `--force`）。
 

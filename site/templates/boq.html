@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>工程量计算表 · {{ n_rows }} 行</h1>
+<p class="sub">
+  列顺序与下载的 xlsx「工程量计算表」sheet 完全一致；<span class="badge low">低</span> 置信行整行高亮，
+  与 xlsx 的黄色底纹同一口径。<strong>最后一列不是装饰</strong>——每行的不确定原因与需补资料都在这里，空值一律显式写"无"。
+</p>
+
+<div class="filters no-print">
+  <div class="chips" id="div-chips">
+    <button class="chip on" data-div="">全部分部</button>
+    {% for d in divs %}<button class="chip" data-div="{{ d.id }}">{{ d.id }}·{{ d.name }}（{{ d.rows }}）</button>{% endfor %}
+  </div>
+  <div class="chips" id="conf-chips">
+    <button class="chip on" data-conf="">全部置信</button>
+    {% for key in ["high", "medium", "low"] %}
+    <button class="chip" data-conf="{{ key }}">{{ confs[key].icon }} {{ confs[key].label }}（{{ confs[key].n }}）</button>
+    {% endfor %}
+  </div>
+  <input type="search" id="q" placeholder="搜房间 / 列项 / 计算式 / 备注关键词…">
+  <div class="stat" id="stat"></div>
+</div>
+
+<div class="panel scroller">
+<table id="t">
+  <thead><tr>
+    <th>序号</th><th>分部</th><th>部位/房间</th><th>列项(项目名称)</th><th>单位</th><th>工程量</th>
+    <th>几何计算式</th><th>尺寸追溯</th><th>数据来源(三态)</th><th>置信度</th>
+    <th>备注(不确定原因)</th><th>需补充的资料</th>
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="{{ r.conf }}" data-div="{{ r.div_id }}" data-conf="{{ r.conf }}"
+        data-unit="{{ r.unit }}" data-qty="{{ r.qty }}" data-txt="{{ r.search }}">
+      <td class="num">{{ r.seq }}</td>
+      <td>{{ r.div }}</td>
+      <td>{{ r.part }}</td>
+      <td>{{ r.item }}</td>
+      <td>{{ r.unit }}</td>
+      <td class="num">{{ r.qty }}</td>
+      <td class="f">{{ r.formula }}</td>
+      <td>{{ r.trace }}</td>
+      <td><span class="tag">{{ r.states }}</span></td>
+      <td><span class="badge {{ r.conf }}">{{ r.conf_label }}</span></td>
+      <td class="r">{{ r.remark | em }}</td>
+      <td class="r">{{ (r.need if r.need else "无") | em }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+(function () {
+  var tb = document.querySelectorAll('#t tbody tr');
+  var div = '', conf = '', q = '';
+  var stat = document.getElementById('stat');
+  function apply() {
+    var n = 0, s = {'m²': 0, 'm': 0, '个': 0};
+    for (var i = 0; i < tb.length; i++) {
+      var r = tb[i];
+      var ok = (!div || r.dataset.div === div) && (!conf || r.dataset.conf === conf) &&
+               (!q || r.dataset.txt.toLowerCase().indexOf(q) >= 0);
+      r.style.display = ok ? '' : 'none';
+      if (ok) {
+        n++;
+        var v = parseFloat(r.dataset.qty) || 0;
+        s[r.dataset.unit] = (s[r.dataset.unit] || 0) + v;
+      }
+    }
+    stat.innerHTML = '命中 <b>' + n + '</b>/' + tb.length + ' 行 ｜ m² <b>' + s['m²'].toFixed(2) +
+                     '</b> ｜ m <b>' + s['m'].toFixed(2) + '</b> ｜ 件 <b>' + Math.round(s['个']) + '</b>';
+  }
+  function bind(sel, attr, set) {
+    var box = document.getElementById(sel);
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('.chip'); if (!b) return;
+      box.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('on'); });
+      b.classList.add('on'); set(b.getAttribute(attr) || ''); apply();
+    });
+  }
+  bind('div-chips', 'data-div', function (v) { div = v; });
+  bind('conf-chips', 'data-conf', function (v) { conf = v; });
+  document.getElementById('q').addEventListener('input', function (e) {
+    q = e.target.value.trim(); apply();
+  });
+  apply();
+})();
+</script>
+{% endblock %}

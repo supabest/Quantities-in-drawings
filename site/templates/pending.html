@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>待确认与挂账</h1>
+<p class="sub">
+  两件事分开：<strong>待确认</strong>是已经计入 72 行、但口径/归属还需外部资料收敛的行；
+  <strong>挂账</strong>是<strong>没有</strong>计入封账的部分，单列披露，不硬凑。
+</p>
+
+{% for ln in pend_lines %}<div class="note">{{ ln | em }}</div>{% endfor %}
+
+<h2>一、待确认清单（{{ pend | length }} 行，低置信在前）</h2>
+<div class="panel scroller">
+<table>
+  <thead><tr><th>全表行号</th><th>分部</th><th>部位/房间</th><th>列项</th><th>工程量</th><th>单位</th>
+             <th>置信度</th><th>不确定原因</th><th>需补充的资料</th></tr></thead>
+  <tbody>
+  {% for r in pend %}
+    <tr class="{{ r.conf }}">
+      <td class="num">{{ r.seq }}</td>
+      <td>{{ r.div }}</td>
+      <td>{{ r.part }}</td>
+      <td>{{ r.item }}</td>
+      <td class="num">{{ r.qty }}</td>
+      <td>{{ r.unit }}</td>
+      <td><span class="badge {{ r.conf }}">{{ r.conf_label }}</span></td>
+      <td class="r">{{ r.remark | em }}</td>
+      <td class="r">{{ (r.need if r.need else "无") | em }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p><a class="btn ghost no-print" href="./boq.html">回全表（{{ n_rows }} 行，可筛选）→</a></p>
+
+<h2>二、挂账清单（裁定排除或图上读不出，未计入 72 行封账）</h2>
+<div class="panel scroller">
+<table>
+  <thead><tr><th>项目</th><th>量</th><th>算式/口径</th><th>原因</th><th>状态</th></tr></thead>
+  <tbody>
+  {% for h in hangover %}
+    <tr>
+      <td>{{ h[0] }}</td><td>{{ h[1] }}</td><td class="f">{{ h[2] }}</td>
+      <td class="r">{{ h[3] | em }}</td><td><span class="tag">{{ h[4] }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

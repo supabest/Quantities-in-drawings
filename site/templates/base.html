@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title }} · 227户型装修工程量计算表</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="./index.html">📐 227户型样板房 · 装修工程量</a>
+    <nav>
+      <a href="./index.html" class="{{ 'on' if active == 'index' }}">总览</a>
+      <a href="./boq.html" class="{{ 'on' if active == 'boq' }}">工程量计算表</a>
+      <a href="./pending.html" class="{{ 'on' if active == 'pending' }}">待确认与挂账</a>
+      <a href="./notes.html" class="{{ 'on' if active == 'notes' }}">口径与假设</a>
+      <a class="dl" href="{{ xlsx_url }}">⬇️ 下载 Excel</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+{% block body %}{% endblock %}
+</main>
+<footer class="fingerprint">
+  <div>
+    构建 {{ built_at }} ｜ commit <code>{{ git_commit }}</code> ｜
+    {{ n_rows }} 行 ｜ 封账 m² <b>{{ seal_m2 }}</b> / m <b>{{ seal_m }}</b> / 件 <b>{{ seal_ge }}</b>
+    （本表逐行取 2 位后相加：m² {{ row_m2 }} / m {{ row_m }} / 件 {{ row_ge }}）
+    ｜ xlsx sha256 <code>{{ xlsx_sha }}</code> ｜ 源图 sha256 <code>{{ source_sha }}</code>
+  </div>
+  <p class="readonly">
+    本站是封账数据的<strong>只读快照</strong>：72 行的计算式、尺寸追溯、三态来源与备注全部可查、可打印、可下载同一份 Excel。
+    上传图纸重算、备注回填、组价报价等操作不在本站，仍在应用内（本地/服务器部署的 Web 端）。
+  </p>
+</footer>
+{% block script %}{% endblock %}
+</body>
+</html>

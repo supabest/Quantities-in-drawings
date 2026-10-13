@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>工程量计算表（装修 · 227 户型样板房）</h1>
+<p class="sub">
+  {{ seal_note }}<br>
+  数值全部由几何从图纸独立算出，逐行带【计算式】+【尺寸追溯】；不能确定的量在<strong>备注列逐行写明原因</strong>，
+  读不出/裁定不计的部分进<a href="./pending.html">挂账清单</a>单独披露，不混进 72 行。
+</p>
+
+<div class="cards">
+  <div class="card"><div class="v">{{ n_rows }}</div><div class="k">清单行数（地 16 / 墙 24 / 顶 12 / 固装 20）</div></div>
+  <div class="card"><div class="v">{{ seal_m2 }}<span style="font-size:15px"> m²</span></div><div class="k">面积合计（封账口径）</div>
+    <div class="n">本表逐行取 2 位后相加 {{ row_m2 }}；未舍入真值 {{ raw_m2 }}</div></div>
+  <div class="card"><div class="v">{{ seal_m }}<span style="font-size:15px"> m</span></div><div class="k">长度合计（墙面抹灰/踢脚线）</div></div>
+  <div class="card"><div class="v">{{ seal_ge }}<span style="font-size:15px"> 件</span></div><div class="k">离散件（固装柜体/柜台）</div></div>
+</div>
+
+<div class="note">
+  <strong>末位舍入口径（先说清，免得被当成账实不符）：</strong>封账 m² {{ seal_m2 }} 是各模块“先求和、再取 2 位小数显示”的值
+  （未舍入真值 {{ raw_m2 }}）；本页与 Excel 是逐行取 2 位后再相加，得 {{ row_m2 }}，与封账差 ≤0.02。
+  这属逐行舍入末位差，<strong>不得为此改封账</strong>（恒等断言一律用未舍入真值 + 容差 0.011）。
+</div>
+
+<div class="note ok">
+  <strong>恒等断言在构建时执行，破账不产出本站。</strong>
+  顶 162.15 = 地 163.75 − 无标注块 1.60 ｜ 墙 437.22 = 全间净墙 505.28 − 无标注窄条 68.06 ｜
+  P3b 97.78 = 97.39 + 0.34 + 0.05 ｜ 灯槽 16.89 = 17.73 − 0.84 ｜ 备注规则命中 0 行即构建失败。
+</div>
+
+<h2>一、分部汇总</h2>
+<div class="panel scroller">
+<table>
+  <thead><tr><th>分部</th><th>行数</th><th>m²</th><th>m</th><th>件</th><th>低置信行</th></tr></thead>
+  <tbody>
+  {% for d in divs %}
+    <tr>
+      <td><a href="./boq.html">{{ d.id }}·{{ d.name }}</a></td>
+      <td class="num">{{ d.rows }}</td>
+      <td class="num">{{ d.m2 if d.m2 else "—" }}</td>
+      <td class="num">{{ d.m if d.m else "—" }}</td>
+      <td class="num">{{ d.ge if d.ge else "—" }}</td>
+      <td class="num">{{ d.low }}</td>
+    </tr>
+  {% endfor %}
+  <tr class="total-row"><td>合计</td><td class="num">{{ n_rows }}</td><td class="num">{{ row_m2 }}</td>
+      <td class="num">{{ row_m }}</td><td class="num">{{ row_ge }}</td><td class="num">{{ confs.low.n }}</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="sub">注：上方卡片里的“墙 24”是<strong>图纸段次</strong>(P2 墙面共 24 行)；按清单分部记账时拆成
+  2·墙柱面工程(m²，12 行) 与 5·踢脚线工程(m，12 行)——同一批行的两种数法，不重复计量。</p>
+
+<h2>二、置信度分布与用法</h2>
+<div class="cards">
+  {% for key in ["high", "medium", "low"] %}
+  {% set c = confs[key] %}
+  <div class="card">
+    <div class="v" style="color:{{ c.color }}">{{ c.n }}</div>
+    <div class="k">{{ c.icon }} {{ c.label }}置信度</div>
+    <div class="n">{{ c.usage }}</div>
+    <div class="n">涉及 m² {{ c.m2 }} ｜ m {{ c.m }} ｜ 件 {{ c.ge }}</div>
+  </div>
+  {% endfor %}
+</div>
+<div class="note">
+  置信度低<strong>不代表数量可以随意改</strong>，只代表口径/归属仍需外部资料收敛（图纸读不出、无可机读门窗表、
+  大样比例不可标定等）。低置信的 {{ confs.low.n }} 行已逐行写明"不确定原因"与"需补充的资料"，见
+  <a href="./pending.html">待确认与挂账</a>。
+</div>
+
+<h2>三、挂账（未计入 72 行的部分）</h2>
+<p class="sub">共 {{ hangover | length }} 条。这些量要么被裁定不计、要么图上读不出，单列披露而不是硬凑进封账。</p>
+<div class="panel scroller">
+<table>
+  <thead><tr><th>项目</th><th>量</th><th>算式/口径</th><th>状态</th></tr></thead>
+  <tbody>
+  {% for h in hangover %}
+    <tr><td>{{ h[0] }}</td><td>{{ h[1] }}</td><td class="f">{{ h[2] }}</td><td><span class="tag">{{ h[4] }}</span></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p><a class="btn ghost" href="./pending.html">看挂账全文与逐行待确认 →</a></p>
+
+<h2>四、从这里继续</h2>
+<div class="links">
+  <a class="btn" href="{{ xlsx_url }}">⬇️ 下载 工程量计算表.xlsx（4 sheet 含备注列）</a>
+  <a class="btn ghost" href="./boq.html">📋 72 行全表（可按分部/置信度筛选）</a>
+  <a class="btn ghost" href="./pending.html">⚠️ 待确认 {{ pend_total }} 行 + 挂账 {{ hangover | length }} 条</a>
+  <a class="btn ghost" href="./notes.html">📖 口径、假设与依据（{{ notes | length }} 条）</a>
+</div>
+{% endblock %}

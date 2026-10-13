@@ -97,6 +97,23 @@ python3 run.py
 gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 run:app
 ```
 
+## 静态发布（第 1 档，零月费）
+
+把已封账的工程量表发成**只读**静态站，访问者不依赖开发机开机：
+
+```bash
+./venv/bin/python scripts/build_decoration_workbook.py   # 重算 xlsx（破账不产出）
+./venv/bin/python scripts/build_static_site.py          # 建 site/public/
+./deploy/deploy_pages.sh                                 # 上面两步 + 发布 + 线上自检
+```
+
+- 线上：`https://decoration-quantity.pages.dev/`（`/boq` `/pending` `/notes` `/download/…xlsx`）。
+- 首次建项目（仅一次）：`npx wrangler pages project create decoration-quantity --production-branch main --force`。
+- **为何云端不自动构建**：几何链要读 `装修图纸/`（刻意不入库）且 venv 630MB 原生库，Pages 构建环境装不下；
+  所以链在本地跑，**产物 `site/public/` 入库**，Pages 只发静态文件（接 Git 集成时 output dir=`site/public`、build command 留空）。
+- 能力边界：只能看/筛选/下载；**上传图纸重算、备注回填不在此**（需云端常驻服务）。
+- 口径与硬约束见 `docs/QUANTITY_TAKEOFF_MANUAL.md` §7.7；回归：`tests/test_static_site.py`。
+
 ## 安全建议
 1. **修改默认管理员密码**
 2. **设置强 SECRET_KEY**

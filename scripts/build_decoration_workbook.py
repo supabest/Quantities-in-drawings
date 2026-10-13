@@ -323,25 +323,20 @@ def build_main(ws, rows):
     return last
 
 
-def build_pending(ws, rows, m2, m, ge):
-    headers = ["序号", "分部", "部位/房间", "列项", "工程量", "单位",
-               "置信度", "不确定原因", "需补充的资料"]
-    widths = [6, 16, 22, 22, 10, 6, 8, 60, 44]
+def pend_sorted(rows):
+    """待确认行(低/中)的**唯一定序**：低置信在前，同置信按分部段次。xlsx 与静态站共用。"""
     pend = [r for r in rows if r["conf"] in ("low", "medium")]
-    pend.sort(key=lambda r: (-CONF_RANK[r["conf"]], r["section"]))
-    body = []
-    for i, r in enumerate(pend, start=1):
-        body.append([i, "%d·%s" % (r["division"][0], r["division"][1]), r["part"],
-                     r["item"], round(r["value"], 2), UNIT_SHOW.get(r["unit"], r["unit"]),
-                     {"high": "高", "medium": "中", "low": "低"}[r["conf"]],
-                     r["remark"], need_info(r)])
-    last = sheet_table(ws, headers, widths, body, start=1)
+    return sorted(pend, key=lambda r: (-CONF_RANK[r["conf"]], r["section"]))
+
+
+def pend_summary_lines(rows, m2, m, ge):
+    """「受影响工程量(按置信度)」的**唯一文案源**：xlsx 与本表页/静态站共用。"""
+    pend = [r for r in rows if r["conf"] in ("low", "medium")]
     low_m2 = round(sum(r["value"] for r in pend
                        if r["conf"] == "low" and r["unit"] == "m2"), 2)
     low_m = round(sum(r["value"] for r in pend
                       if r["conf"] == "low" and r["unit"] == "m"), 2)
-    last += 2
-    last = note_block(ws, "▍受影响工程量(按置信度)", [
+    return [
         "待确认(low)：%d 行 ｜ 涉及 m² %.2f ｜ m %.2f ｜ 件 %d" % (
             sum(1 for r in pend if r["conf"] == "low"), low_m2, low_m,
             sum(1 for r in pend if r["conf"] == "low" and r["unit"] == "个")),
@@ -350,7 +345,25 @@ def build_pending(ws, rows, m2, m, ge):
             sum(1 for r in rows if r["remark"] == "无")),
         "全表合计(封账不变)：m² %.2f ｜ m %.2f ｜ 件 %d" % (m2, m, ge),
         "说明：待确认项的数**已计入**上述合计(除下方挂账清单另列者)，置信度低不代表数量可改，"
-        "只代表口径/归属仍需外部资料收敛。", "", "↓ 挂账清单（见下表）"], last)
+        "只代表口径/归属仍需外部资料收敛。",
+    ]
+
+
+def build_pending(ws, rows, m2, m, ge):
+    headers = ["序号", "分部", "部位/房间", "列项", "工程量", "单位",
+               "置信度", "不确定原因", "需补充的资料"]
+    widths = [6, 16, 22, 22, 10, 6, 8, 60, 44]
+    pend = pend_sorted(rows)
+    body = []
+    for i, r in enumerate(pend, start=1):
+        body.append([i, "%d·%s" % (r["division"][0], r["division"][1]), r["part"],
+                     r["item"], round(r["value"], 2), UNIT_SHOW.get(r["unit"], r["unit"]),
+                     {"high": "高", "medium": "中", "low": "低"}[r["conf"]],
+                     r["remark"], need_info(r)])
+    last = sheet_table(ws, headers, widths, body, start=1)
+    last += 2
+    last = note_block(ws, "▍受影响工程量(按置信度)",
+                      pend_summary_lines(rows, m2, m, ge) + ["", "↓ 挂账清单（见下表）"], last)
     last += 1
     c = ws.cell(row=last, column=1, value="▍挂账清单（裁定排除或图上读不出，未计入 72 行封账）")
     c.font = Font(bold=True, size=12)
@@ -469,8 +482,13 @@ def _num(v):
         return False
 
 
-def build_notes(ws, art, code_hits):
-    lines = [
+NOTE_TITLE = "口径、假设与依据"
+
+
+def note_lines(code_hits):
+    """口径与假设的**唯一文案源**：xlsx「口径与假设」sheet 与静态站 notes 页共用本函数，
+    避免两处话术各写一份而漂移。"""
+    return [
         "■ 范围：仅 227 户型(415 板房样板房之一；210 户型即 227 别名)。"
         "415 另一样板房、工控方案图、ZN 变更均不在算量范围(用户裁定)。",
         "■ 最高原则：工程量一律由几何从图纸独立算出，每行带【计算式】+【尺寸追溯】；"
@@ -509,7 +527,11 @@ def build_notes(ws, art, code_hits):
         "■ 数据源哈希锁：源 PDF sha256 = %s(页 idx12=P02)，与 golden 测试同一把锁。"
         % CZ.SOURCE_SHA256,
     ]
-    note_block(ws, "■ 口径、假设与依据(构建时已断言，破账不产出本文件)", lines, 1)
+
+
+def build_notes(ws, art, code_hits):
+    note_block(ws, "■ " + NOTE_TITLE + "(构建时已断言，破账不产出本文件)",
+               note_lines(code_hits), 1)
     ws.column_dimensions["A"].width = 150
 
 
