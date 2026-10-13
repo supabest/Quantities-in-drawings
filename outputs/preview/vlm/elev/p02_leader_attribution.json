@@ -1,0 +1,591 @@
+[
+ {
+  "m": 0,
+  "xy": [
+   572.1,
+   506.0
+  ],
+  "v": 2950,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   572.1,
+   506.0
+  ],
+  "target_lid": 361,
+  "target_area_m2": 29.48,
+  "target_zone_m2": 29.48,
+  "target_zone_v": 2950
+ },
+ {
+  "m": 1,
+  "xy": [
+   613.1,
+   634.1
+  ],
+  "v": 2550,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   613.1,
+   634.1
+  ],
+  "target_lid": 895,
+  "target_area_m2": 6.24,
+  "target_zone_m2": 6.24,
+  "target_zone_v": 2550
+ },
+ {
+  "m": 2,
+  "xy": [
+   764.8,
+   483.8
+  ],
+  "v": 2600,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   764.8,
+   483.8
+  ],
+  "target_lid": 465,
+  "target_area_m2": 3.95,
+  "target_zone_m2": 3.95,
+  "target_zone_v": 2600
+ },
+ {
+  "m": 3,
+  "xy": [
+   816.2,
+   501.1
+  ],
+  "v": 2600,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   816.2,
+   501.1
+  ],
+  "target_lid": 555,
+  "target_area_m2": 4.4,
+  "target_zone_m2": 4.4,
+  "target_zone_v": 2600
+ },
+ {
+  "m": 4,
+  "xy": [
+   829.4,
+   560.3
+  ],
+  "v": 2950,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   829.4,
+   560.3
+  ],
+  "target_lid": 672,
+  "target_area_m2": 8.11,
+  "target_zone_m2": 8.11,
+  "target_zone_v": 2950
+ },
+ {
+  "m": 5,
+  "xy": [
+   838.5,
+   651.7
+  ],
+  "v": 2550,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   838.5,
+   651.7
+  ],
+  "target_lid": null,
+  "target_area_m2": null,
+  "target_zone_m2": null,
+  "target_zone_v": null
+ },
+ {
+  "m": 6,
+  "xy": [
+   873.7,
+   400.8
+  ],
+  "v": 2550,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   873.7,
+   400.8
+  ],
+  "target_lid": 309,
+  "target_area_m2": 0.97,
+  "target_zone_m2": 0.97,
+  "target_zone_v": 2550
+ },
+ {
+  "m": 7,
+  "xy": [
+   831.8,
+   391.4
+  ],
+  "v": 2620,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   831.8,
+   391.4
+  ],
+  "target_lid": 335,
+  "target_area_m2": 1.87,
+  "target_zone_m2": 1.87,
+  "target_zone_v": 2620
+ },
+ {
+  "m": 8,
+  "xy": [
+   757.2,
+   341.3
+  ],
+  "v": 2750,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   757.2,
+   341.3
+  ],
+  "target_lid": null,
+  "target_area_m2": null,
+  "target_zone_m2": null,
+  "target_zone_v": null
+ },
+ {
+  "m": 9,
+  "xy": [
+   421.9,
+   493.5
+  ],
+  "v": 2650,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   421.9,
+   493.5
+  ],
+  "target_lid": 611,
+  "target_area_m2": 0.79,
+  "target_zone_m2": 0.79,
+  "target_zone_v": 2650
+ },
+ {
+  "m": 10,
+  "xy": [
+   417.0,
+   575.7
+  ],
+  "v": 2950,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   417.0,
+   575.7
+  ],
+  "target_lid": 707,
+  "target_area_m2": 5.51,
+  "target_zone_m2": 5.51,
+  "target_zone_v": 2950
+ },
+ {
+  "m": 11,
+  "xy": [
+   462.3,
+   493.4
+  ],
+  "v": 2600,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   462.3,
+   493.4
+  ],
+  "target_lid": 155,
+  "target_area_m2": 13.16,
+  "target_zone_m2": 13.16,
+  "target_zone_v": 2600
+ },
+ {
+  "m": 12,
+  "xy": [
+   771.6,
+   513.4
+  ],
+  "v": 2600,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   771.6,
+   513.4
+  ],
+  "target_lid": 641,
+  "target_area_m2": 1.83,
+  "target_zone_m2": 1.83,
+  "target_zone_v": 2600
+ },
+ {
+  "m": 13,
+  "xy": [
+   731.7,
+   408.5
+  ],
+  "v": 2600,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   731.7,
+   408.5
+  ],
+  "target_lid": 345,
+  "target_area_m2": 4.89,
+  "target_zone_m2": 4.89,
+  "target_zone_v": 2600
+ },
+ {
+  "m": 14,
+  "xy": [
+   601.5,
+   301.1
+  ],
+  "v": 2650,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   601.5,
+   301.1
+  ],
+  "target_lid": 119,
+  "target_area_m2": 6.28,
+  "target_zone_m2": 4.37,
+  "target_zone_v": 2650
+ },
+ {
+  "m": 15,
+  "xy": [
+   584.8,
+   190.1
+  ],
+  "v": 2750,
+  "mode": "leader",
+  "arrow": false,
+  "leader_len": 46.6,
+  "tip": [
+   533.5,
+   190.1
+  ],
+  "target_lid": 40,
+  "target_area_m2": 0.27,
+  "target_zone_m2": null,
+  "target_zone_v": null
+ },
+ {
+  "m": 16,
+  "xy": [
+   584.8,
+   166.8
+  ],
+  "v": 2600,
+  "mode": "leader",
+  "arrow": false,
+  "leader_len": 53.8,
+  "tip": [
+   526.3,
+   166.8
+  ],
+  "target_lid": 24,
+  "target_area_m2": 4.8,
+  "target_zone_m2": null,
+  "target_zone_v": null
+ },
+ {
+  "m": 17,
+  "xy": [
+   491.2,
+   222.3
+  ],
+  "v": 2950,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   491.2,
+   222.3
+  ],
+  "target_lid": 30,
+  "target_area_m2": 4.91,
+  "target_zone_m2": 4.91,
+  "target_zone_v": 2950
+ },
+ {
+  "m": 18,
+  "xy": [
+   510.0,
+   368.3
+  ],
+  "v": 2600,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   510.0,
+   368.3
+  ],
+  "target_lid": 155,
+  "target_area_m2": 13.16,
+  "target_zone_m2": 13.16,
+  "target_zone_v": 2600
+ },
+ {
+  "m": 19,
+  "xy": [
+   703.9,
+   341.3
+  ],
+  "v": 2600,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   703.9,
+   341.3
+  ],
+  "target_lid": null,
+  "target_area_m2": null,
+  "target_zone_m2": null,
+  "target_zone_v": null
+ },
+ {
+  "m": 20,
+  "xy": [
+   698.0,
+   327.2
+  ],
+  "v": 2750,
+  "mode": "leader",
+  "arrow": false,
+  "leader_len": 8.5,
+  "tip": [
+   684.8,
+   327.2
+  ],
+  "target_lid": 186,
+  "target_area_m2": 0.15,
+  "target_zone_m2": null,
+  "target_zone_v": null
+ },
+ {
+  "m": 21,
+  "xy": [
+   851.4,
+   327.2
+  ],
+  "v": 2600,
+  "mode": "leader",
+  "arrow": false,
+  "leader_len": 8.5,
+  "tip": [
+   838.3,
+   327.2
+  ],
+  "target_lid": 226,
+  "target_area_m2": 0.02,
+  "target_zone_m2": null,
+  "target_zone_v": null
+ },
+ {
+  "m": 22,
+  "xy": [
+   584.9,
+   254.5
+  ],
+  "v": "SLAN-100",
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   584.9,
+   254.5
+  ],
+  "target_lid": 83,
+  "target_area_m2": 2.55,
+  "target_zone_m2": 2.55,
+  "target_zone_v": "SLAN-100"
+ },
+ {
+  "m": 23,
+  "xy": [
+   867.8,
+   651.7
+  ],
+  "v": 2350,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   867.8,
+   651.7
+  ],
+  "target_lid": 1010,
+  "target_area_m2": 0.02,
+  "target_zone_m2": null,
+  "target_zone_v": null
+ },
+ {
+  "m": 24,
+  "xy": [
+   769.5,
+   605.1
+  ],
+  "v": 2450,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   769.5,
+   605.1
+  ],
+  "target_lid": 840,
+  "target_area_m2": 0.51,
+  "target_zone_m2": 0.51,
+  "target_zone_v": 2450
+ },
+ {
+  "m": 25,
+  "xy": [
+   677.6,
+   428.6
+  ],
+  "v": 2650,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   677.6,
+   428.6
+  ],
+  "target_lid": 467,
+  "target_area_m2": 0.63,
+  "target_zone_m2": 0.63,
+  "target_zone_v": 2650
+ },
+ {
+  "m": 26,
+  "xy": [
+   649.4,
+   326.4
+  ],
+  "v": 2600,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   649.4,
+   326.4
+  ],
+  "target_lid": 119,
+  "target_area_m2": 6.28,
+  "target_zone_m2": 4.37,
+  "target_zone_v": 2650
+ },
+ {
+  "m": 27,
+  "xy": [
+   767.5,
+   571.8
+  ],
+  "v": 2650,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   767.5,
+   571.8
+  ],
+  "target_lid": 791,
+  "target_area_m2": 0.45,
+  "target_zone_m2": 0.45,
+  "target_zone_v": 2650
+ },
+ {
+  "m": 28,
+  "xy": [
+   775.4,
+   532.2
+  ],
+  "v": 2600,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   775.4,
+   532.2
+  ],
+  "target_lid": 641,
+  "target_area_m2": 1.83,
+  "target_zone_m2": 1.83,
+  "target_zone_v": 2600
+ },
+ {
+  "m": 29,
+  "xy": [
+   758.0,
+   452.6
+  ],
+  "v": 2600,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   758.0,
+   452.6
+  ],
+  "target_lid": 513,
+  "target_area_m2": 1.25,
+  "target_zone_m2": 1.25,
+  "target_zone_v": 2600
+ },
+ {
+  "m": 30,
+  "xy": [
+   722.9,
+   692.1
+  ],
+  "v": null,
+  "mode": "direct",
+  "arrow": false,
+  "leader_len": 0.0,
+  "tip": [
+   722.9,
+   692.1
+  ],
+  "target_lid": 941,
+  "target_area_m2": 0.03,
+  "target_zone_m2": null,
+  "target_zone_v": null
+ }
+]

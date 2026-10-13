@@ -1,0 +1,440 @@
+{
+ "method": "_p3b_split.py：重建同参洪水掩膜(DPI=200/dilate 3x3 iter=2) → lid 外轮廓(pt) → 与房间多边形求交，按几何占比拆分封账面积（不重算面积）",
+ "unit": {
+  "pt2_to_m2": 0.0012445231728399999,
+  "px2_to_m2": 0.000161290203200064,
+  "page": "idx12 (P02 天花布置图)"
+ },
+ "seal_identity": {
+  "flood_20_domains": 97.39,
+  "kan_left_strip_121": 0.34,
+  "cut_pixels": 0.05,
+  "sum": 97.78,
+  "sealed": 97.78
+ },
+ "domains": [
+  {
+   "zone": 361,
+   "elev": 2950,
+   "lid": 361,
+   "sealed_m2": 29.48,
+   "mask_m2": 29.48,
+   "contour_m2": 31.45,
+   "n_markers": 1,
+   "split": {
+    "客厅/茶室+餐厅+玄关": 29.48
+   },
+   "outside_rooms_m2": 0.0
+  },
+  {
+   "zone": 155,
+   "elev": 2600,
+   "lid": 155,
+   "sealed_m2": 13.16,
+   "mask_m2": 13.16,
+   "contour_m2": 15.22,
+   "n_markers": 2,
+   "split": {
+    "客厅/茶室+餐厅+玄关": 7.8,
+    "浴室二": 1.489,
+    "过厅": 0.729,
+    "卧室二": 0.286
+   },
+   "outside_rooms_m2": 2.856
+  },
+  {
+   "zone": 672,
+   "elev": 2950,
+   "lid": 672,
+   "sealed_m2": 8.11,
+   "mask_m2": 8.11,
+   "contour_m2": 8.72,
+   "n_markers": 1,
+   "split": {
+    "主人衣帽间+主人卧室": 8.106
+   },
+   "outside_rooms_m2": 0.004
+  },
+  {
+   "zone": 895,
+   "elev": 2550,
+   "lid": 895,
+   "sealed_m2": 6.24,
+   "mask_m2": 6.24,
+   "contour_m2": 6.59,
+   "n_markers": 1,
+   "split": {
+    "客厅/茶室+餐厅+玄关": 6.229
+   },
+   "outside_rooms_m2": 0.011
+  },
+  {
+   "zone": 707,
+   "elev": 2950,
+   "lid": 707,
+   "sealed_m2": 5.51,
+   "mask_m2": 5.51,
+   "contour_m2": 6.1,
+   "n_markers": 1,
+   "split": {
+    "卧室二": 5.212
+   },
+   "outside_rooms_m2": 0.298
+  },
+  {
+   "zone": 30,
+   "elev": 2950,
+   "lid": 30,
+   "sealed_m2": 4.91,
+   "mask_m2": 4.91,
+   "contour_m2": 5.16,
+   "n_markers": 1,
+   "split": {
+    "电梯厅": 4.91
+   },
+   "outside_rooms_m2": 0.0
+  },
+  {
+   "zone": 345,
+   "elev": 2600,
+   "lid": 345,
+   "sealed_m2": 4.89,
+   "mask_m2": 4.89,
+   "contour_m2": 5.27,
+   "n_markers": 1,
+   "split": {
+    "卧室一": 4.89
+   },
+   "outside_rooms_m2": 0.0
+  },
+  {
+   "zone": 555,
+   "elev": 2600,
+   "lid": 555,
+   "sealed_m2": 4.4,
+   "mask_m2": 4.4,
+   "contour_m2": 5.37,
+   "n_markers": 1,
+   "split": {
+    "主人衣帽间+主人卧室": 3.193
+   },
+   "outside_rooms_m2": 1.207
+  },
+  {
+   "zone": 119,
+   "elev": 2650,
+   "lid": 119,
+   "sealed_m2": 4.37,
+   "mask_m2": 6.28,
+   "contour_m2": 6.22,
+   "n_markers": 1,
+   "split": {
+    "中厨": 4.136
+   },
+   "outside_rooms_m2": 0.234
+  },
+  {
+   "zone": 465,
+   "elev": 2600,
+   "lid": 465,
+   "sealed_m2": 3.95,
+   "mask_m2": 3.95,
+   "contour_m2": 4.34,
+   "n_markers": 1,
+   "split": {
+    "客厅/茶室+餐厅+玄关": 2.988
+   },
+   "outside_rooms_m2": 0.962
+  },
+  {
+   "zone": 83,
+   "elev": "SLAN-100",
+   "lid": 83,
+   "sealed_m2": 2.55,
+   "mask_m2": 2.55,
+   "contour_m2": 2.9,
+   "n_markers": 1,
+   "split": {
+    "生活阳台": 2.222
+   },
+   "outside_rooms_m2": 0.328
+  },
+  {
+   "zone": 335,
+   "elev": 2620,
+   "lid": 335,
+   "sealed_m2": 1.87,
+   "mask_m2": 1.87,
+   "contour_m2": 1.93,
+   "n_markers": 1,
+   "split": {
+    "主人浴室": 1.87
+   },
+   "outside_rooms_m2": 0.0
+  },
+  {
+   "zone": 641,
+   "elev": 2600,
+   "lid": 641,
+   "sealed_m2": 1.83,
+   "mask_m2": 1.83,
+   "contour_m2": 1.99,
+   "n_markers": 2,
+   "split": {
+    "收纳间": 0.887,
+    "浴室一": 0.049
+   },
+   "outside_rooms_m2": 0.893
+  },
+  {
+   "zone": 122,
+   "elev": 2600,
+   "lid": 119,
+   "sealed_m2": 1.52,
+   "mask_m2": 6.28,
+   "contour_m2": 1.86,
+   "n_markers": 1,
+   "split": {
+    "中厨": 1.418
+   },
+   "outside_rooms_m2": 0.102
+  },
+  {
+   "zone": 513,
+   "elev": 2600,
+   "lid": 513,
+   "sealed_m2": 1.25,
+   "mask_m2": 1.25,
+   "contour_m2": 1.26,
+   "n_markers": 1,
+   "split": {
+    "卧室一": 0.901
+   },
+   "outside_rooms_m2": 0.349
+  },
+  {
+   "zone": 309,
+   "elev": 2550,
+   "lid": 309,
+   "sealed_m2": 0.97,
+   "mask_m2": 0.97,
+   "contour_m2": 0.93,
+   "n_markers": 1,
+   "split": {
+    "主人浴室": 0.97
+   },
+   "outside_rooms_m2": 0.0
+  },
+  {
+   "zone": 611,
+   "elev": 2650,
+   "lid": 611,
+   "sealed_m2": 0.79,
+   "mask_m2": 0.79,
+   "contour_m2": 1.02,
+   "n_markers": 1,
+   "split": {
+    "浴室二": 0.777
+   },
+   "outside_rooms_m2": 0.013
+  },
+  {
+   "zone": 467,
+   "elev": 2650,
+   "lid": 467,
+   "sealed_m2": 0.63,
+   "mask_m2": 0.63,
+   "contour_m2": 0.67,
+   "n_markers": 1,
+   "split": {
+    "浴室三": 0.613
+   },
+   "outside_rooms_m2": 0.017
+  },
+  {
+   "zone": 840,
+   "elev": 2450,
+   "lid": 840,
+   "sealed_m2": 0.51,
+   "mask_m2": 0.51,
+   "contour_m2": 0.48,
+   "n_markers": 1,
+   "split": {
+    "浴室一": 0.409
+   },
+   "outside_rooms_m2": 0.101
+  },
+  {
+   "zone": 791,
+   "elev": 2650,
+   "lid": 791,
+   "sealed_m2": 0.45,
+   "mask_m2": 0.45,
+   "contour_m2": 0.44,
+   "n_markers": 1,
+   "split": {
+    "浴室一": 0.45
+   },
+   "outside_rooms_m2": 0.0
+  }
+ ],
+ "per_room": {
+  "电梯厅": {
+   "room_area_m2": 11.63,
+   "ceiling_m2": 4.91,
+   "zones": [
+    "30@2950"
+   ]
+  },
+  "(无名@52163,227813)": {
+   "room_area_m2": 0.46,
+   "ceiling_m2": 0,
+   "zones": []
+  },
+  "生活阳台": {
+   "room_area_m2": 4.3,
+   "ceiling_m2": 2.222,
+   "zones": [
+    "83@SLAN-100"
+   ]
+  },
+  "中厨": {
+   "room_area_m2": 9.87,
+   "ceiling_m2": 5.554,
+   "zones": [
+    "119@2650",
+    "122@2600"
+   ]
+  },
+  "(无名@52168,227803)": {
+   "room_area_m2": 1.14,
+   "ceiling_m2": 0,
+   "zones": []
+  },
+  "客厅/茶室+餐厅+玄关": {
+   "room_area_m2": 78.35,
+   "ceiling_m2": 46.496,
+   "zones": [
+    "361@2950",
+    "155@2600",
+    "895@2550",
+    "465@2600"
+   ]
+  },
+  "卧室一": {
+   "room_area_m2": 9.36,
+   "ceiling_m2": 5.791,
+   "zones": [
+    "345@2600",
+    "513@2600"
+   ]
+  },
+  "主人浴室": {
+   "room_area_m2": 7.54,
+   "ceiling_m2": 2.84,
+   "zones": [
+    "335@2620",
+    "309@2550"
+   ]
+  },
+  "浴室三": {
+   "room_area_m2": 3.67,
+   "ceiling_m2": 0.613,
+   "zones": [
+    "467@2650"
+   ]
+  },
+  "储物间": {
+   "room_area_m2": 2.19,
+   "ceiling_m2": 0,
+   "zones": []
+  },
+  "主人衣帽间+主人卧室": {
+   "room_area_m2": 17.32,
+   "ceiling_m2": 11.299,
+   "zones": [
+    "672@2950",
+    "555@2600"
+   ]
+  },
+  "浴室二": {
+   "room_area_m2": 2.81,
+   "ceiling_m2": 2.266,
+   "zones": [
+    "155@2600",
+    "611@2650"
+   ]
+  },
+  "过厅": {
+   "room_area_m2": 1.08,
+   "ceiling_m2": 0.729,
+   "zones": [
+    "155@2600"
+   ]
+  },
+  "收纳间": {
+   "room_area_m2": 1.6,
+   "ceiling_m2": 0.887,
+   "zones": [
+    "641@2600"
+   ]
+  },
+  "卧室二": {
+   "room_area_m2": 9.79,
+   "ceiling_m2": 5.498,
+   "zones": [
+    "155@2600",
+    "707@2950"
+   ]
+  },
+  "浴室一": {
+   "room_area_m2": 2.81,
+   "ceiling_m2": 0.908,
+   "zones": [
+    "641@2600",
+    "840@2450",
+    "791@2650"
+   ]
+  }
+ },
+ "scope_recon": {
+  "P1_floor": {
+   "电梯厅": 11.63,
+   "(无标注@52163,227813)": 0.46,
+   "生活阳台": 4.3,
+   "中厨": 9.87,
+   "(无标注@52168,227803)": 1.14,
+   "客厅/茶室+餐厅+玄关": 78.36,
+   "卧室一": 9.36,
+   "主人浴室": 7.54,
+   "浴室三": 3.67,
+   "储物间": 2.19,
+   "主人衣帽间+主人卧室": 17.15,
+   "浴室二": 2.81,
+   "过厅": 1.08,
+   "收纳间": 1.6,
+   "卧室二": 9.79,
+   "浴室一": 2.81
+  },
+  "P3_net": {
+   "客厅/茶室+餐厅+玄": 78.36,
+   "中厨": 9.87,
+   "储物间": 2.19,
+   "主人衣帽间+主人卧室": 17.15,
+   "卧室一": 9.36,
+   "卧室二": 9.79,
+   "收纳间": 1.6,
+   "主人浴室": 7.54,
+   "浴室一": 2.81,
+   "浴室二": 2.81,
+   "浴室三": 3.67,
+   "生活阳台": 4.3,
+   "电梯厅": 11.63,
+   "过厅": 1.08
+  },
+  "P3_uncovered": {
+   "(无标注@52163,227813)": 0.46,
+   "(无标注@52168,227803)": 1.14
+  }
+ }
+}
