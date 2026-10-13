@@ -207,6 +207,31 @@ def view_boq(project_id):
                            CONFIDENCE_LEVELS=CONFIDENCE_LEVELS)
 
 
+@main_bp.route('/project/<int:project_id>/export.xlsx')
+@login_required
+def export_boq_xlsx(project_id):
+    """导出工程量计算表(xlsx，含「备注(不确定原因)」与「需补充的资料」两列)。
+
+    数据源=库内清单(不重跑几何链，请求秒级完成)；数值一致性由灌数时的恒等断言保证。
+    """
+    project = Project.query.get_or_404(project_id)
+    if project.user_id != current_user.id and not current_user.is_admin:
+        flash('无权导出此项目。', 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    measurements = project.measurements.order_by(
+        Measurement.division_id, Measurement.id).all()
+    from app.export import build_workbook
+    buf = build_workbook(project, measurements)
+    if buf is None:
+        flash('该项目暂无清单数据。', 'warning')
+        return redirect(url_for('main.project_detail', project_id=project.id))
+    return send_file(
+        buf, as_attachment=True,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        download_name='工程量计算表_%s.xlsx' % project.name)
+
+
 @main_bp.route('/report/<int:report_id>')
 @login_required
 def view_report(report_id):

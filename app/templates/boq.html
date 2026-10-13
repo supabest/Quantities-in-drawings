@@ -10,6 +10,7 @@
     <div class="page-header-actions">
         <a href="{{ url_for('main.project_detail', project_id=project.id) }}" class="btn btn-outline btn-sm">返回项目</a>
         {% if measurements %}
+        <a href="{{ url_for('main.export_boq_xlsx', project_id=project.id) }}" class="btn btn-outline btn-sm">⬇️ 导出 Excel(含备注列)</a>
         <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ 打印/导出</button>
         {% endif %}
     </div>
