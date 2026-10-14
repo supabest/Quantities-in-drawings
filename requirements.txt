@@ -19,6 +19,7 @@ requests
 # Phase 5b · CAD 矢量解析
 ezdxf==1.4.2
 shapely>=2.0
+PyMuPDF==1.26.5  # fitz：天花/机电 PDF 矢量读取，ceiling_zones 与 mep/* 依赖
 # Phase · 三维建模与 IFC/glTF 导出
 ifcopenshell==0.8.4.post1
 trimesh==4.12.2
