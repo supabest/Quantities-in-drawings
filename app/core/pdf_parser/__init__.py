@@ -27,6 +27,7 @@ from app.core.pdf_parser.semantics import (
 from app.core.pdf_parser.zones import (
     flood_zones,
     zone_polygons,
+    point_in_zone,
 )
 from app.core.pdf_parser.leaders import (
     trace_leaders,
@@ -49,6 +50,7 @@ __all__ = [
     "extract_page_title",
     "flood_zones",
     "zone_polygons",
+    "point_in_zone",
     "trace_leaders",
     "register_pages",
 ]

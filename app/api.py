@@ -5,7 +5,6 @@ import math
 from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
-from werkzeug.utils import secure_filename
 from app import db
 from app.models import (
     Project, Drawing, Measurement, Report, HistoricalProject,
@@ -18,7 +17,7 @@ api_bp = Blueprint('api', __name__)
 
 def allowed_file(filename):
     ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
-    return ext in current_app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'bmp', 'tiff', 'dxf'})
+    return ext in current_app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'bmp', 'tiff', 'dxf', 'pdf'})
 
 
 # ═══════════════════════════════
@@ -48,16 +47,17 @@ def upload_drawing():
         if not allowed_file(file.filename):
             continue
 
-        original_name = secure_filename(file.filename)
-        ext = original_name.rsplit('.', 1)[-1].lower()
-        unique_name = f"{uuid.uuid4().hex}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.{ext}"
+        # 中文名保留用于展示；落盘路径只用 uuid，避免 secure_filename 抹掉中文
+        display_name = os.path.basename(file.filename)
+        ext = display_name.rsplit('.', 1)[-1].lower()
+        unique_name = f"{uuid.uuid4().hex}.{ext}"
         upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_name)
         file.save(upload_path)
         size = os.path.getsize(upload_path)
 
         # Detect drawing type from filename
         drawing_type = 'floor_plan'
-        name_lower = original_name.lower()
+        name_lower = display_name.lower()
         if any(k in name_lower for k in ['立面', 'elevation', 'el']):
             drawing_type = 'elevation'
         elif any(k in name_lower for k in ['天花', '吊顶', 'ceiling', 'ceil']):
@@ -67,7 +67,7 @@ def upload_drawing():
 
         drawing = Drawing(
             filename=unique_name,
-            original_name=original_name,
+            original_name=display_name,
             file_type=ext,
             file_size=size,
             drawing_type=drawing_type,
@@ -76,7 +76,7 @@ def upload_drawing():
         db.session.add(drawing)
         uploaded.append({
             'id': drawing.id,
-            'name': original_name,
+            'name': display_name,
             'size': size,
             'type': ext,
             'drawing_type': drawing_type,
@@ -336,14 +336,14 @@ def upload_historical():
     if file.filename == '':
         return jsonify({'success': False, 'error': '文件名为空'}), 400
 
-    original_name = secure_filename(file.filename)
-    ext = original_name.rsplit('.', 1)[-1].lower()
+    display_name = os.path.basename(file.filename)
+    ext = display_name.rsplit('.', 1)[-1].lower()
     unique_name = f"hist_{uuid.uuid4().hex}.{ext}"
     upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_name)
     file.save(upload_path)
 
     hist = HistoricalProject(
-        name=original_name,
+        name=display_name,
         project_type=project.project_type,
         file_path=unique_name,
         user_id=current_user.id,

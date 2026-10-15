@@ -64,9 +64,11 @@ def process_project(project, drawings):
     scale = project.scale or DEFAULT_PIXELS_PER_METER
     floor_height = project.default_floor_height or 2.80
 
-    # Classify drawings by type
+    # Classify drawings by type. 光栅阶段只吃图片；PDF/DXF 走各自的矢量管线
+    raster_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
     drawing_map = {dt: [] for dt in ['floor_plan', 'elevation', 'ceiling', 'detail']}
-    for d in drawings:
+    raster_drawings = [d for d in drawings if d.filename.lower().endswith(raster_exts)]
+    for d in raster_drawings:
         # First check if d has drawing_type attribute
         dtype = getattr(d, 'drawing_type', 'floor_plan') or 'floor_plan'
         if dtype in drawing_map:
@@ -445,8 +447,13 @@ def _process_pdf_drawings(pdf_drawings, project):
 
     measurements = []
 
+    def emit(**kwargs):
+        m = Measurement(project_id=project.id, **kwargs)
+        db.session.add(m)
+        measurements.append(m)
+
     for name, (x, y, pidx, pages) in rooms.items():
-        measurements.append(Measurement(
+        emit(
             label=f"PDF房间标签: {name}",
             division_id=1,
             category='pdf_room_label',
@@ -455,10 +462,10 @@ def _process_pdf_drawings(pdf_drawings, project):
             position_desc=f"PDF p{pidx} ({x:.0f},{y:.0f})",
             formula_text=f"矢量文字提取: {name}（出现 {len(pages)} 页）",
             remarks=f"pages={sorted(pages)}",
-        ))
+        )
 
     for code, (x, y, pidx, pages) in codes.items():
-        measurements.append(Measurement(
+        emit(
             label=f"PDF材料: {code}",
             division_id=2,
             category='pdf_material_code',
@@ -467,10 +474,10 @@ def _process_pdf_drawings(pdf_drawings, project):
             position_desc=f"PDF p{pidx} ({x:.0f},{y:.0f})",
             formula_text=f"矢量文字提取: {code}（出现 {len(pages)} 页）",
             remarks=f"pages={sorted(pages)}",
-        ))
+        )
 
     for (val, unit), (x, y, pidx, pages) in dims.items():
-        measurements.append(Measurement(
+        emit(
             label=f"PDF尺寸: {val}{unit}",
             division_id=1,
             category='pdf_dimension',
@@ -479,10 +486,10 @@ def _process_pdf_drawings(pdf_drawings, project):
             position_desc=f"PDF p{pidx} ({x:.0f},{y:.0f})",
             formula_text=f"矢量尺寸提取: {val}{unit}（出现 {len(pages)} 页）",
             remarks=f"pages={sorted(pages)}",
-        ))
+        )
 
     for pidx, z, title in zones:
-        measurements.append(Measurement(
+        emit(
             label=f"PDF天花域 p{pidx}#{z['label']}",
             division_id=3,
             category='pdf_ceiling_zone',
@@ -492,7 +499,7 @@ def _process_pdf_drawings(pdf_drawings, project):
             position_desc=f"PDF p{pidx}({title}) centroid={z['centroid_pt']}",
             formula_text=f"洪水填充域面积: {z['area_m2']}m²",
             remarks=f"page={pidx} label={z['label']} title={title}",
-        ))
+        )
 
     return measurements
 
