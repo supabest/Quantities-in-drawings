@@ -37,7 +37,7 @@ from .topology_2d import topology_2d_audit
 logger = logging.getLogger(__name__)
 
 # 无图纸来源时仍可接受的来源标签（经验补全类清单项的合法路径）
-TRACEABLE_SOURCE_TAGS = {'经验补全', '逻辑推理', '历史参照', '待确认'}
+TRACEABLE_SOURCE_TAGS = {'经验补全', '逻辑推理', '历史参照', '待确认', 'PDF语义提取', '图纸实测', '几何推算'}
 
 # 横向对账：同名房间跨图面积偏差告警阈值
 CROSS_AREA_DEVIATION = 0.30

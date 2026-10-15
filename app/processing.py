@@ -84,6 +84,12 @@ def process_project(project, drawings):
         ms = _process_floor_plan(image_path, drawing, project, scale)
         all_measurements.extend(ms)
 
+    # Phase 1.5: PDF semantic extraction (Phase 5c)
+    pdf_drawings = [d for d in drawings if d.filename.lower().endswith('.pdf')]
+    if pdf_drawings:
+        pdf_semantics = _process_pdf_drawings(pdf_drawings, project)
+        all_measurements.extend(pdf_semantics)
+
     # Phase 2: Process elevations → wall heights, material info
     for drawing in drawing_map['elevation']:
         image_path = os.path.join(current_app.config['UPLOAD_FOLDER'], drawing.filename)
@@ -372,6 +378,123 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None):
             derived.append(m)
 
     return derived
+
+
+# ════════════════════════════════════════════════════
+# Phase 1.5: PDF Semantic Extraction (Phase 5c)
+# ════════════════════════════════════════════════════
+
+def _process_pdf_drawings(pdf_drawings, project):
+    """从上传的 PDF 图纸提取语义：房间名、材料代号、尺寸标注、天花分区。
+
+    去重收敛：同名标签/同代号全局合并（保留首次定位+出现页数），
+    避免整套施工图产生上千条噪声行污染清单。
+    天花分区仅在识别为天花图的页面输出。
+    """
+    import fitz
+    from collections import defaultdict
+    from app.core.pdf_parser import (
+        PDFPage, extract_room_labels, extract_material_codes,
+        extract_dimensions, flood_zones, extract_page_title,
+    )
+
+    MAX_ZONES_PER_PAGE = 15
+
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+
+    rooms = {}       # name -> (x, y, first_page, pages set)
+    codes = {}       # code -> (x, y, first_page, pages set)
+    dims = {}        # (value, unit) -> (x, y, first_page, pages set)
+    zones = []       # (page_idx, zone dict)
+
+    for drawing in pdf_drawings:
+        pdf_path = os.path.join(upload_folder, drawing.filename)
+        if not os.path.exists(pdf_path):
+            continue
+        try:
+            doc = fitz.open(pdf_path)
+        except Exception:
+            continue
+
+        for page_idx in range(len(doc)):
+            page = doc[page_idx]
+            title = extract_page_title(page)
+
+            for name, x, y in extract_room_labels(page, x_min=200):
+                if name not in rooms:
+                    rooms[name] = (x, y, page_idx, set())
+                rooms[name][3].add(page_idx)
+
+            for code, x, y in extract_material_codes(page, x_min=200):
+                if code not in codes:
+                    codes[code] = (x, y, page_idx, set())
+                codes[code][3].add(page_idx)
+
+            for val, x, y, unit in extract_dimensions(page, x_min=200):
+                key = (val, unit)
+                if key not in dims:
+                    dims[key] = (x, y, page_idx, set())
+                dims[key][3].add(page_idx)
+
+            # 天花分区仅对图名含天花的页面提取（逐页栅格化开销大）
+            if '天花' in title or '吊顶' in title:
+                for z in flood_zones(page, dpi=100, min_area_m2=0.5)[:MAX_ZONES_PER_PAGE]:
+                    zones.append((page_idx, z, title))
+
+        doc.close()
+
+    measurements = []
+
+    for name, (x, y, pidx, pages) in rooms.items():
+        measurements.append(Measurement(
+            label=f"PDF房间标签: {name}",
+            division_id=1,
+            category='pdf_room_label',
+            source_tag='PDF语义提取',
+            confidence_level='medium',
+            position_desc=f"PDF p{pidx} ({x:.0f},{y:.0f})",
+            formula_text=f"矢量文字提取: {name}（出现 {len(pages)} 页）",
+            remarks=f"pages={sorted(pages)}",
+        ))
+
+    for code, (x, y, pidx, pages) in codes.items():
+        measurements.append(Measurement(
+            label=f"PDF材料: {code}",
+            division_id=2,
+            category='pdf_material_code',
+            source_tag='PDF语义提取',
+            confidence_level='medium',
+            position_desc=f"PDF p{pidx} ({x:.0f},{y:.0f})",
+            formula_text=f"矢量文字提取: {code}（出现 {len(pages)} 页）",
+            remarks=f"pages={sorted(pages)}",
+        ))
+
+    for (val, unit), (x, y, pidx, pages) in dims.items():
+        measurements.append(Measurement(
+            label=f"PDF尺寸: {val}{unit}",
+            division_id=1,
+            category='pdf_dimension',
+            source_tag='PDF语义提取',
+            confidence_level='high' if unit == 'mm' else 'medium',
+            position_desc=f"PDF p{pidx} ({x:.0f},{y:.0f})",
+            formula_text=f"矢量尺寸提取: {val}{unit}（出现 {len(pages)} 页）",
+            remarks=f"pages={sorted(pages)}",
+        ))
+
+    for pidx, z, title in zones:
+        measurements.append(Measurement(
+            label=f"PDF天花域 p{pidx}#{z['label']}",
+            division_id=3,
+            category='pdf_ceiling_zone',
+            area=z['area_m2'],
+            source_tag='PDF语义提取',
+            confidence_level='medium',
+            position_desc=f"PDF p{pidx}({title}) centroid={z['centroid_pt']}",
+            formula_text=f"洪水填充域面积: {z['area_m2']}m²",
+            remarks=f"page={pidx} label={z['label']} title={title}",
+        ))
+
+    return measurements
 
 
 # ════════════════════════════════════════════════════

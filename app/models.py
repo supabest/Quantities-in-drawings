@@ -22,6 +22,7 @@ DRAWING_TYPES_ORDERED = ['floor_plan', 'elevation', 'ceiling', 'detail']
 
 SOURCE_TAGS = [
     ('图纸实测', '📐', '直接从图纸尺寸标注读取，未经推算', 'high'),
+    ('PDF语义提取', '📄', '从PDF矢量文本/几何自动提取（Phase 5c）', 'medium'),
     ('几何推算', '🔢', '由平面图轮廓+层高（或已知尺寸）计算得出', 'medium'),
     ('历史参照', '📋', '参照同类项目历史清单补入，本次图纸未显示', 'medium'),
     ('经验补全', '🧠', '基于项目类型和工程经验判断，图纸未画出', 'medium'),

@@ -23,8 +23,8 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = _default_engine_options(SQLALCHEMY_DATABASE_URI)
     UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app', 'static', 'uploads')
-    MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # 32 MB max upload
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp', 'tiff', 'dxf'}
+    MAX_CONTENT_LENGTH = 128 * 1024 * 1024  # 128 MB max upload（整套施工图 PDF ~51MB）
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp', 'tiff', 'dxf', 'pdf'}
     REPORTS_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app', 'static', 'reports')
 
     # Pagination
