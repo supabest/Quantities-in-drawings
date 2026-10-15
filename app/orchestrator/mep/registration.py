@@ -10,7 +10,6 @@
           得到的房间面（本模块的房间面来自 base_extract 连通域 label，天然规避）。
 """
 import os
-import re
 import sys
 import warnings
 
@@ -57,16 +56,13 @@ def to_pt(poly, tx, ty):
 
 
 def label_anchors(page):
-    """页内全部文字 span 中心：{去空白文本: (x, y)}（首次出现优先）。"""
-    out = {}
-    for b in page.get_text("dict")["blocks"]:
-        for l in b.get("lines", []):
-            for s in l["spans"]:
-                t = re.sub(r"\s+", "", s["text"])
-                if t and t not in out:
-                    out[t] = ((s["bbox"][0] + s["bbox"][2]) / 2,
-                              (s["bbox"][1] + s["bbox"][3]) / 2)
-    return out
+    """页内全部文字 span 中心：{去空白文本: (x, y)}（首次出现优先）。
+
+    与 app.core.pdf_parser.semantics.extract_text_anchors 同一口径，
+    早先各写一份；这里保留名字作为薄封装，行为由 pdf_parser 单点维护。
+    """
+    from app.core.pdf_parser import extract_text_anchors
+    return extract_text_anchors(page)
 
 
 def initial_translation(rooms, anchors):

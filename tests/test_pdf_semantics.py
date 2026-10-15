@@ -13,10 +13,12 @@ os.chdir(BASE)
 
 import fitz
 import pytest
+from shapely.geometry import Point
 
 from app.core.pdf_parser import (
     extract_page_title, extract_room_labels, extract_material_codes,
-    extract_dimensions, zone_polygons, point_in_zone,
+    extract_dimensions, extract_area_annotations, room_from_title,
+    zone_polygons, point_in_zone, zone_of_point, trace_leaders,
 )
 
 PDF = os.path.join(BASE, '装修图纸', '227户型dxf',
@@ -24,33 +26,57 @@ PDF = os.path.join(BASE, '装修图纸', '227户型dxf',
 
 
 def _make_plan_pdf(path):
-    """合成一页：图签图名 + 房间标签 + 材料代号 + 尺寸 + 闭合天花分区。"""
+    """两页：p1 天花布置图（图签+标签+代号+尺寸+闭合分区+面积注记）；
+    p2 立面图（只有图名可作房间归属，页上无房间标签）。"""
     doc = fitz.open()
     page = doc.new_page(width=842, height=595)
     # 天花分区：两个闭合矩形（内空 ≥ min_area）
     page.draw_rect(fitz.Rect(100, 100, 300, 250), color=(0, 0, 0), width=1.5)
     page.draw_rect(fitz.Rect(350, 100, 600, 300), color=(0, 0, 0), width=1.5)
     # 文字：CJK 用内置字体，字号 <14 才会被当作尺寸标注
-    page.insert_text((250, 180), '客厅', fontname='china-s', fontsize=10)
-    page.insert_text((450, 200), '主卧', fontname='china-s', fontsize=10)
+    # 客厅/茶室：斜杠合并标签 → 面积是多间合计口径，测降级
+    page.insert_text((250, 180), '客厅/茶室', fontname='china-s', fontsize=10)
+    page.insert_text((250, 192), '65.6 s.m.', fontsize=9)
+    # 主人卧室：带定语命名，测词命中而非行首锚定
+    page.insert_text((450, 200), '主人卧室', fontname='china-s', fontsize=10)
+    page.insert_text((450, 214), '16.3s.m.', fontsize=9)
+    # 说明句：含房间词但不是标签，测 ROOM_LABEL_NOISE 排除
+    page.insert_text((250, 320), '电梯厅天花与平面仅为示意',
+                     fontname='china-s', fontsize=8)
     page.insert_text((500, 260), 'A-01', fontsize=9)
-    page.insert_text((200, 320), '3200', fontsize=9)
-    page.insert_text((550, 350), '天花', fontname='china-s', fontsize=9)
+    # 引线归属用：代号落在两个分区之外的空白处，只能沿细线串进分区
+    page.insert_text((300, 340), 'B-02', fontsize=9)
+    page.draw_line(fitz.Point(312, 337), fitz.Point(420, 260),
+                   color=(0, 0, 0), width=0.25)
+    page.insert_text((200, 350), '3200', fontsize=9)
+    page.insert_text((550, 380), '天花', fontname='china-s', fontsize=9)
     # 图签：「图纸名称」标签 + 正下方图名
     page.insert_text((700, 500), '图纸名称', fontname='china-s', fontsize=8)
     page.insert_text((700, 512), '天花布置图', fontname='china-s', fontsize=8)
+
+    # p2 立面图：图名 10 字 > max_len 不会被当标签，只能靠 room_from_title
+    page2 = doc.new_page(width=842, height=595)
+    page2.insert_text((300, 200), '8.4 s.m.', fontsize=9)
+    page2.insert_text((700, 500), '图纸名称', fontname='china-s', fontsize=8)
+    page2.insert_text((700, 512), '主人浴室立面图（一）',
+                      fontname='china-s', fontsize=8)
     doc.save(path)
     doc.close()
     return path
 
 
 @pytest.fixture(scope='module')
-def plan_page():
+def plan_pages():
     tmp = os.path.join(tempfile.mkdtemp(), 'synthetic_plan.pdf')
     _make_plan_pdf(tmp)
     doc = fitz.open(tmp)
-    yield doc[0]
+    yield doc
     doc.close()
+
+
+@pytest.fixture(scope='module')
+def plan_page(plan_pages):
+    return plan_pages[0]
 
 
 # ── Tier A：语义原语 ────────────────────────────────────────────────────
@@ -61,9 +87,26 @@ def test_page_title_reads_below_label(plan_page):
 
 def test_room_labels_and_material_codes(plan_page):
     names = [n for n, x, y in extract_room_labels(plan_page, x_min=200)]
-    assert '客厅' in names and '主卧' in names
+    # 带定语命名靠词命中而非行首锚定；斜杠合并标签仍是标签
+    assert '主人卧室' in names and '客厅/茶室' in names
+    # 说明句含房间词但不是标签
+    assert not any('示意' in n for n in names)
     codes = [c for c, x, y in extract_material_codes(plan_page)]
     assert 'A-01' in codes
+
+
+def test_area_annotations_and_title_room(plan_pages):
+    """s.m. 是 CAD 导出「平方米」写法；立面页页面无房间标签，归属只能靠图名。"""
+    p1, p2 = plan_pages[0], plan_pages[1]
+    a1 = {round(v, 1) for v, x, y in extract_area_annotations(p1, x_min=200)}
+    assert a1 == {65.6, 16.3}, a1
+    a2 = {round(v, 1) for v, x, y in extract_area_annotations(p2, x_min=200)}
+    assert a2 == {8.4}, a2
+    assert extract_page_title(p2) == '主人浴室立面图（一）'
+    assert room_from_title(extract_page_title(p2)) == '主人浴室'
+    # 非房间图名不得伪造归属
+    assert room_from_title('天花布置图') == ''
+    assert room_from_title('通用做法说明') == ''
 
 
 def test_dimensions_value_and_unit_group_captured(plan_page):
@@ -79,6 +122,59 @@ def test_point_in_zone_uses_point_not_degenerate_polygon(plan_page):
     inside = zones[0]['centroid']
     assert point_in_zone(inside[0], inside[1], zones) == zones[0]['label']
     assert point_in_zone(-50, -50, zones, default=None) is None
+
+
+def test_zone_of_point_picks_smallest_containing_zone():
+    """回字形分区：外环的 wkt 是外轮廓，会把中间独立岛的标注整体吞掉。
+
+    命中多个域时必须按**最小**含点域归属，不能按连通域编号顺序取第一个，
+    否则岛内标注全判给外环——这正是早期 124 个代号全落进同一个域的原因。
+    """
+    tmp = os.path.join(tempfile.mkdtemp(), 'donut.pdf')
+    doc = fitz.open()
+    page = doc.new_page(width=600, height=400)
+    page.draw_rect(fitz.Rect(50, 50, 550, 350), color=(0, 0, 0), width=1.5)
+    page.draw_rect(fitz.Rect(200, 150, 400, 250), color=(0, 0, 0), width=1.5)
+    doc.save(tmp)
+    doc.close()
+
+    doc = fitz.open(tmp)
+    # 1:100 缩放下这页折合 21×14m，外环净面积已超默认 max_area_m2=100，须放宽
+    zones = zone_polygons(doc[0], dpi=100, min_area_m2=0.02, max_area_m2=500)
+    doc.close()
+
+    outer_pt, inner_pt = Point(100, 100), Point(300, 200)
+    ring = [z for z in zones if z['polygon'].contains(outer_pt)]
+    island = [z for z in zones if z['polygon'].contains(inner_pt)]
+    assert len(ring) == 1, '外环应只有一个域'
+    assert len(island) >= 1, '岛内至少要有一个真内含域'
+    # 岛内点同时被外环外轮廓命中时，归属必须给面积更小的岛
+    assert zone_of_point(300, 200, zones)[0] == min(island, key=lambda z: z['polygon'].area)['label']
+    assert point_in_zone(300, 200, zones) == min(island, key=lambda z: z['polygon'].area)['label']
+    # 落在环内、岛外：归属外环，且 distance=0 表示真内含而非吸附
+    label, _, dist = zone_of_point(100, 100, zones)
+    assert label == ring[0]['label'] and dist == 0.0
+
+
+def test_trace_leaders_attributes_offzone_code(plan_page):
+    """B-02 本体落在两个分区之外，只有沿 0.25pt 细线串到尖端才归得到分区。
+
+    钉住两件事：① 归属对象必须是入账域集合里的 label（早期 leaders 自己
+    再栅格化一次回探连通域，编号和入账域对不上）；② 起点在域外时
+    mode 得是 leader 而不是被容差吸附成 direct。
+    """
+    zones = zone_polygons(plan_page, dpi=100, min_area_m2=0.5)
+    labels = {z['label'] for z in zones}
+    codes = extract_material_codes(plan_page)
+    res = trace_leaders(plan_page, candidates=[(x, y) for c, x, y in codes],
+                        zones=zones)
+    by = {c: r for (c, x, y), r in zip(codes, res)}
+
+    assert by['B-02']['mode'] == 'leader'
+    assert by['B-02']['target_label'] in labels
+    assert by['B-02']['leader_length'] > 50
+    # A-01 本身就在分区内，不该被引线带走
+    assert by['A-01']['target_label'] in labels
 
 
 # ── Tier A：Phase 1.5 落库 ─────────────────────────────────────────────
@@ -139,15 +235,73 @@ def test_pdf_semantics_persisted_with_project_id(tmp_path):
         # 图名门控：非天花页不应产出分区行
         assert any('天花布置图' in (m.position_desc or '') for m in stored)
 
+        AREA_CATS = ('pdf_floor_area', 'pdf_wall_area', 'pdf_ceiling_area')
+        areas = [m for m in stored if m.category in AREA_CATS]
+        assert len(areas) == 3, [(m.category, m.area) for m in areas]
+        assert all(isinstance(m.area, float) and m.area > 0 for m in areas)
+        # 每行必须带计算式与可追溯位置（算量核心原则）
+        assert all(m.formula_text and 'page=' in (m.remarks or '')
+                   for m in areas)
+        # 立面页面积行归属取自图名，不是页面标签
+        wall = [m for m in areas if m.category == 'pdf_wall_area']
+        assert len(wall) == 1 and '主人浴室' in wall[0].label
+        # 斜杠合并标签=多间合计口径，必须降级，防止与分间注记重复计数
+        merged = [m for m in areas if '客厅/茶室' in m.label]
+        assert len(merged) == 1 and merged[0].confidence_level == 'low'
+        assert '合计口径' in merged[0].remarks
+
+        # 分区行：候选证据，不落 area、带 WKT、引线归属到入账域
+        import json as _json
+        from shapely import wkt as swkt
+        zones = [m for m in stored if m.category == 'pdf_ceiling_zone']
+        assert zones and all(m.area is None and m.unit == '候选' for m in zones)
+        assert all(swkt.loads(_json.loads(m.data_json)['wkt']).area > 0
+                   for m in zones)
+        labeled = [m for m in zones if m.project_features]
+        assert labeled, 'B-02 应经引线串链归属到某个分区'
+        assert all(_json.loads(m.data_json)['area_m2'] > 0 for m in zones)
+
+
+def test_candidate_zone_area_must_not_book():
+    """候选分区合计远大于已入账天棚量时必须报警，够close时不报。
+
+    分区是逐页栅格化的跨页候选，同一块天棚在十余页天花图里各出现一次；
+    早期它直接落 area 进第3分部，把 72m² 户型的天棚撑到 600m²。
+    """
+    import json as _json
+    from app.models import Measurement
+    from app.api import _check_reasonableness
+
+    def mk(cat, area=None, dj=None):
+        return Measurement(category=cat, area=area, data_json=dj,
+                           division_id=3, label=cat)
+
+    fired = [w for w in _check_reasonableness([
+        mk('pdf_ceiling_zone', None, _json.dumps({'area_m2': 100})),
+        mk('pdf_ceiling_area', 20.0),
+    ]) if '候选分区' in w]
+    assert fired and '禁止计入清单' in fired[0], fired
+
+    quiet = [w for w in _check_reasonableness([
+        mk('pdf_ceiling_zone', None, _json.dumps({'area_m2': 30})),
+        mk('pdf_ceiling_area', 20.0),
+    ]) if '候选分区' in w]
+    assert quiet == []
+
 
 # ── Tier B：真实图纸收敛基准 ───────────────────────────────────────────
 @pytest.mark.skipif(not os.path.exists(PDF), reason='施工图纸 PDF 不在本地')
 def test_full_set_dedup_convergence():
-    """111 页整套图纸去重后必须收敛到 389 行及既定分类分布。"""
+    """111 页整套图纸必须收敛到 376 行及既定分类分布。
+
+    房间标签从 106 降到 72：说明句里的房间词被 ROOM_LABEL_NOISE 排除；
+    腾出的量由 s.m. 面积注记（地面 17 + 立面 4）补回，均为真实工程量。
+    """
     import config as _cfg
     from app import create_app, db
     from app.processing import _process_pdf_drawings
     from collections import Counter
+    from shapely import wkt as swkt
 
     class T(_cfg.Config):
         SQLALCHEMY_DATABASE_URI = 'sqlite:///' + tempfile.mktemp(suffix='.db')
@@ -163,9 +317,33 @@ def test_full_set_dedup_convergence():
         rows = _process_pdf_drawings(
             [SimpleNamespace(filename=os.path.basename(PDF))], p)
         dist = Counter(m.category for m in rows)
-        assert len(rows) == 389, len(rows)
-        assert dist == {'pdf_room_label': 106, 'pdf_material_code': 126,
-                        'pdf_dimension': 18, 'pdf_ceiling_zone': 139}
-        pages = sorted({int(m.remarks.split('page=')[1].split()[0])
+        assert len(rows) == 376, len(rows)
+        assert dist == {'pdf_room_label': 72, 'pdf_material_code': 126,
+                        'pdf_dimension': 18, 'pdf_floor_area': 17,
+                        'pdf_wall_area': 4, 'pdf_ceiling_zone': 139}
+        pages = sorted({int(m.remarks.split('page=')[1].split(';')[0])
                         for m in rows if m.category == 'pdf_ceiling_zone'})
         assert pages == [12, 13, 14, 15, 46, 47, 48, 49, 50, 51, 52, 53]
+
+        area_rows = [m for m in rows
+                     if m.category in ('pdf_floor_area', 'pdf_wall_area')]
+        assert len(area_rows) == 21
+        assert all(m.area and m.formula_text for m in area_rows)
+        # 降级必须精确命中这两条：合并标签合计口径 + 图名与标签冲突
+        lows = {m.label for m in area_rows if m.confidence_level == 'low'}
+        assert lows == {'PDF面积标注: 客厅/茶室 65.6m²',
+                        'PDF面积标注: 浴室一 5.6m²'}, lows
+
+        # 分区行是「候选分区」证据：不得进分部合计，否则 12 页同一块天棚
+        # 会被重复累加（72m² 户型撑到 600m²）
+        zones = [m for m in rows if m.category == 'pdf_ceiling_zone']
+        assert all(m.area is None and m.unit == '候选' for m in zones)
+        assert sum(m.area or 0 for m in rows if m.division_id == 3) == 0.0
+
+        import json as _json
+        payloads = [_json.loads(m.data_json) for m in zones]
+        assert all(swkt.loads(d['wkt']).area > 0 for d in payloads)
+        assert all(d['crs'] == 'pdf_pt_y_down' for d in payloads)
+        assert all(d['area_m2'] for d in payloads)
+        # 引线归属确有产出（227 图纸实测 12 块分区拿到材料代号）
+        assert sum(1 for d in payloads if d['material_codes']) == 12

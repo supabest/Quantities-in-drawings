@@ -386,6 +386,34 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None):
 # Phase 1.5: PDF Semantic Extraction (Phase 5c)
 # ════════════════════════════════════════════════════
 
+def _attribute_codes_by_leaders(page, zones, page_codes):
+    """材料代号 → 天花分区：从代号锚点沿引线串链到尖端，落点即该材料所在分区。
+
+    返回 ({zone_label: [code, ...]}, 归属到的代号数, 其中弱吸附数)。
+    同一代号在本页多处标注时各归其位，但一个分区内只记一次，避免重复列项。
+    弱吸附=尖端不在域内、靠容差贴到域边，跨源融合时应当降权。
+    """
+    from app.core.pdf_parser import trace_leaders
+
+    if not page_codes or not zones:
+        return {}, 0, 0
+    results = trace_leaders(
+        page, candidates=[(x, y) for _c, x, y in page_codes], zones=zones)
+
+    mapping, hit, weak = {}, 0, 0
+    for (code, _x, _y), r in zip(page_codes, results):
+        label = r.get('target_label')
+        if label is None:
+            continue
+        hit += 1
+        if r.get('attach_dist'):
+            weak += 1
+        bucket = mapping.setdefault(label, [])
+        if code not in bucket:
+            bucket.append(code)
+    return mapping, hit, weak
+
+
 def _process_pdf_drawings(pdf_drawings, project):
     """从上传的 PDF 图纸提取语义：房间名、材料代号、尺寸标注、天花分区。
 
@@ -397,17 +425,20 @@ def _process_pdf_drawings(pdf_drawings, project):
     from collections import defaultdict
     from app.core.pdf_parser import (
         PDFPage, extract_room_labels, extract_material_codes,
-        extract_dimensions, flood_zones, extract_page_title,
+        extract_dimensions, extract_area_annotations, zone_polygons,
+        extract_page_title, room_from_title,
     )
 
     MAX_ZONES_PER_PAGE = 15
+    ZONE_DPI = 100            # 栅格化分辨率：再低会断开细墙线、再慢则上传超时
 
     upload_folder = current_app.config['UPLOAD_FOLDER']
 
-    rooms = {}       # name -> (x, y, first_page, pages set)
-    codes = {}       # code -> (x, y, first_page, pages set)
-    dims = {}        # (value, unit) -> (x, y, first_page, pages set)
-    zones = []       # (page_idx, zone dict)
+    rooms = {}   # name -> (x, y, first_page, {页码})
+    codes = {}   # code -> (x, y, first_page, {页码})
+    dims = {}    # (value, unit) -> (x, y, first_page, {页码})
+    areas = []   # (page_idx, m2, x, y, title, 本页房间标签)
+    zones = []   # (page_idx, 入账域列表, title, {label: [代号]}, 代号数, 归属数, 弱吸附数)
 
     for drawing in pdf_drawings:
         pdf_path = os.path.join(upload_folder, drawing.filename)
@@ -421,13 +452,15 @@ def _process_pdf_drawings(pdf_drawings, project):
         for page_idx in range(len(doc)):
             page = doc[page_idx]
             title = extract_page_title(page)
+            page_rooms = extract_room_labels(page, x_min=200)
+            page_codes = extract_material_codes(page, x_min=200)
 
-            for name, x, y in extract_room_labels(page, x_min=200):
+            for name, x, y in page_rooms:
                 if name not in rooms:
                     rooms[name] = (x, y, page_idx, set())
                 rooms[name][3].add(page_idx)
 
-            for code, x, y in extract_material_codes(page, x_min=200):
+            for code, x, y in page_codes:
                 if code not in codes:
                     codes[code] = (x, y, page_idx, set())
                 codes[code][3].add(page_idx)
@@ -438,10 +471,22 @@ def _process_pdf_drawings(pdf_drawings, project):
                     dims[key] = (x, y, page_idx, set())
                 dims[key][3].add(page_idx)
 
+            # 面积注记逐处入账（立面图上一处=一面墙的饰面面积，不可去重）
+            for val, x, y in extract_area_annotations(page, x_min=200):
+                areas.append((page_idx, val, x, y, title, page_rooms))
+
             # 天花分区仅对图名含天花的页面提取（逐页栅格化开销大）
             if '天花' in title or '吊顶' in title:
-                for z in flood_zones(page, dpi=100, min_area_m2=0.5)[:MAX_ZONES_PER_PAGE]:
-                    zones.append((page_idx, z, title))
+                pz = zone_polygons(page, dpi=ZONE_DPI, min_area_m2=0.5)
+                if not pz:
+                    continue
+                # 归属要在全域集合上算：只拿入账的那几块去吸附，标注会被
+                # 判给没入账的域，等于凭空丢归属
+                zone_codes, hit, weak = _attribute_codes_by_leaders(
+                    page, pz, page_codes)
+                top = sorted(pz, key=lambda z: -z['area_m2'])[:MAX_ZONES_PER_PAGE]
+                zones.append((page_idx, top, title, zone_codes,
+                              len(page_codes), hit, weak))
 
         doc.close()
 
@@ -497,18 +542,106 @@ def _process_pdf_drawings(pdf_drawings, project):
             remarks=f"pages={sorted(pages)}",
         )
 
-    for pidx, z, title in zones:
+    # 面积注记：图名决定分部归属，房间归属按「立面页信图名、平面页信最近标签」
+    AREA_MAX_LABEL_DIST = 20.0   # pt；再远就不是这间房的标注了
+    for pidx, val, x, y, title, page_rooms in areas:
+        is_elev = '立面' in title
+        is_ceil = '天花' in title or '吊顶' in title
+        div = 2 if is_elev else (3 if is_ceil else 1)
+        cat = ('pdf_wall_area' if is_elev
+               else 'pdf_ceiling_area' if is_ceil else 'pdf_floor_area')
+
+        title_room = room_from_title(title)
+        nearest, ndist = '', AREA_MAX_LABEL_DIST + 1
+        if page_rooms:
+            n, px, py = min(page_rooms, key=lambda L: math.hypot(x - L[1], y - L[2]))
+            ndist = math.hypot(x - px, y - py)
+            if ndist <= AREA_MAX_LABEL_DIST:
+                nearest = n
+
+        # 平面布置图图名不含房间，取最近标签；立面图最近标签会串味，信图名
+        if is_elev:
+            room = title_room or nearest
+            conflict = bool(title_room and nearest and title_room != nearest)
+        else:
+            room = nearest or title_room
+            conflict = False
+
+        if not room:
+            conf, note = 'low', '未能归属房间，须人工确认'
+        elif conflict:
+            conf = 'low'
+            note = '图名房间「%s」与最近标签「%s」冲突，须人工确认' % (title_room, nearest)
+        elif any(sep in room for sep in ('/', '、', '+')):
+            # 「客厅/茶室」这类合并标签的面积是多间合计口径，
+            # 与同页分间注记重叠，直接累加会重复计数
+            conf = 'low'
+            note = '合并标签面积（%s）为合计口径，与分间注记重叠，勿直接累加' % room
+        else:
+            conf = 'medium'
+            note = ''
+
         emit(
-            label=f"PDF天花域 p{pidx}#{z['label']}",
-            division_id=3,
-            category='pdf_ceiling_zone',
-            area=z['area_m2'],
+            label='PDF面积标注: %s %gm²' % (room or '未归属', val),
+            division_id=div,
+            category=cat,
+            area=val,
             source_tag='PDF语义提取',
-            confidence_level='medium',
-            position_desc=f"PDF p{pidx}({title}) centroid={z['centroid_pt']}",
-            formula_text=f"洪水填充域面积: {z['area_m2']}m²",
-            remarks=f"page={pidx} label={z['label']} title={title}",
+            confidence_level=conf,
+            position_desc='PDF p%d(%s) (%.0f,%.0f) 房间=%s' % (
+                pidx, title or '无图名', x, y, room or '未归属'),
+            formula_text='图纸面积注记直读: %gm²%s' % (
+                val, '（立面→墙面饰面面积）' if is_elev else ''),
+            remarks='; '.join(filter(None, [
+                'page=%d' % pidx,
+                'room=%s' % room if room else '',
+                'label_dist=%.0fpt' % ndist if nearest else '',
+                note,
+            ])),
         )
+
+    # 分区多边形以 pt 坐标 WKT 入 data_json：Phase 5d 跨源融合靠它做
+    # IoU 去重与冲突仲裁，光有面积无法判断两块是不是同一块。
+    for pidx, pz, title, zone_codes, n_codes, n_hit, n_weak in zones:
+        for z in pz:
+            zcodes = zone_codes.get(z['label'], [])
+            payload = {
+                'pdf_zone_id': 'p%dz%d' % (pidx, z['label']),
+                'crs': 'pdf_pt_y_down',
+                'wkt': z['wkt'],
+                'area_m2': z['area_m2'],
+                'perimeter_m': z['perimeter_m'],
+                'centroid_pt': [round(v, 1) for v in z['centroid']],
+                'material_codes': zcodes,
+                'page_codes': n_codes,
+                'page_attributed': n_hit,
+                'page_weak_attach': n_weak,
+            }
+            emit(
+                label='PDF天花域 p%d#%d' % (pidx, z['label']),
+                division_id=3,
+                category='pdf_ceiling_zone',
+                # 不写 area：洪水域是按页栅格化出来的**候选分区**，同一块天花
+                # 在 12 页天花图里各出现一次，进合计就是 multiply counting
+                # （实测会把 72m² 户型的天棚撑到 600m²）。面积留在 formula /
+                # data_json，等 Phase 5d 跨页配准去重后再升为工程量。
+                area=None,
+                unit='候选',
+                source_tag='PDF语义提取',
+                confidence_level='medium',
+                project_features='、'.join(zcodes),
+                position_desc='PDF p%d(%s) centroid=(%.0f,%.0f)' % (
+                    pidx, title, z['centroid'][0], z['centroid'][1]),
+                formula_text='候选分区净面积 %gm²（周长 %.2fm，引线归属材料 %d 项）'
+                             '·未跨页去重，不计入合计' % (
+                                 z['area_m2'], z['perimeter_m'], len(zcodes)),
+                remarks='; '.join(filter(None, [
+                    'page=%d' % pidx, 'label=%d' % z['label'],
+                    'area_m2=%g' % z['area_m2'],
+                    'materials=%s' % ','.join(zcodes) if zcodes else 'materials=未归属',
+                ])),
+                data_json=json.dumps(payload, ensure_ascii=False),
+            )
 
     return measurements
 

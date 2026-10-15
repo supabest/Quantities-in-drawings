@@ -21,6 +21,9 @@ from app.core.pdf_parser.semantics import (
     extract_room_labels,
     extract_material_codes,
     extract_dimensions,
+    extract_area_annotations,
+    room_from_text,
+    room_from_title,
     extract_leader_text,
     extract_page_title,
 )
@@ -28,6 +31,7 @@ from app.core.pdf_parser.zones import (
     flood_zones,
     zone_polygons,
     point_in_zone,
+    zone_of_point,
 )
 from app.core.pdf_parser.leaders import (
     trace_leaders,
@@ -46,11 +50,15 @@ __all__ = [
     "extract_room_labels",
     "extract_material_codes",
     "extract_dimensions",
+    "extract_area_annotations",
+    "room_from_text",
+    "room_from_title",
     "extract_leader_text",
     "extract_page_title",
     "flood_zones",
     "zone_polygons",
     "point_in_zone",
+    "zone_of_point",
     "trace_leaders",
     "register_pages",
 ]

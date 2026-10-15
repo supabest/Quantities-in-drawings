@@ -224,6 +224,22 @@ def _check_reasonableness(measurements):
             if ratio < 0.6 or ratio > 1.1:
                 warnings.append(f'⚠️ {m.label}踢脚线长度/周长比={ratio:.2f}，请核实扣减项')
 
+    # 天棚：PDF 候选分区只做证据，不得当天棚工程量抄进清单。
+    # 候选合计远大于已入账面积时点名提醒（同一块天棚在十余页天花图里各出现一次）
+    zone_area = 0.0
+    for m in measurements:
+        if m.category == 'pdf_ceiling_zone' and m.data_json:
+            try:
+                zone_area += float(json.loads(m.data_json).get('area_m2') or 0)
+            except (ValueError, TypeError):
+                continue
+    booked_area = sum(m.area or 0 for m in measurements
+                      if m.division_id == 3 and m.category != 'pdf_ceiling_zone')
+    if zone_area > 0 and zone_area > 3 * booked_area:
+        warnings.append(
+            f'⚠️ 天棚候选分区合计 {zone_area:.1f}m² 远大于已入账天棚量 '
+            f'{booked_area:.1f}m²：分区为跨页候选证据，未去重前禁止计入清单')
+
     return warnings
 
 
