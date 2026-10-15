@@ -131,6 +131,10 @@ def test_pdf_semantics_persisted_with_project_id(tmp_path):
         assert len(stored) == len(rows)
         assert all(m.project_id == p.id for m in stored)
         assert all(m.source_tag == 'PDF语义提取' for m in stored)
+        # 图标是实体列带默认值(📐/🟢)，不赋值会把 PDF 行伪装成图纸实测+高置信
+        assert all(m.source_tag_icon == '📄' for m in stored)
+        medium = [m for m in stored if m.confidence_level == 'medium']
+        assert medium and all(m.confidence_icon == '🟡' for m in medium)
         assert any(m.category == 'pdf_ceiling_zone' for m in stored)
         # 图名门控：非天花页不应产出分区行
         assert any('天花布置图' in (m.position_desc or '') for m in stored)

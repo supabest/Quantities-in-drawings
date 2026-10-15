@@ -448,7 +448,16 @@ def _process_pdf_drawings(pdf_drawings, project):
     measurements = []
 
     def emit(**kwargs):
-        m = Measurement(project_id=project.id, **kwargs)
+        # 图标是实体列且有默认值（📐/🟢=图纸实测+高置信），不显式赋值会把
+        # PDF 行标成别的溯源、并把 medium 显示成绿色高置信
+        tag = kwargs['source_tag']
+        lvl = kwargs['confidence_level']
+        m = Measurement(
+            project_id=project.id,
+            source_tag_icon=dict((t[0], t[1]) for t in SOURCE_TAGS).get(tag, ''),
+            confidence_icon=CONFIDENCE_LEVELS[lvl]['icon'],
+            **kwargs
+        )
         db.session.add(m)
         measurements.append(m)
 
