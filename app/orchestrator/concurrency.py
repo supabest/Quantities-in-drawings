@@ -1,4 +1,4 @@
-"""并发管理器 — 信号量限流、超时、重试、部分失败不阻塞。
+"""并发管理器 — 信号量限流、超时、部分失败不阻塞。
 
 Phase 1 用线程池（OpenCV 解析是 CPU 密集 + GIL 释放型，线程池足够）。
 Phase 2 若引入 LLM Agent，切换为 asyncio + Semaphore。
@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 # 并发上限（Phase 1 图纸级并行）
 MAX_DRAWING_WORKERS = 4
 GLOBAL_TIMEOUT_PER_TASK = 300      # 秒
-GLOBAL_RETRY_LIMIT = 3
 
 
 def run_tasks(tasks: list, worker_fn, max_workers: int = MAX_DRAWING_WORKERS) -> list:

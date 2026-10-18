@@ -37,6 +37,9 @@ Thumbs.db
 # Docker
 .dockerignore
 
+# Cloudflare wrangler 本地缓存（含账号信息，勿入库）
+.wrangler/
+
 # CAD 备份文件
 *.bak
 
