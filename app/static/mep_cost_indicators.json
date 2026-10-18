@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "name": "机电安装单方造价指标库（装修工程范围）",
+    "version": "0.1-建议值",
+    "date": "2026-10-06",
+    "unit": "元/㎡ 装修面积（安装费口径，含主材+人工+辅材+管线的装修范围内机电综合单价）",
+    "disclaimer": "经验参考区间，非合同价/信息价；正式报价须按项目实际询价校准。小面积项目（样板房<150㎡）建议乘规模上浮系数。",
+    "disciplines": ["electrical强电", "plumbing给排水", "hvac空调通风", "fire消防", "elv智能化弱电"],
+    "lengthCoefficients": {
+      "unit": "m/㎡ 装修面积",
+      "electrical_conduit": {"mid": 3.0, "range": [2.5, 3.5]},
+      "electrical_wire": {"mid": 9.0, "range": [8.0, 12.0], "note": "管长×平均3根"},
+      "water_pipe": {"mid": 1.2, "range": [1.0, 1.5]},
+      "hvac_refrigerant_condensate": {"mid": 1.0, "range": [0.8, 1.2]},
+      "fire_sprinkler_pipe": {"mid": 0.5, "range": [0.4, 0.6]},
+      "elv_tray_conduit": {"mid": 1.0, "range": [0.8, 1.2]}
+    }
+  },
+  "types": {
+    "batch_residential": {
+      "label": "批量住宅（精装交付）",
+      "scaleFactor": 1.0,
+      "cost": {"electrical": {"mid": 100, "range": [80, 120]}, "plumbing": {"mid": 50, "range": [40, 60]}, "hvac": {"mid": 200, "range": [150, 250]}, "fire": {"mid": 28, "range": [20, 35]}, "elv": {"mid": 40, "range": [30, 50]}}
+    },
+    "show_flat": {
+      "label": "住宅样板房",
+      "scaleFactor": 1.2,
+      "scaleNote": "面积小、点位密度高、智能化/藏光配置超配",
+      "cost": {"electrical": {"mid": 150, "range": [120, 180]}, "plumbing": {"mid": 75, "range": [60, 90]}, "hvac": {"mid": 250, "range": [200, 300]}, "fire": {"mid": 32, "range": [25, 40]}, "elv": {"mid": 115, "range": [80, 150]}}
+    },
+    "sales_office": {
+      "label": "售楼部",
+      "scaleFactor": 1.1,
+      "cost": {"electrical": {"mid": 220, "range": [180, 260]}, "plumbing": {"mid": 90, "range": [70, 110]}, "hvac": {"mid": 315, "range": [250, 380]}, "fire": {"mid": 50, "range": [40, 60]}, "elv": {"mid": 130, "range": [100, 160]}}
+    },
+    "clubhouse": {
+      "label": "会所",
+      "scaleFactor": 1.05,
+      "cost": {"electrical": {"mid": 185, "range": [150, 220]}, "plumbing": {"mid": 105, "range": [80, 130]}, "hvac": {"mid": 270, "range": [220, 320]}, "fire": {"mid": 45, "range": [35, 55]}, "elv": {"mid": 105, "range": [80, 130]}}
+    },
+    "mall": {
+      "label": "商场",
+      "scaleFactor": 1.0,
+      "cost": {"electrical": {"mid": 250, "range": [200, 300]}, "plumbing": {"mid": 80, "range": [60, 100]}, "hvac": {"mid": 325, "range": [250, 400]}, "fire": {"mid": 75, "range": [60, 90]}, "elv": {"mid": 80, "range": [60, 100]}}
+    },
+    "office": {
+      "label": "办公楼",
+      "scaleFactor": 1.0,
+      "cost": {"electrical": {"mid": 190, "range": [150, 230]}, "plumbing": {"mid": 65, "range": [50, 80]}, "hvac": {"mid": 260, "range": [200, 320]}, "fire": {"mid": 65, "range": [50, 80]}, "elv": {"mid": 95, "range": [70, 120]}}
+    },
+    "hotel_lobby": {
+      "label": "酒店大堂",
+      "scaleFactor": 1.1,
+      "cost": {"electrical": {"mid": 375, "range": [300, 450]}, "plumbing": {"mid": 115, "range": [90, 140]}, "hvac": {"mid": 375, "range": [300, 450]}, "fire": {"mid": 75, "range": [60, 90]}, "elv": {"mid": 200, "range": [150, 250]}}
+    },
+    "hotel_room": {
+      "label": "酒店客房",
+      "scaleFactor": 1.0,
+      "cost": {"electrical": {"mid": 315, "range": [250, 380]}, "plumbing": {"mid": 150, "range": [120, 180]}, "hvac": {"mid": 340, "range": [280, 400]}, "fire": {"mid": 85, "range": [70, 100]}, "elv": {"mid": 200, "range": [150, 250]}, "note": "含RCU客房控制系统"}
+    }
+  }
+}

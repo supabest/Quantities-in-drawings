@@ -18,7 +18,7 @@ from app.orchestrator.mep.registration import K, load_index  # noqa: E402
 PDF = os.path.join(ROOT, "装修图纸", "227户型dxf",
                    "广州珠实金融城住宅项目--227户型施工图纸.pdf")
 ART = os.path.join(ROOT, "outputs", "preview", "vlm", "mep", "m2_attribution.json")
-M5_ROWS = os.path.join(ROOT, "outputs", "preview", "vlm", "mep", "m5_{tag}_rows.json")
+MEP_ART = os.path.join(ROOT, "outputs", "preview", "vlm", "mep")
 
 # M2 封账标定值（mep_takeoff_m2.md §0）
 SEALED_TX, SEALED_TY = -1478317.20, 6457826.22
@@ -161,16 +161,22 @@ def test_leaders_reproducible():
 
 
 # ── Tier A：封账数字 → 计算表组装（scripts/build_mep_workbook.py） ────
-def test_mep_workbook_identities(tmp_path):
-    """组装器恒等: sheet合计≡封账json; build() 内断言不破账; xlsx 渲染冒烟。
-    纪律: 本用例封住"M2~M5封账数字接入计价/BOQ"链路的数值同一性——
-    任何封账工件被改动而组装器未同步, 此处即红。"""
+def _wb():
+    """按路径加载组装器(非包内模块, 不能直接 import)。"""
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         'build_mep_workbook',
         os.path.join(ROOT, 'scripts', 'build_mep_workbook.py'))
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
+    return m
+
+
+def test_mep_workbook_identities(tmp_path):
+    """组装器恒等: sheet合计≡封账json; build() 内断言不破账; xlsx 渲染冒烟。
+    纪律: 本用例封住"M2~M5封账数字接入计价/BOQ"链路的数值同一性——
+    任何封账工件被改动而组装器未同步, 此处即红。"""
+    m = _wb()
     data = m.build()   # 内部任一 AssertionError = 破账
     assert data['totals'] == {'P08': 107, 'P09': 24, 'hvac': 18, 'elv': 23,
                               'sprinkler': 33, 'control_wires': 93}
@@ -182,13 +188,180 @@ def test_mep_workbook_identities(tmp_path):
     assert sm['box_n'] == 3, '盒类 3 处另立项，已在 107 之外排除'
     assert len(data['sheet5']) == 24, '⑤补账明细 = 计入21 + 不计3'
     assert sum(r[2].startswith('计入') for r in data['sheet5']) == 21
-    # 归属待核(M5c §8 撞车 + M5f 补账注记追踪器待修): 数量不动仅状态降级
-    assert data['pending'] == {'P08': {'rows': 34, 'n': 38, 'rows_all': 34},
-                               'P09': {'rows': 10, 'n': 10, 'rows_all': 10}}
-    # 待核拆行聚合不得丢量/重量: 待核件数 48 = 38(P08) + 10(P09)
-    assert sum(r[4] for r in data['sheet1'] if r[7].startswith('归属待核')) == 48
+    # 归属待核(M5c §8 撞车 + M5f 补账注记 + M5 §11 末端标记未命中): 数量不动仅状态降级
+    # rows_all == rows: 未能归属行不重复打降级原因(挂账优先级更高, §11.3)
+    assert data['pending'] == {'P08': {'rows': 45, 'n': 50, 'rows_all': 45},
+                               'P09': {'rows': 15, 'n': 15, 'rows_all': 15}}
+    # 待核拆行聚合不得丢量/重量: 待核件数 65 = 50(P08) + 15(P09)
+    assert sum(r[4] for r in data['sheet1'] if r[7].startswith('归属待核')) == 65
+    # §11 箭头规则: 状态真变了 16 行; 有箭头凭证但仍待核的行只披露不升档(24 条)
+    assert data['arrow']['n_noarrow_downgraded'] == 16
+    assert len(data['sheet4_hitpend']) == 24
     # ④对账表每行差值恒为 0
     assert all(r[1] == r[2] for r in data['sheet4_recon'])
     out = str(tmp_path / 'wb_test.xlsx')
     m.write_xlsx(data, out)
     assert os.path.exists(out) and os.path.getsize(out) > 5000
+
+
+def test_manual_pend_ruling_mechanism():
+    """人工裁定例外机制(§10)的纪律仍成立 —— 但清单已清空(§8.5/§11)。
+
+    §11 箭头规则生效后, M5g 那条唯一裁定(冰箱+400HT, 全形态 15.65pt)已由**入库证据**
+    自动推出 → 能从仓库复算出来的降级不得藏在人工清单里(否则机器判据永远暴露
+    不出它盖不住哪)。机制本身保留给规则确实盖不到的个案, 所以用合成条目守住纪律。
+    """
+    m = _wb()
+    assert m.MANUAL_PEND == [], \
+        '能由入库证据(§11 末端标记普查)推出的降级请交给规则, 不要留在人工清单'
+
+    rows = [{'kind': '冰箱插座', 'anchor': [746.0, 742.5], 'endpoint': [726.4, 575.2], 'room': '客厅/茶室+餐厅+玄白'},
+            {'kind': '二三极插座', 'anchor': [10.0, 10.0], 'room': '主卧'}]
+    e = {'kind': '冰箱插座', 'anchor': [746.0, 742.5],
+         'room_ruled': '客厅/茶室+餐厅+玄白', 'why': '用户裁定X'}
+
+    # 正常路径: 只钉住一行, 只填原本未降级的行
+    assert m._manual_flags(rows, ['', ''], [e]) == ['用户裁定X', '']
+    # 不抢已有原因(与 §11 箭头规则同构: 只填空, 不覆盖)
+    assert m._manual_flags(rows, ['端点与其类引线共用', ''], [e])[0] == '端点与其类引线共用'
+    # 坐标漂移(命中 0/2 行) / 房间漂移 / 无端点行 → 直接构建失败, 逼重新裁定
+    with pytest.raises(AssertionError, match='命中 0 行'):
+        m._manual_flags(rows, ['', ''], [dict(e, anchor=[1.0, 1.0])])
+    with pytest.raises(AssertionError, match='命中 2 行'):
+        m._manual_flags(rows + [dict(rows[0])], ['', '', ''], [e])
+    with pytest.raises(AssertionError, match='房间漂移'):
+        m._manual_flags(rows, ['', ''], [dict(e, room_ruled='书房')])
+    with pytest.raises(AssertionError, match='无端点'):
+        m._manual_flags(rows, ['', ''],
+                        [dict(e, kind='二三极插座', anchor=[10.0, 10.0], room_ruled='主卧')])
+
+
+def _fake_art_dir(tmp_path):
+    """把组装器要读的封账工件拷到 tmp_path(测试要改副本做篡改, 不动仓内工件)。"""
+    import shutil
+    need = ['m2_counts_clean.json', 'm2_textcounts.json', 'm3_circuits.json',
+            'p24_sprinkler_split.json', 'm5_P08_rows.json', 'm5_P09_rows.json',
+            'm5f_supplement_P08.json', 'm5h_arrows_P08.json', 'm5h_arrows_P09.json']
+    for f in need:
+        shutil.copy(os.path.join(MEP_ART, f), str(tmp_path / f))
+    return str(tmp_path)
+
+
+def test_arrow_evidence_cannot_go_stale(tmp_path):
+    """§11 证据链不得吃旧普查: 工件 md5 不符 / 行数或坐标与归属行对不上 → 构建失败。
+
+    封住的是一个实际发生过的风险: rows 工件重封账而普查未重跑时,
+    逐行距离会静默地对着错的行, 而降级看上去仍然“合理”。"""
+    m = _wb()
+    art = _fake_art_dir(tmp_path)
+    m.ART = art
+    base = m.build()                     # 副本必须能跑出与仓内一致的账
+    assert base['pending'] == {'P08': {'rows': 45, 'n': 50, 'rows_all': 45},
+                               'P09': {'rows': 15, 'n': 15, 'rows_all': 15}}
+
+    def tamper(name, mutate):
+        _fake_art_dir(tmp_path)          # 每轮从仓内工件重新拷, 上一轮篡改不泄漏
+        p = os.path.join(art, name)
+        obj = json.load(open(p, encoding='utf-8'))
+        mutate(obj)
+        json.dump(obj, open(p, 'w', encoding='utf-8'), ensure_ascii=False)
+
+    tamper('m5h_arrows_P08.json',
+           lambda o: o['meta']['rows_md5'].update({'m5_P08_rows.json': 'deadbeef'}))
+    with pytest.raises(AssertionError, match='证据过期'):
+        m.build()
+
+    tamper('m5h_arrows_P08.json', lambda o: o['meta']['rows_md5'].pop('m5_P08_rows.json'))
+    with pytest.raises(AssertionError, match='证据过期'):
+        m.build()
+
+    tamper('m5h_arrows_P08.json', lambda o: o['rows'].pop(3))
+    with pytest.raises(AssertionError, match='行数'):
+        m.build()
+
+    tamper('m5h_arrows_P09.json', lambda o: o['rows'][0].update(kind='口胡的类别'))
+    with pytest.raises(AssertionError, match='不对齐'):
+        m.build()
+
+
+def test_arrow_rule_downgrades_unproven_rows_only():
+    """§11 通用规则本身: 只降状态、不动数量、不升档。
+
+    基线用“假装无末端标记证据”(dist=None)的存枛2 build() 得出 —— 即规则关掉。
+    封三件事: (a) 总账/每个(专业,类别,房间)桶的 Σn 一字不动;
+    (b) 箭头未命中只能把已确认降为待核(不会凭空造待核, 也不会反向升档);
+    (c) 有箭头凭证但因撞车/补账仍待核的行 → 只进不升档披露清单, 不自动洗白。"""
+    m = _wb()
+    data = m.build()
+    saved = m._arrow_evidence
+    m._arrow_evidence = lambda tag, rows: ([{'dist': None, 'hit': False, 'form': None}
+                                            for _ in rows], {'stub': True})
+    try:
+        off = m.build()
+    finally:
+        m._arrow_evidence = saved
+
+    assert data['totals'] == off['totals']
+    assert _bucket(data) == _bucket(off), '箭头规则不得改变任何房间桶的数量'
+    assert sum(r[4] for r in data['sheet1']) == sum(r[4] for r in off['sheet1']) == 205
+
+    why = m.WHY_NO_ARROW
+    down = [r for r in data['sheet1'] if why in r[7]]
+    assert len(down) == 14 and sum(r[4] for r in down) == 17
+    assert not [r for r in off['sheet1'] if why in r[7]], '规则关掉时不应有该降级'
+    # 只降不升: 每一条降级行所在的(kind,room) 在基线里必须还有"未挂归属疑问"的行可供降
+    upgradable = ('已确认', '落域·房间名待核')
+    for r in down:
+        assert any(o[0:3] == r[0:3] and o[7] in upgradable for o in off['sheet1']), \
+            f'无中生有的降级: {r[:3]} {r[7]}'
+    _st = lambda d, p: sum(1 for r in d['sheet1'] if r[7].startswith(p))
+    assert (_st(off, '已确认'), _st(data, '已确认')) == (47, 36), '已确认只能减'
+    # 四态优先级: 归属待核 > 房间名待核 → 2 行原"落域·房间名待核"被箭头规则接管(原因更具体)
+    assert (_st(off, '落域·房间名待核'), _st(data, '落域·房间名待核')) == (3, 1)
+    # 不升档: 规则生效后的已确认(kind,room)集合只能是规则关掉时的子集
+    conf = {(r[0], r[1], r[2]) for r in data['sheet1'] if r[7] == '已确认'}
+    assert conf <= {(r[0], r[1], r[2]) for r in off['sheet1'] if r[7] == '已确认'}
+
+    tol = data['arrow']['meta']['P08']['hit_tol_pt']
+    assert tol == data['arrow']['meta']['P09']['hit_tol_pt'] == 1.5
+    assert data['arrow']['n_noarrow_downgraded'] == 16   # =状态真的变了的行数(不含挂账行)
+    assert len(data['sheet4_hitpend']) == 24
+    for label, room, dist_form, reason in data['sheet4_hitpend']:
+        assert label.split()[0] in ('P08', 'P09') and '(未能' not in room
+        assert reason != why and '待核' not in reason, '不升档清单只列因其他证据待核的行'
+        assert float(dist_form.split('pt')[0]) < tol, dist_form
+        assert reason in (m.WHY_COLLIDE, m.WHY_SUPP_LEADER), reason
+
+
+def test_arrow_artifact_is_self_consistent():
+    """普查工件可独立复算: 距离能由 marks 重算出来, hit 与容差一致。
+
+    防的是手工改工件蒙过构建器; 也顺手定住 §8.5 的形态计数(改算法必须同步改本节)。"""
+    from app.orchestrator.mep import arrows
+    expect = {'P08': {'forms': {'F1': 92, 'F2': 2, 'F3': 196}, 'n_triangles': 46, 'n_marks': 287},
+              'P09': {'forms': {'F1': 28, 'F2': 49, 'F3': 293}, 'n_triangles': 14, 'n_marks': 371}}
+    for tag, want in expect.items():
+        art = json.load(open(os.path.join(MEP_ART, f'm5h_arrows_{tag}.json'), encoding='utf-8'))
+        meta = art['meta']
+        assert meta['hit_tol_pt'] == arrows.HIT_TOL_PT
+        for k, v in want.items():
+            assert meta[k] == v, f'{tag} 普查形态计数漂移({k}): {meta[k]} != {v} → 重跑并同步 §8.5'
+        assert len(art['marks']) == meta['n_marks']
+        assert sum(1 for k, _x, _y, _s in art['marks'] if k == 'tri') == meta['n_triangles']
+        assert meta['n_triangles'] < meta['n_marks']
+        marks = [(k, (x, y), s) for k, x, y, s in art['marks']]
+        for r in art['rows']:
+            if not r.get('endpoint'):
+                assert not r.get('hit')
+                continue
+            d, _form = arrows.nearest(marks, tuple(r['endpoint']))
+            assert d == r['dist_pt'], f'{tag} 距离不可复算: 重算{d} vs 记录{r["dist_pt"]}'
+            assert r['hit'] is bool(d < meta['hit_tol_pt'])
+
+
+def _bucket(data):
+    """(专业,类别,房间) -> Σ数量, 用于证明裁定只改状态不改量。"""
+    g = {}
+    for r in data['sheet1']:
+        g[(r[0], r[1], r[2])] = g.get((r[0], r[1], r[2]), 0) + r[4]
+    return g

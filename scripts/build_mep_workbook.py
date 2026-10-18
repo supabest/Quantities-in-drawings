@@ -9,6 +9,10 @@
      (M2 原封账 m2_counts_clean["18"]=86 不改写, 补账另立工件并列可审计)
   3. 三态如实: "未能归属"行照列挂账(状态=未能读取), 不硬落域;
      补账中带标高注记者(+HT)定位出自尚未修复的引线追踪器(M5 §8), 未撞车也判待核;
+     **已落域但端点未命中任何引线末端标记的行**(M5 §11, 证据源 m5h_arrows_*.json)
+     一律降为待核 —— 骑线行不能冒充已确认(只降状态, 不动数量;
+     未能归属行已是挂账, 本规则不重复标记);
+     人工裁定例外(MANUAL_PEND, M5 §8.5/§10)仅用于规则覆盖不到的个案;
      "图上没有"项(烟感/水浸/管网)走 D 层披露, 不臆造;
   4. A 层图纸实测账与 D 层单方估算账分 sheet 并列, 永久不混
      (口径纪律见 docs/MEP_COST_INDICATORS.md); 计价清单仅作开发期校验, 不作数据源。
@@ -17,6 +21,7 @@
 运行: venv/bin/python scripts/build_mep_workbook.py
 产物: outputs/227户型机电工程量计算表.xlsx
 """
+import hashlib
 import json
 import os
 from collections import defaultdict, OrderedDict
@@ -31,6 +36,17 @@ DEC_AREA_S = 97.78
 TYPE_ID = 'show_flat'          # 住宅样板房
 BOX_UNIT_KINDS = ('强电箱', '弱电箱', '等电位箱')   # 计量单位=台, 其余=个
 
+WHY_COLLIDE = '端点与其类引线共用'
+WHY_SUPP_LEADER = '补账注记·引线追踪器待修'
+WHY_NO_ARROW = '端点未命中末端标记(三角/开口/圆点<1.5pt)'
+ARROW_ART = {'P08': 'm5h_arrows_P08.json', 'P09': 'm5h_arrows_P09.json'}
+
+# 人工裁定例外清单(M5 §8.5/§10): 仅用于**通用规则覆盖不到**的个案降级。
+# 纪律: 只收用户明确裁定过的行, 按 kind+anchor 精确钉住(命中行数≠1 或房间漂移即构建失败),
+#       必须写明原因。§11 的箭头规则生效后, 本清单应为空: 能由入库证据推出来的降级
+#       不得留在人工清单里, 否则机器判据永远不会暴露它盖不住哪。
+MANUAL_PEND = []   # 2026-10-11 M5g 唯一条目(冰箱+400HT)已被 §11 通用规则自动覆盖(15.65pt/形心53.95pt)
+
 
 def _load(name):
     with open(os.path.join(ART, name), encoding='utf-8') as f:
@@ -42,13 +58,14 @@ def _unit(kind):
 
 
 def _agg_rows(rows, flags=None):
-    """rows → OrderedDict[(kind, room, 待核)] = {'n': Σn, 'parts': [每行n]}，排序稳定。
+    """rows → OrderedDict[(kind, room, 待核原因)] = {'n': Σn, 'parts': [每行n]}，排序稳定。
 
-    按"是否待核"拆行聚合(同一 kind+room 内部分行撞车时不会误标全组)，总量恒等不变。"""
-    flags = flags or [False] * len(rows)
+    flags 为**逐行原因字符串**(''=不待核)。按原因拆行聚合(同一 kind+room 内部分行
+    待核时不会误标全组, 不同降级原因也不合并), 总量恒等不变。"""
+    flags = flags if flags is not None else [''] * len(rows)
     g = defaultdict(lambda: {'n': 0, 'parts': []})
     for r, f in zip(rows, flags):
-        k = (r['kind'], r['room'], bool(f))
+        k = (r['kind'], r['room'], f or '')
         g[k]['n'] += r['n']
         g[k]['parts'].append(r['n'])
     out = OrderedDict()
@@ -58,28 +75,78 @@ def _agg_rows(rows, flags=None):
 
 
 def _collision_flags(rows):
-    """行→ bool: 该引线端点是否与其**他专业类别**的行共用同一落点。
+    """行→ 降级原因字符串('' = 不降级): 该引线端点是否与其**他专业类别**的行共用同一落点。
 
     失效模式(M5c §8): 行走器遇长直线(墙线/轴网/尺寸界线)会骑上去直走，
     同一注记簇里多条文字都骑同一条线 → 收敛到同一落点。不同类别的点位
     物理上不可能共点 → 这些行的房间归属不可信(数量仍可信)。
-    未追通行无端点 → False(已是"未能读取"挂账, 优先级更高)。
+    未追通行无端点 → ''(已是"未能读取"挂账, 优先级更高)。
     同类共用的行不算在内(可能为 X2 乘数表达), 另作附加披露。
     """
     g = defaultdict(list)
     for r in rows:
         if r.get('endpoint'):
             g[tuple(round(v, 1) for v in r['endpoint'])].append(r['kind'])
-    return [bool(r.get('endpoint'))
-            and len(set(g[tuple(round(v, 1) for v in r['endpoint'])])) > 1
+    return [WHY_COLLIDE if (r.get('endpoint')
+            and len(set(g[tuple(round(v, 1) for v in r['endpoint'])])) > 1) else ''
             for r in rows]
 
 
-def _state(room, collide=False, pend_why='端点与其类引线共用'):
+def _manual_flags(rows, flags, entries):
+    """把人工裁定例外逐条叠加到 flags 上(仅对原本未降级的行生效, 不抢已有原因)。
+
+    每条必须精确命中一行, 且其现判房间与裁定记录一致 —— 封账工件重跑后坐标/房间
+    一旦漂移, 此处直接构建失败, 要求重新裁定, 而不是让过期裁定静默作用到别的行。"""
+    for e in entries:
+        hits = [i for i, r in enumerate(rows)
+                if r['kind'] == e['kind']
+                and abs(r['anchor'][0] - e['anchor'][0]) < 0.05
+                and abs(r['anchor'][1] - e['anchor'][1]) < 0.05]
+        assert len(hits) == 1, \
+            f'MANUAL_PEND 条目漂移: {e["kind"]}{e["anchor"]} 命中 {len(hits)} 行, 请重新裁定'
+        i = hits[0]
+        assert rows[i]['room'] == e['room_ruled'], \
+            f'MANUAL_PEND 房间漂移: 工件{rows[i]["room"]!r} != 裁定{e["room_ruled"]!r}'
+        assert rows[i].get('endpoint'), f'MANUAL_PEND 行无端点(已属挂账), 不适用归属降级: {e["kind"]}'
+        if not flags[i]:
+            flags[i] = e['why']
+    return flags
+
+
+def _arrow_evidence(tag, rows):
+    """读末端标记普查工件 → 逐行 {'dist','hit','form'}(与 rows **同序等长**)。
+
+    证据不能过期: 工件记录的 rows 文件 md5 与当前不一致, 或逐行 kind/anchor/endpoint
+    对不上 → 直接构建失败, 要求重跑 `python -m app.orchestrator.mep.arrows`。
+    无端点的行(直接标注/未追通) → dist=None, 不适用本判据。
+    """
+    art = _load(ARROW_ART[tag])
+    src = art['meta']['rows_sources']
+    now = {f: hashlib.md5(open(os.path.join(ART, f), 'rb').read()).hexdigest() for f in src}
+    assert now == art['meta']['rows_md5'], \
+        f'{tag} 末端标记证据过期: rows 工件已变({src}) 而普查未重跑 → 请跑 python -m app.orchestrator.mep.arrows'
+    arows = art['rows']
+    assert len(arows) == len(rows), f'{tag} 普查行数{len(arows)} != 当前池行数{len(rows)}'
+    out = []
+    for i, (a, r) in enumerate(zip(arows, rows)):
+        same = (a['kind'] == r['kind'] and abs(a['anchor'][0] - r['anchor'][0]) < 0.05
+                and abs(a['anchor'][1] - r['anchor'][1]) < 0.05
+                and bool(a.get('endpoint')) == bool(r.get('endpoint'))
+                and (not a.get('endpoint')
+                     or (abs(a['endpoint'][0] - r['endpoint'][0]) < 0.05
+                         and abs(a['endpoint'][1] - r['endpoint'][1]) < 0.05)))
+        assert same, f'{tag} 第{i}行证据与归属行不对齐({a["kind"]}@{a["anchor"]} != {r["kind"]}@{r["anchor"]})'
+        out.append({'dist': a.get('dist_pt'), 'hit': bool(a.get('hit')),
+                    'form': a.get('form')} if r.get('endpoint') else {'dist': None, 'hit': False, 'form': None})
+    return out, art['meta']
+
+
+def _state(room, pd=''):
+    """四态优先级: 挂账 > 归属待核(逐行原因) > 房间名待核 > 已确认。"""
     if room == '未能归属':
         return '未能读取(挂账)'
-    if collide:
-        return f'归属待核({pend_why})'
+    if pd:
+        return f'归属待核({pd})'
     if room.startswith('(无名'):
         return '落域·房间名待核'
     return '已确认'
@@ -159,26 +226,40 @@ def build():
     flags8 = _collision_flags(merged8)
     for i in range(len(rows8), len(merged8)):   # 补账注记行(+HT): 追踪器缺陷未修(§8), 未撞车也判待核
         if merged8[i].get('leader') and merged8[i]['room'] != '未能归属':
-            flags8[i] = True
-    by_tag = {'P08': (merged8, flags8), 'P09': (rows9, _collision_flags(rows9))}
+            flags8[i] = WHY_SUPP_LEADER
+    _manual_flags(merged8, flags8, MANUAL_PEND)  # 用户裁定例外(§8.5): 仅降级归属状态, 不动任何量
+    flags9 = _collision_flags(rows9)
+    arr8, ameta8 = _arrow_evidence('P08', merged8)
+    arr9, ameta9 = _arrow_evidence('P09', rows9)
+    # §11 通用规则: 端点未命中任何末端标记 → 无引线终点凭证 → 降待核(不抢已有更具体原因)。
+    # 只作用于**已落域**行: 未能归属行本就是"未能读取(挂账)"(优先级更高), 给它记原因既看不见
+    # 也会把挂账行按原因白白拆成几组 —— n_noarrow 必须等于"状态真的变了"的行数。
+    n_noarrow = 0
+    for ev, flags, rows in ((arr8, flags8, merged8), (arr9, flags9, rows9)):
+        for i, e in enumerate(ev):
+            if (e['dist'] is not None and not e['hit'] and not flags[i]
+                    and rows[i]['room'] != '未能归属'):
+                flags[i] = WHY_NO_ARROW
+                n_noarrow += 1
+    by_tag = {'P08': (merged8, flags8), 'P09': (rows9, flags9)}
     for tag, (rows, flags) in by_tag.items():
         kept = [(r, f) for r, f in zip(rows, flags) if f and r['room'] != '未能归属']
         pend[tag] = {'rows': len(kept), 'n': sum(r['n'] for r, _ in kept),
                      'rows_all': sum(1 for f in flags if f)}
 
-    def emit(rows, flags, label, page, pend_why='端点与其类引线共用'):
+    def emit(rows, flags, label, page):
         agg = _agg_rows(rows, flags)
         for kind in sorted({k for k, _, _ in agg}):
             sub = {(r, pd): v for (k, r, pd), v in agg.items() if k == kind}
-            for (room, is_pend), v in sub.items():
+            for (room, pd), v in sub.items():
                 expr = f"{v['n']}" if len(v['parts']) == 1 else 'Σ' + '+'.join(map(str, v['parts']))
                 s1.append(('强电' if label.startswith('P08') else '给排水', kind, room,
                            _unit(kind), v['n'],
                            f'{expr}（{label}归属行{len(v["parts"])}条聚合）',
-                           page, _state(room, is_pend, pend_why)))
+                           page, _state(room, pd)))
 
     emit(rows8, flags8[:len(rows8)], 'P08', page8)
-    emit(srows8, flags8[len(rows8):], 'P08 M5f补账', page8, '补账注记·引线追踪器待修')
+    emit(srows8, flags8[len(rows8):], 'P08 M5f补账', page8)
     emit(rows9, by_tag['P09'][1], 'P09', page9)
     # 拆行聚合(新增待核维度)不得丢量/重量: 每页拆后Σ仍须等于封账
     for tag, page in (('P08', page8), ('P09', page9)):
@@ -270,24 +351,37 @@ def build():
         ('烟感/水浸布置、给水管网、冷媒/喷淋/弱电管网、配电系统图', '图上没有 → 走D层单方或缺图披露', 'M4§4 三态总账'),
     ]
 
-    # 归属待核清单: 数量已计入账, 但引线端点与其类共用 → 房间归属不可信(M5c §8)
+    # 归属待核清单: 数量已计入账, 但逐行原因(撞车/补账注记/用户裁定)使房间归属不可信
     s4_pend = []
     for tag in ('P08', 'P09'):
         rows, flags = by_tag[tag]
-        grp = defaultdict(lambda: {'n': 0, 'rooms': set(), 'pts': set()})
+        grp = defaultdict(lambda: {'n': 0, 'rooms': set(), 'pts': set(), 'why': set()})
         for r, f in zip(rows, flags):
             if f and r['room'] != '未能归属':
                 k = (r['kind'], r['room'])
                 grp[k]['n'] += r['n']
                 grp[k]['rooms'].add(r['room'])
                 grp[k]['pts'].add(tuple(round(v) for v in r['endpoint']))
+                grp[k]['why'].add(f)
         for (kind, room), v in sorted(grp.items()):
             pts = ', '.join(f'({x},{y})' for x, y in sorted(v['pts']))
-            s4_pend.append((f'{tag} {kind} ×{v["n"]}', room, pts))
+            s4_pend.append((f'{tag} {kind} ×{v["n"]}', room, pts, ' / '.join(sorted(v['why']))))
     pend_n = pend['P08']['n'] + pend['P09']['n']
     s4_pend.append(('合计', f'{pend["P08"]["rows"] + pend["P09"]["rows"]} 行 / {pend_n} 件',
-                    f'另有撞车但已属挂账 {pend["P08"]["rows_all"] + pend["P09"]["rows_all"] - pend["P08"]["rows"] - pend["P09"]["rows"]} 行(计在上方挂账清单); '
-                    '数量已计且计入Σ恒等, 仅房间归属存疑, 修好引线追踪后自动消除'))
+                    f'另有降级但已属挂账 {pend["P08"]["rows_all"] + pend["P09"]["rows_all"] - pend["P08"]["rows"] - pend["P09"]["rows"]} 行(计在上方挂账清单); '
+                    '数量已计且计入Σ恒等, 仅房间归属存疑, 修好引线追踪后自动消除', ''))
+
+    # 不升档清单(§11): 现因撞车/补账/裁定而待核, 但端点**确实踩在末端标记上**的行。
+    # 箭头证据比撞车证据更硬, 但本轮只做了降级方向, 是否据箭头撤销撞车需用户另行裁定。
+    s4_hitpend = []
+    for tag, ev in (('P08', arr8), ('P09', arr9)):
+        rows, flags = by_tag[tag]
+        for i, e in enumerate(ev):
+            if e['hit'] and flags[i] and flags[i] != WHY_NO_ARROW and rows[i]['room'] != '未能归属':
+                s4_hitpend.append((f"{tag} {rows[i]['kind']} ×{rows[i]['n']}", rows[i]['room'],
+                                   f"{e['dist']}pt / {e['form']}", flags[i]))
+    s4_hitpend.sort()
+    ameta = {'P08': ameta8, 'P09': ameta9}
 
     # ── Sheet⑤ M5f 补账明细(逐条证据, 与①同账可回溯) ──
     s5 = [_supp_row(r, '计入点位') for r in supp['rows']] \
@@ -296,9 +390,11 @@ def build():
     return {
         'totals': totals,
         'pending': pend,
+        'arrow': {'n_noarrow_downgraded': n_noarrow, 'meta': ameta},
         'sheet1': s1,
         'sheet2': s2, 'sheet3': s3, 'sheet3_len': s3_len,
         'sheet4_recon': s4_recon, 'sheet4_open': s4_open, 'sheet4_pend': s4_pend,
+        'sheet4_hitpend': s4_hitpend,
         'sheet5': s5,
         'supp_meta': {'m2': m2_n, 'supp': supp_n, 'sealed': totals['P08'],
                       'box_n': len(supp['excluded_box']), 'sealed_by': supp['sealed_by'],
@@ -409,11 +505,22 @@ def write_xlsx(data, path=OUT_PATH):
         for c in ws[ws.max_row]:
             c.fill = open_fill
     ws.append([])
-    ws.append(['归属待核清单(数量已计, 房间归属存疑 — 引线端点与其类共用)', '', '', '', ''])
+    ws.append(['归属待核清单(数量已计, 房间归属存疑 — 原因逐行列于末列)', '', '', '', ''])
     ws[ws.max_row][0].font = bold
-    for item, room, pts in data['sheet4_pend']:
-        detail = f'{room} | {pts}' if item == '合计' else f'现判房间={room} | 共用端点 {pts}'
+    for item, room, pts, why in data['sheet4_pend']:
+        detail = f'{room} | {pts}' if item == '合计' \
+            else f'现判房间={room} | 落点 {pts} | 原因: {why}'
         ws.append([item, '', '', '', detail])
+        for c in ws[ws.max_row]:
+            c.fill = pend_fill
+    ws.append([])
+    hp = data['sheet4_hitpend']
+    ws.append([f'不升档清单(§11): 现因{WHY_COLLIDE}/{WHY_SUPP_LEADER}等而待核, '
+               f'但端点踩在末端标记上 — 共 {len(hp)} 行, 本轮不撤销其待核, 只披露证据供后续裁定',
+               '', '', '', ''])
+    ws[ws.max_row][0].font = bold
+    for item, room, ev, why in hp:
+        ws.append([item, '', '', '', f'现判房间={room} | 最近末端标记 {ev} | 现降级原因: {why}'])
         for c in ws[ws.max_row]:
             c.fill = pend_fill
     finish(ws, ws.max_row, 5)
@@ -457,8 +564,14 @@ def main():
     print(f"  P08 重封账 = M2 {sm['m2']} + M5f 补账 {sm['supp']} = {sm['sealed']} "
           f"(盒类另立 {sm['box_n']} 处不计点位)")
     pd = data['pending']
-    print(f"归属待核(数量已计, 端点与其类引线共用/补账注记追踪器待修, 房间待重判): "
+    whys = sorted({r[7][len('归属待核('):-1] for r in data['sheet1'] if r[7].startswith('归属待核(')})
+    print(f"归属待核(数量已计, 原因={'/'.join(whys)}, 房间待重判): "
           f"P08 {pd['P08']['rows']}行/{pd['P08']['n']}件, P09 {pd['P09']['rows']}行/{pd['P09']['n']}件")
+    ar = data['arrow']
+    print(f"  其中§11 箭头规则新降 {ar['n_noarrow_downgraded']} 行"
+          f"(证据: P08 标记{ar['meta']['P08']['n_marks']}个/三角{ar['meta']['P08']['n_triangles']}个, "
+          f"P09 标记{ar['meta']['P09']['n_marks']}个/三角{ar['meta']['P09']['n_triangles']}个, 容差{ar['meta']['P08']['hit_tol_pt']}pt); "
+          f"不升档披露 {len(data['sheet4_hitpend'])} 行(待核但踩到真箭头)")
     print('产物:', p)
 
 
