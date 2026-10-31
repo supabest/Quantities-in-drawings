@@ -6,11 +6,21 @@
   地面/天棚合计 19.73；净墙 @2800 = 12.64×2.8−0.9×2.1 + 10.64×2.8 + 6.64×2.8 = 81.89；
   踢脚 = 12.64−0.9+10.64+6.64 = 29.02；洞口 1 樘门（宽 0.90）。
 """
+import json
+import os
+import subprocess
+import sys
+
+from app.core.takeoff.coverage import build_coverage
 from app.core.takeoff.enclosure import _decode_text, build_rooms
 from app.core.takeoff.layers import resolve_roles
+from app.core.takeoff.reconcile import apply as reconcile_apply
+from app.core.takeoff.rows import to_measurement
 from app.core.takeoff.takeoff import ceiling_label, rows_for_divisions
-from app.core.takeoff.types import TakeoffParams
+from app.core.takeoff.types import Row, TakeoffParams
 from tests.test_takeoff_enclosure import _plan
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _data(tmp_path):
@@ -293,3 +303,164 @@ def test_build_rooms_doc_none_fallback(tmp_path):
         assert r["soffit_mm"] == 2800.0
         assert r["ceiling_drop_mm"] == 0.0
         assert r["ceiling_min_mm"] == 2800.0
+
+
+# ---- Task 9：覆盖矩阵 / 两条判定带对账 / Row 落库适配 ----
+# 覆盖状态语义：有源=几何/参数来源存在（数值 0 仍是有源）；无源=无 poly/无来源；
+# 待参数=来源存在但必需参数缺失（不猜默认值）。
+
+
+def test_coverage_marks_params_status(tmp_path):
+    """mall 无显式层高：墙面来源存在但缺层高 → 待参数；地面有 poly → 有源。"""
+    data = _data(tmp_path)
+    cov = build_coverage(data, TakeoffParams(project_type="mall"))
+    cells = {(r["space"], r["part"]): r["status"] for r in cov.rows()}
+    assert cells[("客厅", "墙面")] == "待参数"
+    assert cells[("客厅", "地面")] == "有源"
+
+
+def test_coverage_source_and_unplaced(tmp_path):
+    """显式层高 → 墙面有源；有 doors → 洞口有源；unplaced 锚点 → 围合待确认且署源。"""
+    data = _data(tmp_path)
+    cov = build_coverage(data, TakeoffParams(floor_height_mm=2800))
+    cells = {(r["space"], r["part"]): r for r in cov.rows()}
+    assert cells[("客厅", "墙面")]["status"] == "有源"
+    assert cells[("客厅", "墙面")]["source"]
+    assert cells[("(项目)", "洞口")]["status"] == "有源"
+    assert cells[("(项目)", "房间围合")]["status"] == "有源"
+    assert cells[("(项目)", "房间围合")]["source"] == "anchors"
+
+    data["unplaced_anchors"] = [(0, 0, "压墙"), (10, 10, "压墙"), (5, 5, "游离")]
+    cov = build_coverage(data, TakeoffParams(floor_height_mm=2800))
+    cells = {(r["space"], r["part"]): r for r in cov.rows()}
+    cell = cells[("(项目)", "房间围合")]
+    assert cell["status"] == "待确认"
+    assert "压墙" in cell["source"] and "游离" in cell["source"]
+    assert cell["source"].count("压墙") == 1          # 去重后再披露
+
+
+def test_coverage_no_poly_is_no_source():
+    """无 poly 的室内房：四部位全无源；无门窗 → 洞口无源。0 值有 poly 仍是有源。"""
+    data = {"rooms": [
+        {"comp_id": 9, "names": ["空房"], "is_out": False, "poly": None, "area": 0.0},
+        {"comp_id": 10, "names": ["零面积"], "is_out": False,
+         "poly": [(0, 0), (1, 0), (1, 1)], "area": 0.0},
+    ], "doors": [], "windows": [], "unplaced_anchors": []}
+    cov = build_coverage(data, TakeoffParams(floor_height_mm=2800))
+    cells = {(r["space"], r["part"]): r["status"] for r in cov.rows()}
+    for part in ("地面", "天棚", "墙面", "踢脚"):
+        assert cells[("空房", part)] == "无源"
+    assert cells[("(项目)", "洞口")] == "无源"
+    # 0 值 ≠ 缺行：有 poly 的零面积房间仍算有源
+    assert cells[("零面积", "地面")] == "有源"
+
+
+def test_reconcile_only_two_bands(tmp_path):
+    """恰好两条带：墙地比 4.15、踢脚比 1.47 均越带；只写 check，不改 value、不增行。"""
+    data = _data(tmp_path)
+    rows, _ = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
+    assert len(rows) == 13
+    before = [r.value for r in rows]
+    issues = reconcile_apply(rows)
+    assert {i.code for i in issues} == {"wall_floor_ratio", "baseboard_ratio"}
+
+    wall = [r for r in rows if r.division_id == 2]
+    bb = [r for r in rows if r.division_id == 5]
+    assert all(r.check["wall_floor_ratio"] == 4.15 for r in wall)
+    assert all(r.check["baseboard_ratio"] == 1.47 for r in bb)
+    assert [r.value for r in rows] == before             # 不改数值
+    assert len(rows) == 13                               # 不新增数字行
+
+    by_code = {i.code: i for i in issues}
+    wf = by_code["wall_floor_ratio"]
+    assert wf.level == "warn"
+    assert wf.detail["band"] == [2.0, 3.0]
+    assert wf.detail["project_type"] == "sample_flat"
+    assert abs(wf.detail["ratio"] - 4.15) < 0.01
+    assert "4.15" in wf.message and "2.0" in wf.message and "3.0" in wf.message
+    bbr = by_code["baseboard_ratio"]
+    assert bbr.detail["band"] == [0.6, 1.1]
+    assert "1.47" in bbr.message
+
+
+def test_reconcile_band_respects_project_type(tmp_path):
+    """带按 params.project_type 取：showroom 用 (2.5,3.5)；落入带内不报。"""
+    data = _data(tmp_path)
+    rows, _ = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
+    issues = reconcile_apply(rows, TakeoffParams(project_type="showroom"))
+    wf = [i for i in issues if i.code == "wall_floor_ratio"][0]
+    assert wf.detail["project_type"] == "showroom"
+    assert wf.detail["band"] == [2.5, 3.5]
+    assert abs(wf.detail["ratio"] - 4.15) < 0.01          # 同一 rows 仍越 showroom 带
+
+    # 自选构造：墙地 30/10=3.0 落 showroom 带、踢脚 8/10=0.8 落踢脚带 → 两条都不报
+    synth = [
+        Row(1, "地面", "dxf_floor", "m2", 10.0, "f"),
+        Row(2, "墙面", "dxf_wall", "m2", 30.0, "f", check={"gross_m2": 30.0}),
+        Row(5, "踢脚", "dxf_baseboard", "m", 8.0, "f"),
+    ]
+    assert reconcile_apply(synth, TakeoffParams(project_type="showroom")) == []
+    assert synth[1].check["wall_floor_ratio"] == 3.0
+    assert synth[2].check["baseboard_ratio"] == 0.8       # 原 check=None → 新建 dict
+
+
+def test_to_measurement_maps_units_and_trace(tmp_path):
+    """单位映射 + 来源/置信图标 + 计算式/部位原样 + check 落 data_json。"""
+    data = _data(tmp_path)
+    rows, _ = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
+    reconcile_apply(rows)
+
+    floor = [r for r in rows if r.division_id == 1][0]
+    m = to_measurement(floor, project_id=7)
+    assert m.area == floor.value and m.unit == "m²"
+    assert m.length is None and m.count is None
+    assert m.source_tag == "图纸实测" and m.source_tag_icon == "📐"
+    assert m.confidence_level == "high" and m.confidence_icon == "🟢"
+    assert m.drawing_id is None and m.data_json is None
+
+    wall = [r for r in rows if r.division_id == 2][0]
+    mw = to_measurement(wall, project_id=7, drawing_id=3)
+    assert mw.area == wall.value and mw.unit == "m²"
+    assert mw.source_tag == "几何推算" and mw.source_tag_icon == "🔢"
+    assert mw.confidence_level == "medium" and mw.confidence_icon == "🟡"
+    assert mw.formula_text == wall.formula_text
+    assert mw.position_desc == wall.position_desc
+    assert mw.drawing_id == 3
+    assert json.loads(mw.data_json)["check"] == wall.check
+    assert "wall_floor_ratio" in json.loads(mw.data_json)["check"]
+
+    bb = [r for r in rows if r.division_id == 5][0]
+    mb = to_measurement(bb, project_id=7)
+    assert mb.length == bb.value and mb.area is None and mb.count is None
+    assert mb.unit == "m"
+    assert "baseboard_ratio" in json.loads(mb.data_json)["check"]
+
+    opening = [r for r in rows if r.division_id == 4][0]
+    mo = to_measurement(opening, project_id=7)
+    assert mo.count == 1 and mo.unit == "樘"
+    assert mo.area is None and mo.length is None
+
+    # 未知来源/置信度：不抛，图标按口径兜底（未知来源空串；未知置信度用 medium）
+    weird = Row(2, "怪", "dxf_wall", "m2", 1.0, "f",
+                source_tag="不存在的来源", confidence_level="unknown")
+    mw2 = to_measurement(weird, project_id=7)
+    assert mw2.source_tag_icon == ""
+    assert mw2.confidence_icon == "🟡"
+
+
+def test_rows_module_import_is_lazy():
+    """只 import rows 模块不得拉 ORM；to_measurement 调用时才惰性 import app.models。"""
+    code = "\n".join([
+        "import sys",
+        "import app.core.takeoff.rows as rows_mod",
+        "assert 'app.models' not in sys.modules, 'ORM 在模块导入期即被拉入'",
+        "from app.core.takeoff.types import Row",
+        "m = rows_mod.to_measurement(",
+        "    Row(1, 'A-地面', 'dxf_floor', 'm2', 1.0, 'f'), 1)",
+        "assert 'app.models' in sys.modules, 'to_measurement 应惰性加载 ORM'",
+        "print(m.unit)",
+    ])
+    proc = subprocess.run([sys.executable, "-c", code], cwd=ROOT,
+                          capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == "m²"
