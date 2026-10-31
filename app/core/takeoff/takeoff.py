@@ -187,7 +187,8 @@ def rows_for_divisions(data, params):
             pos, remarks=rem_comp))
         # 天棚：造型/平顶按逐间标高数判；面积一律围合水平投影，不展开
         ceil_core, ceil_feat = ceiling_label(room)
-        # 标高按房间存储顺序披露（去重、不改序：主顶/跌级原样可见）
+        # 标高按升序去重披露（最低跌级在前、主顶在后）；仅用于溯源，
+        # 不参与面积/净高计算（净高由 _net_height 独立取 soffit_mm）。
         lvs = list(dict.fromkeys(float(v) for v in (room.get("ceiling_levels") or []) if v))
         if len(lvs) >= 2:
             ceil_formula = ("天棚投影=同房间围合多边形 {:.2f}（跌级/灯槽按水平投影计量，"

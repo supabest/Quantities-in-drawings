@@ -6,7 +6,7 @@
   地面/天棚合计 19.73；净墙 @2800 = 12.64×2.8−0.9×2.1 + 10.64×2.8 + 6.64×2.8 = 81.89；
   踢脚 = 12.64−0.9+10.64+6.64 = 29.02；洞口 1 樘门（宽 0.90）。
 """
-from app.core.takeoff.enclosure import build_rooms
+from app.core.takeoff.enclosure import _decode_text, build_rooms
 from app.core.takeoff.layers import resolve_roles
 from app.core.takeoff.takeoff import ceiling_label, rows_for_divisions
 from app.core.takeoff.types import TakeoffParams
@@ -182,3 +182,114 @@ def test_build_rooms_harvests_ceiling_levels(tmp_path):
         assert by_name[nm]["soffit_mm"] == 2800.0
     names = [t for r in data["rooms"] for t in r["names"]]
     assert "+2700" not in names
+
+
+# ---- Task 8 修复轮：标高映射兜底/收集窗口/GBK 解码/MTEXT+块属性/无 doc 兜底 ----
+
+
+def test_level_nearest_centroid_fallback_and_far_reject(tmp_path):
+    """落点不在任何 poly 内：最近质心 ≤3000 兜底收；>3000 一律拒（不当房间名）。"""
+    doc = _plan(tmp_path)
+    doc.layers.add("CEILING-ANNO")
+    msp = doc.modelspace()
+    # 客厅右墙外 500mm（内墙面 x=4200，墙带走 4200..4400）→ 不在 poly 内
+    msp.add_text("+2700", height=250,
+                 dxfattribs={"layer": "CEILING-ANNO"}).set_placement((4300, 1700))
+    # 远角：距最近质心（卫生间 12210,1090）约 5.8m，超过 3000 容差
+    msp.add_text("+2400", height=250,
+                 dxfattribs={"layer": "CEILING-ANNO"}).set_placement((18000, 1700))
+    roles = resolve_roles(doc)
+    # bounds 是 20 的整数倍，栅格相位与 roles.bounds 一致；窗口外扩 200 仍含 18000
+    data = build_rooms(doc, roles, (0, 0, 20000, 5000),
+                       TakeoffParams(floor_height_mm=2800))
+    by_name = {"".join(r["names"]): r for r in data["rooms"]}
+    living = by_name["客厅"]
+    assert living["ceiling_levels"] == [2700.0]      # 质心兜底 ≤3000 生效
+    assert living["soffit_mm"] == 2700.0
+    assert 2400.0 not in living["ceiling_levels"]    # 远的没被兜进来
+    for r in data["rooms"]:
+        assert 2400.0 not in r["ceiling_levels"]     # >3000 拒绝
+        if "".join(r["names"]) != "客厅":
+            assert r["soffit_mm"] == 2800.0          # 其余房间仍兜底结构净高
+    names = [t for r in data["rooms"] for t in r["names"]]
+    assert "+2700" not in names and "+2400" not in names   # 标高不当房间名
+
+
+def test_level_collect_window_pad_200(tmp_path):
+    """收集窗口 = 对齐后 bounds 各外扩 200mm：X1+500 收不到，X1+100 收得到。"""
+    doc = _plan(tmp_path)
+    doc.layers.add("CEILING-ANNO")
+    msp = doc.modelspace()
+    roles = resolve_roles(doc)
+    X1 = roles.bounds[2]
+    # 窗外 500mm：+2500 不得进任何房间，全部兜底 2800
+    msp.add_text("+2500", height=250,
+                 dxfattribs={"layer": "CEILING-ANNO"}).set_placement((X1 + 500, 1700))
+    data = build_rooms(doc, roles, roles.bounds, TakeoffParams(floor_height_mm=2800))
+    assert len(data["rooms"]) == 3
+    for r in data["rooms"]:
+        assert 2500.0 not in r["ceiling_levels"]
+        assert r["ceiling_levels"] == []
+        assert r["soffit_mm"] == 2800.0
+    # 窗内 100mm（仍在 bounds 外）：+2600 必须被收，最近质心是卫生间
+    msp.add_text("+2600", height=250,
+                 dxfattribs={"layer": "CEILING-ANNO"}).set_placement((X1 + 100, 1700))
+    data = build_rooms(doc, roles, roles.bounds, TakeoffParams(floor_height_mm=2800))
+    by_name = {"".join(r["names"]): r for r in data["rooms"]}
+    assert by_name["卫生间"]["ceiling_levels"] == [2600.0]
+    assert by_name["卫生间"]["soffit_mm"] == 2600.0
+    assert by_name["客厅"]["ceiling_levels"] == []       # 500 外的那条仍被挡
+
+
+def test_decode_text_gbk_escape():
+    """天正/理正 \\M+5xxxx：两字节 GBK 转义还原；无转义原样返回。"""
+    raw = "客厅".encode("gbk")
+    esc = "".join("\\M+5%02X%02X" % (raw[i], raw[i + 1]) for i in range(0, len(raw), 2))
+    assert esc.startswith("\\M+5") and len(esc) == 8 * (len(raw) // 2)  # 前提：确实是转义串
+    assert _decode_text(esc) == "客厅"
+    assert _decode_text("+2700") == "+2700"
+    assert _decode_text("客厅") == "客厅"
+    assert _decode_text("") == ""
+
+
+def test_mtext_level_collected(tmp_path):
+    """MTEXT 形式的 +2xxx 同样进标高映射（走 plain_text）。"""
+    doc = _plan(tmp_path)
+    doc.layers.add("CEILING-ANNO")
+    doc.modelspace().add_mtext("+2650", dxfattribs={
+        "layer": "CEILING-ANNO"}).set_location((2000, 1500))
+    roles = resolve_roles(doc)
+    data = build_rooms(doc, roles, roles.bounds, TakeoffParams(floor_height_mm=2800))
+    by_name = {"".join(r["names"]): r for r in data["rooms"]}
+    assert by_name["客厅"]["ceiling_levels"] == [2650.0]
+    assert by_name["客厅"]["soffit_mm"] == 2650.0
+
+
+def test_block_attrib_level_collected(tmp_path):
+    """块内属性（INSERT attrib，tag LVL）同样进标高映射，坐标取 INSERT 点。"""
+    doc = _plan(tmp_path)
+    doc.layers.add("CEILING-ANNO")
+    blk = doc.blocks.new("LEVELBLK")
+    blk.add_attdef("LVL", insert=(0, 0))
+    msp = doc.modelspace()
+    ins = msp.add_blockref("LEVELBLK", (2000, 1500),
+                           dxfattribs={"layer": "CEILING-ANNO"})
+    ins.add_attrib("LVL", "+2450", insert=(2000, 1500),
+                   dxfattribs={"layer": "CEILING-ANNO"})
+    roles = resolve_roles(doc)
+    data = build_rooms(doc, roles, roles.bounds, TakeoffParams(floor_height_mm=2800))
+    by_name = {"".join(r["names"]): r for r in data["rooms"]}
+    assert by_name["客厅"]["ceiling_levels"] == [2450.0]
+    assert by_name["客厅"]["soffit_mm"] == 2450.0
+
+
+def test_build_rooms_doc_none_fallback(tmp_path):
+    """doc=None（纯几何单测）不得崩：三间房全部按结构净高兜底。"""
+    roles = resolve_roles(_plan(tmp_path))
+    data = build_rooms(None, roles, roles.bounds, TakeoffParams(floor_height_mm=2800))
+    assert len(data["rooms"]) == 3
+    for r in data["rooms"]:
+        assert r["ceiling_levels"] == []
+        assert r["soffit_mm"] == 2800.0
+        assert r["ceiling_drop_mm"] == 0.0
+        assert r["ceiling_min_mm"] == 2800.0
