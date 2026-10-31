@@ -8,7 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 DEFAULT_FLOOR_HEIGHT_MM = {'sample_flat': 2800.0, 'office': 3000.0, 'showroom': 4000.0}
-NO_DEFAULT_TYPES = frozenset({'mall', 'hotel'})
 
 
 @dataclass
@@ -32,7 +31,11 @@ class TakeoffParams:
         return self.floor_height_mm or DEFAULT_FLOOR_HEIGHT_MM.get(self.project_type)
 
     def height_source(self) -> str:
-        return '用户填写' if self.floor_height_mm else '业态默认'
+        if self.floor_height_mm:
+            return '用户填写'
+        if self.effective_floor_height_mm() is not None:
+            return '业态默认'
+        return '待填写'
 
 
 @dataclass

@@ -103,9 +103,42 @@ def test_requires_floor_height_only_for_mall_hotel_and_unknown():
     assert TakeoffParams(project_type='showroom').requires_floor_height() is False
 
 
+def test_gate_opens_once_floor_height_supplied():
+    """闸门只看“是否已给出层高”：无默认业态一旦填写即放行，无需改 project_type。"""
+    assert TakeoffParams(project_type='mall', floor_height_mm=3200).requires_floor_height() is False
+    assert TakeoffParams(project_type='hotel', floor_height_mm=3200).requires_floor_height() is False
+
+
+def test_effective_floor_height_prefers_user_input_then_type_default():
+    assert TakeoffParams(project_type='sample_flat').effective_floor_height_mm() == 2800.0
+    assert TakeoffParams(project_type='showroom').effective_floor_height_mm() == 4000.0
+    assert TakeoffParams(project_type='office').effective_floor_height_mm() == 3000.0
+    # mall/hotel 无业态默认：未填写时必须为 None，不得伪造层高
+    assert TakeoffParams(project_type='mall').effective_floor_height_mm() is None
+    assert TakeoffParams(project_type='sample_flat', floor_height_mm=3200
+                         ).effective_floor_height_mm() == 3200
+
+
+def test_height_source_never_fakes_business_type_default():
+    """来源字符串会进客户行，无默认值时必须是“待填写”而不是“业态默认”。"""
+    assert TakeoffParams(project_type='mall', floor_height_mm=3200).height_source() == '用户填写'
+    assert TakeoffParams(project_type='sample_flat').height_source() == '业态默认'
+    assert TakeoffParams(project_type='mall').height_source() == '待填写'
+    assert TakeoffParams(project_type='hotel').height_source() == '待填写'
+    assert TakeoffParams(project_type='lobby').height_source() == '待填写'   # 未知业态同待遇
+
+
 def test_coverage_mark_and_rows():
     c = Coverage()
     c.mark('客厅', '地面', '有源', 'dxf')
     c.mark('客厅', '墙面', '待参数')
     rows = c.rows()
     assert {'space': '客厅', 'part': '墙面', 'status': '待参数', 'source': None} in rows
+    assert len(rows) == 2
+
+    # 同键再标记＝覆盖（不追加）：定稿底图重跑时同一格不得出现两行
+    c.mark('客厅', '墙面', '有源', 'dxf')
+    rows = c.rows()
+    assert len(rows) == 2
+    assert {'space': '客厅', 'part': '墙面', 'status': '有源', 'source': 'dxf'} in rows
+    assert {'space': '客厅', 'part': '墙面', 'status': '待参数', 'source': None} not in rows
