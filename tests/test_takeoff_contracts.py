@@ -27,3 +27,16 @@ def test_phase_a_columns_exist(tmp_path):
         assert "manual_pinned" in {c["name"] for c in insp.get_columns("measurements")}
         cols = {c["name"]: c for c in insp.get_columns("measurements")}
         assert cols["manual_pinned"]["nullable"] is True
+
+
+def test_project_type_vocabulary_contract():
+    """设计 §5.2：业态枚举 5 类，商场/酒店无默认层高，列默认值为 sample_flat。"""
+    from app.models import PROJECT_TYPES, Project
+
+    assert [t[0] for t in PROJECT_TYPES] == [
+        "sample_flat", "showroom", "mall", "hotel", "office",
+    ]
+    heights = {pt_id: fh for pt_id, _name, fh in PROJECT_TYPES}
+    assert heights["mall"] is None
+    assert heights["hotel"] is None
+    assert Project.project_type.default.arg == "sample_flat"

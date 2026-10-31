@@ -37,14 +37,15 @@ def new_project():
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
         address = request.form.get('address', '').strip()
-        project_type = request.form.get('project_type', 'residential')
+        project_type = request.form.get('project_type', 'sample_flat')
 
         if not name:
             flash('请输入项目名称。', 'danger')
             return render_template('project_new.html')
 
         # Get default floor height for project type
-        floor_height = 2.80
+        # 商场/酒店无默认层高（None），处理时再向用户索取
+        floor_height = None
         for pt_id, pt_name, fh in PROJECT_TYPES:
             if pt_id == project_type:
                 floor_height = fh

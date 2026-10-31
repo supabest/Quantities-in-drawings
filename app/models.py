@@ -37,10 +37,11 @@ CONFIDENCE_LEVELS = {
 }
 
 PROJECT_TYPES = [
-    ('residential', '住宅/样板房', 2.80),
-    ('commercial', '商业/办公', 3.00),
-    ('lobby', '大堂/门厅', 4.50),
+    ('sample_flat', '样板房', 2.80),
     ('showroom', '售楼部/展厅', 4.00),
+    ('mall', '商场', None),
+    ('hotel', '酒店', None),
+    ('office', '办公', 3.00),
 ]
 
 # Base layer requirements per surface material
@@ -114,7 +115,7 @@ class Project(db.Model):
     name = db.Column(db.String(128), nullable=False)
     description = db.Column(db.Text)
     address = db.Column(db.String(256))
-    project_type = db.Column(db.String(32), default='residential')  # residential/commercial/lobby/showroom
+    project_type = db.Column(db.String(32), default='sample_flat')  # sample_flat/showroom/mall/hotel/office
     default_floor_height = db.Column(db.Float, default=2.80)
     takeoff_params = db.Column(db.Text, nullable=True)  # JSON：seals/参数假设等
     drawing_type = db.Column(db.String(32), default='floor_plan')
