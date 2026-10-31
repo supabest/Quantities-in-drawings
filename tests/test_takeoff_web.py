@@ -761,3 +761,425 @@ def test_web_chain_227_sealed_values(web_env):
         for div in (1, 2, 3, 5):
             assert abs(s2[div] - s1[div]) < 1e-6, (div, s1[div], s2[div])
         assert s2[4] == s1[4]
+
+
+# ── Tier A+：脱敏小样走完整 HTTP 链（缺陷 #8/#9 回归钉） ─────────────
+FIXTURE_DXF = os.path.join(BASE, "tests", "fixtures", "minimal_flat.dxf")
+
+
+def _login_client(app):
+    c = app.test_client()
+    resp = c.post("/auth/login", data={
+        "email": app.config["ADMIN_EMAIL"],
+        "password": app.config["ADMIN_PASSWORD"],
+    })
+    assert resp.status_code in (200, 302)
+    return c
+
+
+def _upload_fixture(client, pid):
+    with open(FIXTURE_DXF, "rb") as fh:
+        return client.post("/api/upload", data={
+            "project_id": str(pid),
+            "files": (fh, "minimal_flat.dxf"),
+        }, content_type="multipart/form-data")
+
+
+def _flat_sums(rows):
+    """HTTP 返回的 Measurement dict 列表 → 与 _division_sums 同口径。"""
+    sums = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0, 5: 0.0}
+    for m in rows:
+        if m["division_id"] in (1, 2, 3):
+            sums[m["division_id"]] += m["area"] or 0.0
+        elif m["division_id"] == 4:
+            sums[4] += m["count"] or 0
+        elif m["division_id"] == 5:
+            sums[5] += m["length"] or 0.0
+    return sums
+
+
+def test_minimal_fixture_http_chain(web_env):
+    """上传脱敏小样 → process → 读落库行断言值；再算一次不叠加。
+
+    小样三间共享墙净空 4400/3400/1800×3000；围合栅格线宽 180mm 且按 20mm
+    栅格取整，实测净尺寸每边比标称内净空小 110mm（图纸内净空是 28.80 m²，
+    引擎栅格净是 24.85 m²）——**断言取引擎栅格口径**，标称值只用于说明
+    差额来源，不代表制图真值。天棚同值，墙面 Σ边长×2.78（业态默认层高），
+    踢脚 Σ周长−门洞，1 樘门。
+    """
+    app, pid, _ = web_env
+    client = _login_client(app)
+
+    up = _upload_fixture(client, pid)
+    assert up.status_code == 200, up.get_data(as_text=True)[:500]
+    body = up.get_json()
+    assert body["success"] and body["count"] == 1, body
+
+    first = client.post("/api/process/%d" % pid)
+    assert first.status_code == 200, first.get_data(as_text=True)[:500]
+    rows = client.get("/api/measurements/%d" % pid).get_json()["measurements"]
+    s1 = _flat_sums(rows)
+    assert abs(s1[1] - 24.85) <= TOL, s1
+    assert abs(s1[3] - 24.85) <= TOL, s1
+    assert abs(s1[2] - 94.2) <= TOL, s1
+    assert abs(s1[5] - 33.42) <= TOL, s1
+    assert s1[4] == 1, s1
+    floors = [m for m in rows if m["division_id"] == 1]
+    assert len(floors) == 3 and all("未命名" not in m["label"] for m in floors), floors
+    n1 = len(rows)
+
+    second = client.post("/api/process/%d" % pid)
+    assert second.status_code == 200, second.get_data(as_text=True)[:500]
+    rows2 = client.get("/api/measurements/%d" % pid).get_json()["measurements"]
+    s2 = _flat_sums(rows2)
+    assert len(rows2) == n1
+    for div in (1, 2, 3, 5):
+        assert abs(s2[div] - s1[div]) < 1e-6, (div, s1[div], s2[div])
+    assert s2[4] == s1[4]
+
+
+def test_pinned_row_survives_recompute_with_diff_note(web_env):
+    """钉定行整行冻结：重算保留原值、不重复出条目，差异写进 remarks/data_json。
+
+    规格 §2.2：机器算出不同值不覆盖，只记「机器重算值 X ≠ 钉定值 Y」。
+    """
+    app, pid, _ = web_env
+    client = _login_client(app)
+    assert _upload_fixture(client, pid).get_json()["success"]
+    assert client.post("/api/process/%d" % pid).status_code == 200
+
+    with app.app_context():
+        from app import db
+        from app.models import Measurement
+
+        m = Measurement.query.filter_by(
+            project_id=pid, division_id=1, label="客厅-地面").one()
+        m.area = 99.0          # 模拟人工改过的量
+        m.manual_pinned = True
+        db.session.commit()
+        mid = m.id
+
+    assert client.post("/api/process/%d" % pid).status_code == 200
+
+    with app.app_context():
+        from app.models import Measurement
+
+        rows = Measurement.query.filter_by(project_id=pid).all()
+        kept = [m for m in rows if m.id == mid]
+        assert len(kept) == 1, "钉定行被重算清掉"
+        assert kept[0].area == 99.0, "钉定值被机器覆盖"
+        note = "机器重算值 11.62 ≠ 钉定值 99（本轮未覆盖，待复核）"
+        assert note in (kept[0].remarks or ""), kept[0].remarks
+        pin = json.loads(kept[0].data_json)["pin"]
+        assert abs(pin["machine_recompute"] - 11.62) < 1e-9, pin
+        assert pin.get("at") and pin.get("by"), pin
+        # 钉定行已代表该条目：机器行不得再出一条同名行（否则清单翻倍）
+        assert sum(1 for m in rows if m.label == "客厅-地面") == 1
+
+    # 再算一轮：提示只描述本轮，不得逐轮累积
+    assert client.post("/api/process/%d" % pid).status_code == 200
+    with app.app_context():
+        from app.models import Measurement
+
+        assert (Measurement.query.get(mid).remarks or "").count("机器重算值") == 1
+
+    # 人工值追平机器值：过期提示与 pin 记录都必须清掉（不留假差异）
+    with app.app_context():
+        from app import db
+        from app.models import Measurement
+
+        m = Measurement.query.get(mid)
+        m.area = 11.62
+        db.session.commit()
+
+    assert client.post("/api/process/%d" % pid).status_code == 200
+    with app.app_context():
+        from app.models import Measurement
+
+        m = Measurement.query.get(mid)
+        assert "机器重算值" not in (m.remarks or ""), m.remarks
+        assert "pin" not in json.loads(m.data_json or "{}"), m.data_json
+        assert m.area == 11.62
+
+
+def test_pinned_row_survives_when_drawing_removed(web_env):
+    """底图撤掉后重算：钉定行保留、上一轮差异提示清掉（无同名机器行可比）。"""
+    app, pid, _ = web_env
+    client = _login_client(app)
+    assert _upload_fixture(client, pid).get_json()["success"]
+    assert client.post("/api/process/%d" % pid).status_code == 200
+
+    with app.app_context():
+        from app import db
+        from app.models import Measurement
+
+        m = Measurement.query.filter_by(
+            project_id=pid, division_id=1, label="客厅-地面").one()
+        m.area = 99.0
+        m.manual_pinned = True
+        db.session.commit()
+        mid = m.id
+
+    assert client.post("/api/process/%d" % pid).status_code == 200
+    with app.app_context():
+        from app.models import Measurement
+
+        assert "机器重算值" in (Measurement.query.get(mid).remarks or "")
+
+    with app.app_context():
+        from app import db
+        from app.models import Drawing, Measurement, Project
+        from app.processing import process_project
+
+        Drawing.query.filter_by(project_id=pid).delete()
+        db.session.commit()
+        p = Project.query.get(pid)
+        process_project(p, [])          # 无底图：只清非钉行，不产几何行
+        db.session.commit()
+
+        kept = Measurement.query.get(mid)
+        assert kept is not None and kept.area == 99.0, kept
+        assert "机器重算值" not in (kept.remarks or ""), kept.remarks
+        assert "pin" not in json.loads(kept.data_json or "{}"), kept.data_json
+
+
+def test_pinned_room_does_not_duplicate_derived_rows(web_env):
+    """图片路径：钉定房行后重算，派生分部（墙/天棚/踢脚）不得各出两套。
+
+    房间行在 Phase 1 重出，派生分部在 Phase 3 才按 div1 行生成；若钉定对账
+    只在末尾做，钉定房行与机器房行会各派生一套 → 清单翻倍。本用例钉死
+    「对账必须先于派生」这一顺序。
+    """
+    import cv2
+    import numpy as np
+
+    app, pid, _ = web_env
+    up = app.config["UPLOAD_FOLDER"]
+    img = np.full((620, 620, 3), 255, np.uint8)
+    # 尺寸取在 15 m² 分类界两侧：外轮廓 15.21→主卧、内轮廓 13.99→次卧，
+    # 避免同心双轮廓被判成同名（图片路径无 #comp_id，同名会触发归档歧义）。
+    cv2.rectangle(img, (40, 40), (422, 422), (0, 0, 0), 8)
+    cv2.imwrite(os.path.join(up, "plan.png"), img)
+
+    with app.app_context():
+        from app import db
+        from app.models import Drawing, Measurement, Project
+        from app.processing import process_project
+
+        db.session.add(Drawing(filename="plan.png", original_name="plan.png",
+                               file_type="png", drawing_type="floor_plan",
+                               project_id=pid))
+        db.session.commit()
+        p = Project.query.get(pid)
+        process_project(p, p.drawings.all())
+
+        rooms = Measurement.query.filter_by(project_id=pid, division_id=1).all()
+        room = max(rooms, key=lambda m: m.area or 0)   # 取真实房间（排除图外圈误检）
+        label = room.label
+        room.area = 99.0
+        room.manual_pinned = True
+        db.session.commit()
+        rid = room.id
+
+        process_project(p, p.drawings.all())
+        db.session.commit()
+
+        rows = Measurement.query.filter_by(project_id=pid).all()
+        assert sum(1 for m in rows if m.label == label) == 1, [m.label for m in rows]
+        for suffix in ("墙面", "天棚", "踢脚线"):
+            n = sum(1 for m in rows if m.label == "%s-%s" % (label, suffix))
+            assert n == 1, (suffix, n, [m.label for m in rows])
+        kept = Measurement.query.get(rid)
+        assert kept.area == 99.0
+        assert "机器重算值" in (kept.remarks or ""), kept.remarks
+
+
+def test_pinned_note_cleared_with_chinese_separator(web_env):
+    """用户备注以中文分号收尾时，上一轮提示也必须剥掉（否则逐轮累积）。"""
+    app, pid, _ = web_env
+    with app.app_context():
+        from app import db
+        from app.core.takeoff import reconcile_pinned
+        from app.models import Measurement, Project
+
+        m = Measurement(project_id=pid, division_id=1, label="过厅-地面",
+                        category="dxf_floor", unit="m²", area=1.0,
+                        manual_pinned=True)
+        db.session.add(m)
+        db.session.commit()
+        m.remarks = "现场实测；机器重算值 1 ≠ 钉定值 2（本轮未覆盖，待复核）"
+        db.session.commit()
+
+        reconcile_pinned(Project.query.get(pid), [])
+        db.session.commit()
+        assert m.remarks == "现场实测", m.remarks
+
+
+def test_reconcile_pinned_twin_selection(web_env):
+    """同名多条：只删 position_desc 精确匹配的一条；歧义/无量分支保留待核对。"""
+    app, pid, _ = web_env
+    with app.app_context():
+        from app import db
+        from app.core.takeoff import reconcile_pinned
+        from app.models import Measurement, Project
+
+        def machine(desc, area):
+            return Measurement(project_id=pid, division_id=1, label="次卧-地面",
+                               category="dxf_floor", unit="m²", area=area,
+                               position_desc=desc)
+
+        a = machine("05平面围合 comp_id=1", 8.0)
+        b = machine("05平面围合 comp_id=2", 9.0)
+        db.session.add_all([a, b])
+        pinned = Measurement(project_id=pid, division_id=1, label="次卧-地面",
+                             category="dxf_floor", unit="m²", area=8.5,
+                             position_desc="05平面围合 comp_id=1",
+                             manual_pinned=True)
+        db.session.add(pinned)
+        db.session.commit()
+        a_id = a.id
+
+        reconcile_pinned(Project.query.get(pid), [a, b])
+        db.session.commit()
+        left = Measurement.query.filter_by(
+            project_id=pid, label="次卧-地面").all()
+        assert sorted(x.area for x in left) == [8.5, 9.0], [(x.id, x.area) for x in left]
+        assert a_id not in [x.id for x in left], "position_desc 匹配的那条才可删"
+
+        # 钉定行自身无量：删掉机器行但必须把机器值写进提示与 pin（不静默丢量）
+        m = Measurement(project_id=pid, division_id=5, label="次卧-踢脚线",
+                        category="dxf_baseboard", unit="m", length=None,
+                        position_desc="P", manual_pinned=True)
+        twin = Measurement(project_id=pid, division_id=5, label="次卧-踢脚线",
+                           category="dxf_baseboard", unit="m", length=12.0,
+                           position_desc="P")
+        db.session.add_all([m, twin])
+        db.session.commit()
+
+        reconcile_pinned(Project.query.get(pid), [twin])
+        db.session.commit()
+        kept = Measurement.query.filter_by(
+            project_id=pid, division_id=5).all()
+        assert [x.manual_pinned for x in kept] == [True], kept
+        assert "钉定值缺失" in (m.remarks or ""), m.remarks
+        assert json.loads(m.data_json)["pin"]["machine_recompute"] == 12.0
+
+        # 人工补填量并追平机器值：缺失提示与 pin 必须清掉（提示不得滞留）
+        m.length = 12.0
+        twin2 = Measurement(project_id=pid, division_id=5, label="次卧-踢脚线",
+                            category="dxf_baseboard", unit="m", length=12.0,
+                            position_desc="P")
+        db.session.add(twin2)
+        db.session.commit()
+
+        reconcile_pinned(Project.query.get(pid), [twin2])
+        db.session.commit()
+        assert "钉定值缺失" not in (m.remarks or ""), m.remarks
+        assert "pin" not in json.loads(m.data_json or "{}"), m.data_json
+
+        # 同名同位置多条（图片路径同名房间）：无法分辨，不删任何行、不写假差异
+        a = Measurement(project_id=pid, division_id=1, label="主卧-地面",
+                        category="dxf_floor", unit="m²", area=8.0,
+                        position_desc="同位置")
+        b = Measurement(project_id=pid, division_id=1, label="主卧-地面",
+                        category="dxf_floor", unit="m²", area=9.0,
+                        position_desc="同位置")
+        db.session.add_all([a, b])
+        amb = Measurement(project_id=pid, division_id=1, label="主卧-地面",
+                          category="dxf_floor", unit="m²", area=8.0,
+                          position_desc="同位置", manual_pinned=True)
+        db.session.add(amb)
+        db.session.commit()
+
+        reconcile_pinned(Project.query.get(pid), [a, b])
+        db.session.commit()
+        assert Measurement.query.filter_by(
+            project_id=pid, division_id=1, label="主卧-地面").count() == 3
+        assert "机器重算值" not in (amb.remarks or "")
+
+        # 位置对不上且候选多条：同样不猜、不删
+        t1 = Measurement(project_id=pid, division_id=1, label="餐厅-地面",
+                         category="dxf_floor", unit="m²", area=8.0,
+                         position_desc="东侧")
+        t2 = Measurement(project_id=pid, division_id=1, label="餐厅-地面",
+                         category="dxf_floor", unit="m²", area=9.0,
+                         position_desc="西侧")
+        db.session.add_all([t1, t2])
+        mis = Measurement(project_id=pid, division_id=1, label="餐厅-地面",
+                          category="dxf_floor", unit="m²", area=10.0,
+                          position_desc="北侧", manual_pinned=True)
+        db.session.add(mis)
+        db.session.commit()
+
+        reconcile_pinned(Project.query.get(pid), [t1, t2])
+        db.session.commit()
+        assert Measurement.query.filter_by(
+            project_id=pid, division_id=1, label="餐厅-地面").count() == 3
+
+        # 机器行自身无量：保留不删（无值可记），且不得因 round(None) 崩溃
+        nq_pin = Measurement(project_id=pid, division_id=5, label="书房-踢脚线",
+                             category="dxf_baseboard", unit="m", length=5.0,
+                             position_desc="Q", manual_pinned=True)
+        nq_twin = Measurement(project_id=pid, division_id=5, label="书房-踢脚线",
+                              category="dxf_baseboard", unit="m", length=None,
+                              position_desc="Q")
+        db.session.add_all([nq_pin, nq_twin])
+        db.session.commit()
+
+        reconcile_pinned(Project.query.get(pid), [nq_twin])
+        db.session.commit()
+        assert Measurement.query.filter_by(
+            project_id=pid, division_id=5, label="书房-踢脚线").count() == 2
+        assert "机器重算值" not in (nq_pin.remarks or "")
+
+
+def test_measurements_banner_for_missing_floor_height(web_env):
+    """清单页横幅：无依据默认层高 → 横幅；有依据（业态默认/用户填写）→ 无横幅。"""
+    app, pid, _ = web_env
+    client = _login_client(app)
+
+    with app.app_context():
+        from app import db
+        from app.models import Project
+
+        p = Project.query.get(pid)
+        p.project_type = "mall"
+        p.default_floor_height = None
+        p.takeoff_params = None
+        db.session.commit()
+
+    data = client.get("/api/measurements/%d" % pid).get_json()
+    assert any("层高" in b for b in data.get("banners") or []), data
+    page = client.get("/project/%d/boq" % pid)
+    assert page.status_code == 200
+    assert "墙面分部未计量" in page.get_data(as_text=True)
+
+    # 依据一：业态默认表（sample_flat 2.80m）——Project 列不填也不算缺参数
+    with app.app_context():
+        from app import db
+        from app.models import Project
+
+        p = Project.query.get(pid)
+        p.project_type = "sample_flat"
+        p.default_floor_height = None
+        db.session.commit()
+
+    data = client.get("/api/measurements/%d" % pid).get_json()
+    assert data.get("banners") == [], data
+    page = client.get("/project/%d/boq" % pid)
+    assert "墙面分部未计量" not in page.get_data(as_text=True)
+
+    # 依据二：无业态默认但用户已填参数（商场 3.20m）
+    with app.app_context():
+        from app import db
+        from app.models import Project
+
+        p = Project.query.get(pid)
+        p.project_type = "mall"
+        p.takeoff_params = json.dumps({"floor_height_mm": 3200})
+        db.session.commit()
+
+    data = client.get("/api/measurements/%d" % pid).get_json()
+    assert data.get("banners") == [], data
+    page = client.get("/project/%d/boq" % pid)
+    assert "墙面分部未计量" not in page.get_data(as_text=True)

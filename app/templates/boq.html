@@ -34,6 +34,14 @@
     </div>
 </div>
 
+{% if banners %}
+<div class="card" style="border-left: 4px solid #ff4d4f;">
+    <div class="card-body">
+        {% for banner in banners %}<div>⚠️ {{ banner }}</div>{% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if not measurements %}
 <div class="empty-state">
     <div class="empty-icon">📋</div>

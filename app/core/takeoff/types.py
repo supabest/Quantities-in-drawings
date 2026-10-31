@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 DEFAULT_FLOOR_HEIGHT_MM = {'sample_flat': 2800.0, 'office': 3000.0, 'showroom': 4000.0}
+MISSING_FLOOR_HEIGHT_BANNER = (
+    "该业态无依据的默认层高，无吊顶标高的房间墙面分部未计量，请补填层高后重算")
 
 
 @dataclass

@@ -32,7 +32,8 @@ from app.models import (
     CONFIDENCE_LEVELS
 )
 from app.core.takeoff import (
-    Issue, clear_previous_measurements, params_from_project, run as takeoff_run,
+    Issue, clear_previous_measurements, params_from_project, reconcile_pinned,
+    run as takeoff_run,
 )
 from app.core.takeoff.rows import to_measurement
 
@@ -98,9 +99,12 @@ def process_project(project, drawings):
 
     # Phase 1.2: DXF 几何主源（设计 §2.2：主源先落，先于 PDF/派生）
     dxf_result = takeoff_run(project, drawings, current_app.config['UPLOAD_FOLDER'])
+    dxf_measurements = []
     for row in dxf_result.rows:
         # rows.to_measurement 已负责 data_json['check'] 与图标列，不再另写映射
-        db.session.add(to_measurement(row, project.id))
+        m = to_measurement(row, project.id)
+        db.session.add(m)
+        dxf_measurements.append(m)
     dxf_divisions = {row.division_id for row in dxf_result.rows}
     for issue in dxf_result.issues:
         log = (current_app.logger.debug if issue.level == "info" else
@@ -122,6 +126,10 @@ def process_project(project, drawings):
         ms = _process_elevation(image_path, drawing, project, scale)
         all_measurements.extend(ms)
 
+    # 第一段钉定对账：赶在 Phase 3 派生之前删掉房间双胞胎，2/3/5/6 只按
+    # 钉定房行派生一套（否则钉定房行与机器房行会各派生一套，清单翻倍）。
+    reconcile_pinned(project, dxf_measurements + all_measurements)
+
     # Phase 3: Generate derived measurements (walls, baseboard, etc.)
     # 设计 §2.7：DXF 已有墙面/踢脚主源时，图片派生对应分部不落库。
     skip_divisions = {d for d in (2, 5) if d in dxf_divisions}
@@ -140,6 +148,15 @@ def process_project(project, drawings):
     # Phase 4: Generate hidden items (MEP, etc.)
     hidden = _generate_hidden_items(project)
     all_measurements.extend(hidden)
+
+    # 第二段对账：处理 Phase 3/4 才出现的机器行；第二段会剥掉第一段提示并按
+    # 本轮机器行重写（同一批对象结果一致），故这里统计的是最终提示条数。
+    pinned_changed = reconcile_pinned(
+        project, dxf_measurements + all_measurements)
+    if pinned_changed:
+        current_app.logger.info(
+            "钉定行差异 %d 条：机器值未覆盖钉定值，已记入 remarks 待复核",
+            pinned_changed)
 
     # Generate annotated images
     for drawing in drawing_map['floor_plan']:

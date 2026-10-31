@@ -11,7 +11,7 @@ from app.models import (
     SelfCheckItem, DIVISIONS, CONFIDENCE_LEVELS, SOURCE_TAGS, HIDDEN_ITEMS
 )
 from app.processing import process_project
-from app.core.takeoff import params_from_project
+from app.core.takeoff import MISSING_FLOOR_HEIGHT_BANNER, params_from_project
 
 api_bp = Blueprint('api', __name__)
 
@@ -304,7 +304,11 @@ def get_measurements(project_id):
         return jsonify({'success': False, 'error': '无权访问'}), 403
 
     measurements = project.measurements.order_by(Measurement.division_id).all()
-    return jsonify({'success': True, 'measurements': [m.to_dict() for m in measurements]})
+    banners = []
+    if params_from_project(project).requires_floor_height():
+        banners.append(MISSING_FLOOR_HEIGHT_BANNER)
+    return jsonify({'success': True, 'banners': banners,
+                    'measurements': [m.to_dict() for m in measurements]})
 
 
 @api_bp.route('/project/<int:project_id>/scale', methods=['POST'])

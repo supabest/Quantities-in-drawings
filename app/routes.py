@@ -10,6 +10,8 @@ from datetime import datetime
 import os
 import json
 
+from app.core.takeoff import MISSING_FLOOR_HEIGHT_BANNER, params_from_project
+
 main_bp = Blueprint('main', __name__)
 
 
@@ -177,6 +179,11 @@ def view_boq(project_id):
         Measurement.division_id, Measurement.id
     ).all()
 
+    # 缺层高时墙面分部不出数，必须在清单页可见（不得让用户以为已经量全）
+    banners = []
+    if params_from_project(project).requires_floor_height():
+        banners.append(MISSING_FLOOR_HEIGHT_BANNER)
+
     # Build 8-division structure
     divisions = []
     for div_id, div_name, unit, _ in DIVISIONS:
@@ -211,7 +218,8 @@ def view_boq(project_id):
 
     return render_template('boq.html', project=project, divisions=divisions,
                            measurements=measurements, pending=pending,
-                           conf_dist=conf_dist, DIVISIONS=DIVISIONS,
+                           conf_dist=conf_dist, banners=banners,
+                           DIVISIONS=DIVISIONS,
                            CONFIDENCE_LEVELS=CONFIDENCE_LEVELS,
                            PROJECT_TYPES=PROJECT_TYPES)
 

@@ -342,3 +342,51 @@ def test_ceiling_zones_chain_rerun_matches_seal():
     assert dc["machine_sum_m"] > dc["reproduced_span_m"], "机器 Σ 应大于逐字复现部分"
     # 几何字段全部来于机器，不得含人工录入痕迹
     assert all(r["provenance_geom"] == "MACHINE" for r in art["rows"])
+
+
+# ── Tier B：里程碑 A run() 单图管线 golden 快照（图纸不入库时跳过） ──
+GOLDEN = os.path.join(ROOT, "tests", "golden", "takeoff_227.json")
+DXF_227 = os.path.join(DRAWINGS, "05.227户型平面图 （施工图纸） rev-33.dxf")
+
+
+@pytest.mark.skipif(not os.path.isfile(DXF_227), reason="227 图纸未入库，仅本地可复算")
+@pytest.mark.slow
+def test_golden_snapshot_227_from_run():
+    """run() 复算六值 + 行数 = 脱敏 golden 快照，且无 warn/error 降级。
+
+    必须走 run() 的局部 roles（cluster 定稿后按簇范围重取），不能拿全局
+    roles 直接 build_rooms——模型空间里的多套平面复制会串几何。
+    """
+    import json
+    from types import SimpleNamespace
+
+    from app.core.takeoff import run
+
+    with open(GOLDEN, encoding="utf-8") as fh:
+        g = json.load(fh)
+    project = SimpleNamespace(
+        project_type="sample_flat",
+        default_floor_height=None,
+        scale_count=None,
+        takeoff_params=json.dumps(dict(g["params"], seals=g["seals"])),
+    )
+    name = os.path.basename(DXF_227)
+    drawing = SimpleNamespace(filename=name, original_name=name, is_base=None)
+    result = run(project, [drawing], DRAWINGS)
+
+    sums = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0, 5: 0.0}
+    for row in result.rows:
+        if row.division_id in (1, 2, 3, 5):
+            sums[row.division_id] += row.value or 0.0
+        elif row.division_id == 4:
+            sums[4] += int(row.value or 0)
+    tol = g["tolerance"]
+    assert abs(sums[1] - g["floor_m2"]) <= tol, sums
+    assert abs(sums[3] - g["ceiling_m2"]) <= tol, sums
+    assert abs(sums[2] - g["wall_m2"]) <= tol, sums
+    assert abs(sums[1] + sums[2] + sums[3] - g["total_m2"]) <= 0.02, sums
+    assert abs(sums[5] - g["skirting_m"]) <= tol, sums
+    assert sums[4] == g["openings_pcs"], sums
+    assert len(result.rows) == g["total_rows"], len(result.rows)
+    assert sum(1 for r in result.rows if r.division_id == 3) == g["ceiling_rows"]
+    assert not [i for i in result.issues if i.level in ("warn", "error")], result.issues
