@@ -11,6 +11,7 @@ from app.models import (
     SelfCheckItem, DIVISIONS, CONFIDENCE_LEVELS, SOURCE_TAGS, HIDDEN_ITEMS
 )
 from app.processing import process_project
+from app.core.takeoff import params_from_project
 
 api_bp = Blueprint('api', __name__)
 
@@ -104,6 +105,12 @@ def start_processing(project_id):
     drawings = project.drawings.all()
     if not drawings:
         return jsonify({'success': False, 'error': '没有可处理的图纸'}), 400
+
+    # 层高闸门：商场/酒店等无依据默认层高的业态，未填结构净高前不得计量。
+    params = params_from_project(project)
+    if params.requires_floor_height():
+        return jsonify({'success': False,
+                        'error': '该业态无依据的默认层高，请先填写结构净高'}), 400
 
     # Check if historical reference was prompted
     if not project.historical_ref_prompted:

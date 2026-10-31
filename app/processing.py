@@ -31,6 +31,10 @@ from app.models import (
     BASE_LAYER_RULES, HIDDEN_ITEMS, SOURCE_TAGS,
     CONFIDENCE_LEVELS
 )
+from app.core.takeoff import (
+    Issue, clear_previous_measurements, run as takeoff_run,
+)
+from app.core.takeoff.rows import to_measurement
 
 # ── Constants ──
 
@@ -61,6 +65,9 @@ def process_project(project, drawings):
 
     Generates measurements organized by the 8-division system.
     """
+    # 缺陷 #8：先清上一轮识别产物，避免重算叠加虚高；钉定行/历史参照不删。
+    clear_previous_measurements(project)
+
     scale = project.scale or DEFAULT_PIXELS_PER_METER
     floor_height = project.default_floor_height or 2.80
 
@@ -86,6 +93,18 @@ def process_project(project, drawings):
         ms = _process_floor_plan(image_path, drawing, project, scale)
         all_measurements.extend(ms)
 
+    # Phase 1.2: DXF 几何主源（设计 §2.2：主源先落，先于 PDF/派生）
+    dxf_result = takeoff_run(project, drawings, current_app.config['UPLOAD_FOLDER'])
+    for row in dxf_result.rows:
+        # rows.to_measurement 已负责 data_json['check'] 与图标列，不再另写映射
+        db.session.add(to_measurement(row, project.id))
+    dxf_divisions = {row.division_id for row in dxf_result.rows}
+    for issue in dxf_result.issues:
+        log = (current_app.logger.debug if issue.level == "info" else
+               current_app.logger.warning if issue.level == "warn" else
+               current_app.logger.error)
+        log("takeoff issue %s: %s %s", issue.code, issue.message, issue.detail)
+
     # Phase 1.5: PDF semantic extraction (Phase 5c)
     pdf_drawings = [d for d in drawings if d.filename.lower().endswith('.pdf')]
     if pdf_drawings:
@@ -101,7 +120,18 @@ def process_project(project, drawings):
         all_measurements.extend(ms)
 
     # Phase 3: Generate derived measurements (walls, baseboard, etc.)
-    derived = _generate_derived_measurements(project, floor_height, scale)
+    # 设计 §2.7：DXF 已有墙面/踢脚主源时，图片派生对应分部不落库。
+    skip_divisions = {d for d in (2, 5) if d in dxf_divisions}
+    if skip_divisions:
+        suppressed = Issue(
+            "derived_rows_suppressed", "info",
+            "DXF 几何主源已覆盖分部 %s，本轮图片派生对应分部不落库"
+            % sorted(skip_divisions),
+            {"divisions": sorted(skip_divisions)})
+        current_app.logger.info("takeoff issue %s: %s",
+                                suppressed.code, suppressed.message)
+    derived = _generate_derived_measurements(
+        project, floor_height, scale, skip_divisions=skip_divisions)
     all_measurements.extend(derived)
 
     # Phase 4: Generate hidden items (MEP, etc.)
@@ -266,7 +296,8 @@ def _process_elevation(image_path, drawing, project, scale):
 # Phase 3: Derived Measurements (推算项目)
 # ════════════════════════════════════════════════════
 
-def _generate_derived_measurements(project, floor_height, scale, rooms=None):
+def _generate_derived_measurements(project, floor_height, scale, rooms=None,
+                                   skip_divisions=()):
     """Generate derived measurements based on floor plan analysis.
 
     - Division 2 (Walls): Wall area = perimeter × height - openings
@@ -277,12 +308,19 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None):
     Args:
         rooms: 指定参与计算的房间列表（Phase 2 区域级并行用）；
                None 时取项目全部分部1房间（Phase 1 行为不变）。
+        skip_divisions: 本轮不得派生的分部（设计 §2.7：DXF 几何主源已覆盖）；
+                       其它调用方默认空集，行为不变。
     """
     # Get existing room and door measurements
     if rooms is None:
         rooms = Measurement.query.filter_by(
             project_id=project.id, division_id=1
         ).all()
+    # DXF 房间（category=dxf_*）已由 Phase 1.2 直接出数，不能再派生一遍天棚
+    # （否则地面/天棚各 19.73 → 天棚变 39.46）。不能用 ~like('dxf_%')：
+    # category 为 NULL 时三值逻辑会把老行一起滤掉。
+    rooms = [m for m in rooms if not (m.category or "").startswith("dxf_")]
+    skip = set(skip_divisions or ())
 
     doors = Measurement.query.filter_by(
         project_id=project.id, division_id=4
@@ -305,7 +343,7 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None):
         openings_area = sum((d.length or 0) * (d.height or DEFAULT_DOOR_HEIGHT) for d in room_doors)
         wall_area = round(perimeter_m * floor_height - openings_area, 2)
 
-        if wall_area > 0:
+        if wall_area > 0 and 2 not in skip:
             m = Measurement(
                 label=f"{label}-墙面",
                 division_id=2,
@@ -353,7 +391,7 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None):
         cabinet_deduction = 1.5 if any(kw in label for kw in ['主卧', '次卧', '卧室']) else 0
         baseboard_length = round(perimeter_m - door_width_sum - cabinet_deduction, 2)
 
-        if baseboard_length > 0:
+        if baseboard_length > 0 and 5 not in skip:
             deduction_note = f"（扣门洞{door_width_sum}m"
             if cabinet_deduction > 0:
                 deduction_note += f"+固定柜{cabinet_deduction}m"
@@ -777,7 +815,10 @@ def _generate_hidden_items(project, rooms=None):
         bath_walls = Measurement.query.filter_by(
             project_id=project.id, division_id=2
         ).filter(Measurement.label.like('%卫生间%')).all()
-        bath_rooms = [r for r in rooms if '卫生间' in (r.label or '')]
+        # 防水=面积+周长×上翻：DXF 房间行不带 perimeter，按此式只能得到地面面积
+        # 的重复值，且分部 2 数值主源已归 DXF（设计 §2.7），不在此再派生。
+        bath_rooms = [r for r in rooms if '卫生间' in (r.label or '')
+                      and not (r.category or '').startswith('dxf_')]
         for br in bath_rooms:
             waterproof_area = round((br.area or 0) + (br.perimeter or 0) * 0.3, 2)
             m = Measurement(
