@@ -35,7 +35,7 @@
                         <option value="mall" {% if project.project_type == 'mall' %}selected{% endif %}>商场（无默认层高，计量前须填写）</option>
                         <option value="hotel" {% if project.project_type == 'hotel' %}selected{% endif %}>酒店（无默认层高，计量前须填写）</option>
                         <option value="office" {% if project.project_type == 'office' %}selected{% endif %}>办公（默认层高3.00m）</option>
-                        {% if project.project_type not in ['sample_flat','showroom','mall','hotel','office'] %}
+                        {% if project.project_type and project.project_type not in ['sample_flat','showroom','mall','hotel','office'] %}
                         <option value="{{ project.project_type }}" selected>{{ project.project_type }}（旧值，未迁移）</option>
                         {% endif %}
                     </select>

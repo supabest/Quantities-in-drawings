@@ -106,7 +106,7 @@ def main():
         project = Project.query.filter_by(name=PROJECT_NAME).first()
         if project is None:
             project = Project(name=PROJECT_NAME, user_id=admin.id,
-                              project_type="residential", default_floor_height=2.80,
+                              project_type="sample_flat", default_floor_height=2.80,
                               drawing_type="floor_plan", status="completed",
                               description=("227 户型(=210 户型别名)装修封账：地面 P1 / 墙面 P2 / "
                                            "天花 P3 + P3b 分级 / 固装 P4。数值全部几何自算，"

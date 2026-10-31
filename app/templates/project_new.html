@@ -63,5 +63,6 @@ function updateFloorHeight() {
     document.getElementById('default_floor_height_display').value = empty ? '待填写' : fh;
     document.getElementById('default_floor_height').value = empty ? '' : fh;
 }
+document.addEventListener('DOMContentLoaded', updateFloorHeight);
 </script>
 {% endblock %}

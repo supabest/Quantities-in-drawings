@@ -40,8 +40,9 @@
     <div class="meta">
         <p><strong>项目：</strong>{{ project.name }}</p>
         {% if project.address %}<p><strong>地址：</strong>{{ project.address }}</p>{% endif %}
-        <p><strong>项目类型：</strong>{{ {'residential':'住宅/样板房','commercial':'商业/办公','lobby':'大堂/门厅','showroom':'售楼部/展厅'}.get(project.project_type, project.project_type) }}</p>
-        <p><strong>默认层高：</strong>{{ project.default_floor_height }}m</p>
+        {% set type_labels = {'sample_flat':'样板房','showroom':'售楼部/展厅','mall':'商场','hotel':'酒店','office':'办公'} %}
+        <p><strong>项目类型：</strong>{% if project.project_type %}{{ type_labels.get(project.project_type, project.project_type) }}{% else %}未填写{% endif %}</p>
+        <p><strong>默认层高：</strong>{% if project.default_floor_height is not none %}{{ project.default_floor_height }}m{% else %}待填写{% endif %}</p>
         <p><strong>生成时间：</strong>{{ generated_at }}</p>
         <p><strong>清单项数：</strong>{{ summary.total_items }} 项</p>
     </div>

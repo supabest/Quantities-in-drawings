@@ -7,7 +7,7 @@ import sqlalchemy as sa
 from app import create_app, db
 
 
-def test_phase_a_columns_exist(tmp_path):
+def _make_app(tmp_path):
     class C:
         SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path}/t.db"
         SQLALCHEMY_ENGINE_OPTIONS = {"connect_args": {"timeout": 30}}
@@ -18,15 +18,25 @@ def test_phase_a_columns_exist(tmp_path):
         REPORTS_FOLDER = str(tmp_path / "rp")
         WTF_CSRF_ENABLED = False
 
-    app = create_app(C)
+    return create_app(C)
+
+
+def test_phase_a_columns_exist(tmp_path):
+    app = _make_app(tmp_path)
     with app.app_context():
         db.create_all()
         insp = sa.inspect(db.engine)
-        assert "is_base" in {c["name"] for c in insp.get_columns("drawings")}
-        assert "takeoff_params" in {c["name"] for c in insp.get_columns("projects")}
-        assert "manual_pinned" in {c["name"] for c in insp.get_columns("measurements")}
-        cols = {c["name"]: c for c in insp.get_columns("measurements")}
-        assert cols["manual_pinned"]["nullable"] is True
+        drawing_cols = {c["name"]: c for c in insp.get_columns("drawings")}
+        project_cols = {c["name"]: c for c in insp.get_columns("projects")}
+        measurement_cols = {c["name"]: c for c in insp.get_columns("measurements")}
+
+    assert "is_base" in drawing_cols
+    assert "takeoff_params" in project_cols
+    assert "manual_pinned" in measurement_cols
+    # 三列都必须可空：NULL 是“未人工指定/NULL 语义”的显式表达，不得退化为默认值
+    assert drawing_cols["is_base"]["nullable"] is True
+    assert project_cols["takeoff_params"]["nullable"] is True
+    assert measurement_cols["manual_pinned"]["nullable"] is True
 
 
 def test_project_type_vocabulary_contract():
@@ -37,6 +47,38 @@ def test_project_type_vocabulary_contract():
         "sample_flat", "showroom", "mall", "hotel", "office",
     ]
     heights = {pt_id: fh for pt_id, _name, fh in PROJECT_TYPES}
-    assert heights["mall"] is None
-    assert heights["hotel"] is None
+    assert heights == {
+        "sample_flat": 2.80,
+        "showroom": 4.00,
+        "mall": None,
+        "hotel": None,
+        "office": 3.00,
+    }
     assert Project.project_type.default.arg == "sample_flat"
+
+
+def test_explicit_null_floor_height_survives_insert(tmp_path):
+    """显式 None 不得被列默认值覆盖：商场/酒店创建后必须保持 NULL。
+
+    SQLAlchemy 的 Python 侧 `default=2.80` 在 INSERT 时对显式 None 也会生效，
+    因此本测试是 models.Project.default_floor_height 去掉 default 的回归闸门。
+    """
+    from app.models import Project, User
+
+    app = _make_app(tmp_path)
+    with app.app_context():
+        admin = User.query.filter_by(is_admin=True).first()
+        for project_type in ("mall", "hotel"):
+            project = Project(
+                name=f"{project_type}-project",
+                project_type=project_type,
+                default_floor_height=None,
+                user_id=admin.id,
+            )
+            db.session.add(project)
+            db.session.commit()
+            db.session.refresh(project)
+            assert project.default_floor_height is None, (
+                f"{project_type} 的显式 NULL 层高被默认值覆盖为 "
+                f"{project.default_floor_height!r}"
+            )

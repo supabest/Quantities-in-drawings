@@ -21,11 +21,13 @@
     <div class="card-body">
         <div class="info-grid">
             <div><strong>项目类型：</strong>
+                {% set type_ns = namespace(label='') %}
                 {% for pt_id, pt_name, _ in PROJECT_TYPES %}
-                    {% if pt_id == project.project_type %}{{ pt_name }}{% endif %}
+                    {% if pt_id == project.project_type %}{% set type_ns.label = pt_name %}{% endif %}
                 {% endfor %}
+                {{ type_ns.label or project.project_type or '未填写' }}
             </div>
-            <div><strong>默认层高：</strong>{{ project.default_floor_height }}m</div>
+            <div><strong>默认层高：</strong>{% if project.default_floor_height is not none %}{{ project.default_floor_height }}m{% else %}待填写{% endif %}</div>
             <div><strong>图纸数量：</strong>{{ project.drawings.count() }} 张</div>
             <div><strong>清单项数：</strong>{{ measurements|length }} 项</div>
         </div>

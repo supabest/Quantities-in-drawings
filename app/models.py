@@ -116,7 +116,7 @@ class Project(db.Model):
     description = db.Column(db.Text)
     address = db.Column(db.String(256))
     project_type = db.Column(db.String(32), default='sample_flat')  # sample_flat/showroom/mall/hotel/office
-    default_floor_height = db.Column(db.Float, default=2.80)
+    default_floor_height = db.Column(db.Float, nullable=True)  # 无列默认值：显式 NULL（商场/酒店）必须原样落库
     takeoff_params = db.Column(db.Text, nullable=True)  # JSON：seals/参数假设等
     drawing_type = db.Column(db.String(32), default='floor_plan')
     scale = db.Column(db.Float, default=1.0)

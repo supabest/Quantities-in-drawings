@@ -134,9 +134,16 @@ def edit_project(project_id):
         project.description = request.form.get('description', '').strip()
         project.address = request.form.get('address', '').strip()
         project.project_type = request.form.get('project_type', project.project_type)
-        fh = request.form.get('default_floor_height', type=float)
-        if fh and fh > 0:
-            project.default_floor_height = fh
+        # 表单显式提交该字段时以表单为准：空串=清空（商场/酒店），不再是“空串忽略”
+        if 'default_floor_height' in request.form:
+            raw = (request.form.get('default_floor_height') or '').strip()
+            if raw:
+                try:
+                    project.default_floor_height = float(raw)
+                except ValueError:
+                    flash('层高格式无效，已保留原值。', 'warning')
+            else:
+                project.default_floor_height = None
         db.session.commit()
         flash('项目信息已更新。', 'success')
         return redirect(url_for('main.project_detail', project_id=project.id))
@@ -205,7 +212,8 @@ def view_boq(project_id):
     return render_template('boq.html', project=project, divisions=divisions,
                            measurements=measurements, pending=pending,
                            conf_dist=conf_dist, DIVISIONS=DIVISIONS,
-                           CONFIDENCE_LEVELS=CONFIDENCE_LEVELS)
+                           CONFIDENCE_LEVELS=CONFIDENCE_LEVELS,
+                           PROJECT_TYPES=PROJECT_TYPES)
 
 
 @main_bp.route('/project/<int:project_id>/export.xlsx')
