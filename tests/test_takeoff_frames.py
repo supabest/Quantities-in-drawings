@@ -187,11 +187,27 @@ def test_link_gap_default_and_components():
     assert len(frames._components([a, b], gap=100)) == 2
 
 
+def test_components_big_box_fallback():
+    boxes = [(0, 0, 100, 100), (2000, 0, 2100, 100), (5.0e7, 2.0e8, 6.0e7, 3.0e8)]
+    groups = frames._components(boxes, gap=3000.0)
+    assert sorted(len(g) for g in groups) == [1, 2]      # 两个小盒 1900mm 相邻成组，巨型盒独立
+    groups = frames._components(boxes, gap=100.0)
+    assert sorted(len(g) for g in groups) == [1, 1, 1]
+    # 巨型盒包住两个小盒时必须全部连通
+    containing = [(-1000, -1000, 1.0e8, 1.0e8), (0, 0, 100, 100), (2000, 0, 2100, 100)]
+    assert len(frames._components(containing, gap=100.0)) == 1
+
+
 def test_label_on_boundary_counts():
     score, reasons = frames._score(["wall_solid"], [(100.0, 50.0, "x")],
                                    (100.0, 50.0, 200.0, 100.0))
     assert score == 3
     assert "label=1" in reasons
+
+
+def test_label_on_upper_right_boundary_counts():
+    score, reasons = frames._score(["wall_solid"], [(200.0, 100.0, "x")], (100.0, 50.0, 200.0, 100.0))
+    assert score == 3 and any(r.startswith("label=") for r in reasons)
 
 
 def _wall_rect(dx=0.0, dy=0.0):
