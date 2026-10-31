@@ -17,6 +17,8 @@ CLUSTER_ROLES = ("wall_solid", "wall_fin_part", "door", "window", "curb")
 # 图纸空间无主方向可言，wall_fin 不参与成簇也不计分
 PAPER_ROLES = ("wall_solid", "door", "window", "curb")
 BLOCK_DEPTH = 8
+# 超过该单元数的包围盒不进网格（跨千万单元的杂线会让网格与遍历爆炸），走线性回退
+BIG_CELLS = 64
 
 
 @dataclass
@@ -40,7 +42,12 @@ def _gap(a, b):
 
 
 def _components(boxes, gap=LINK_GAP_MM):
-    """包围盒连通分量：网格哈希只比较相邻单元的已登记盒，避免 O(n²) 全配对。"""
+    """包围盒连通分量：网格哈希只比较相邻单元的已登记盒，避免 O(n²) 全配对。
+
+    跨 BIG_CELLS 个单元以上的超大盒（如横跨 ±5e7 的杂线）登记进网格会让单元
+    遍历爆炸，改为与已见索引线性比较并单独记入 big 列表；后续普通盒也要与
+    big 逐个比较。两者合起来与暴力 O(n²) 并查集等价。
+    """
     parent = list(range(len(boxes)))
 
     def find(x):
@@ -56,9 +63,19 @@ def _components(boxes, gap=LINK_GAP_MM):
 
     cell = max(gap, 1.0)
     grid = {}
+    big = []
     for i, b in enumerate(boxes):
         cx0, cx1 = int(math.floor(b[0] / cell)), int(math.floor(b[2] / cell))
         cy0, cy1 = int(math.floor(b[1] / cell)), int(math.floor(b[3] / cell))
+        if (cx1 - cx0 + 1) * (cy1 - cy0 + 1) > BIG_CELLS:
+            for j in range(i):
+                if _gap(b, boxes[j]) <= gap:
+                    union(i, j)
+            big.append(i)
+            continue
+        for j in big:
+            if _gap(b, boxes[j]) <= gap:
+                union(i, j)
         seen = set()
         for cx in range(cx0 - 1, cx1 + 2):
             for cy in range(cy0 - 1, cy1 + 2):

@@ -1,6 +1,9 @@
 """Task 5：平面复制簇切分与底图选定。坐标单位 mm。"""
+import types
+
 import ezdxf
 
+from app.core.takeoff import frames
 from app.core.takeoff.frames import PlanCluster, cluster, pick_base
 from app.core.takeoff.layers import resolve_roles
 
@@ -142,3 +145,89 @@ def test_scoped_roles_match_cluster():
     scoped = resolve_roles(doc, scope_bounds=base.bounds)
     assert len(scoped.segments["wall_solid"]) == 8
     assert max(s[2] for s in scoped.segments["wall_solid"]) <= 4400
+
+
+def test_pick_base_no_clusters_errors():
+    base, issues = pick_base([])
+    assert base is None
+    assert len(issues) == 1
+    assert issues[0].code == "no_geometry"
+    assert issues[0].level == "error"
+
+
+def test_pick_base_pinned_false_is_skipped():
+    c = PlanCluster("model", (0.0, 0.0, 10.0, 10.0), 3, ["wall=1"], [])
+    base, issues = pick_base([c], pinned=False)
+    assert base is None
+    assert issues[0].code == "drawing_not_base"
+
+
+def test_paper_score_not_lower_than_model_warns():
+    doc = _doc()
+    _plan(doc.modelspace(), labels=False, doors=False, windows=False, curbs=False)
+    sheet = doc.layouts.new("Sheet")
+    _plan(sheet)
+
+    clusters = cluster(doc, resolve_roles(doc))
+    model = [c for c in clusters if c.source == "model"]
+    paper = [c for c in clusters if c.source == "paper"]
+    assert len(model) == 1 and model[0].score == 1
+    assert len(paper) == 1 and paper[0].score == 6
+
+    base, issues = pick_base(clusters)
+    assert base is model[0]
+    assert "paper_plan_not_consumable" in [i.code for i in issues]
+
+
+def test_link_gap_default_and_components():
+    assert frames.LINK_GAP_MM == 3000.0
+    a = (0.0, 0.0, 1000.0, 1000.0)
+    b = (3000.0, 0.0, 4000.0, 1000.0)          # 净距 2000mm
+    assert len(frames._components([a, b], gap=3000)) == 1
+    assert len(frames._components([a, b], gap=100)) == 2
+
+
+def test_label_on_boundary_counts():
+    score, reasons = frames._score(["wall_solid"], [(100.0, 50.0, "x")],
+                                   (100.0, 50.0, 200.0, 100.0))
+    assert score == 3
+    assert "label=1" in reasons
+
+
+def _wall_rect(dx=0.0, dy=0.0):
+    """4.4×3.4 的 200mm 双线墙围合（8 段），与 _plan 同口径。"""
+    segs = []
+    for y in (0.0, 200.0):
+        segs.append((dx, dy + y, dx + 4400.0, dy + y))
+    for y in (3200.0, 3400.0):
+        segs.append((dx, dy + y, dx + 4400.0, dy + y))
+    for x in (0.0, 200.0):
+        segs.append((dx + x, dy, dx + x, dy + 3400.0))
+    for x in (4200.0, 4400.0):
+        segs.append((dx + x, dy, dx + x, dy + 3400.0))
+    return segs
+
+
+def test_wall_fin_axial_does_not_bridge_copies():
+    roles = types.SimpleNamespace(
+        segments={"wall_solid": _wall_rect(0.0) + _wall_rect(50000.0),
+                  "wall_fin_axial": [(0.0, 0.0, 54400.0, 0.0)],
+                  "wall_fin_part": [], "door": [], "window": [], "curb": []},
+        labels=[])
+    assert len(frames._model_clusters(roles)) == 2
+
+
+def test_paper_layout_block_geometry_is_candidate():
+    doc = _doc()  # 模型空间为空
+    blk = doc.blocks.new("PLAN")
+    for s in _wall_rect():
+        blk.add_line((s[0], s[1]), (s[2], s[3]), dxfattribs={"layer": "WALL"})
+    sheet = doc.layouts.new("Sheet")
+    sheet.add_blockref("PLAN", (0, 0))
+
+    clusters = cluster(doc, resolve_roles(doc))
+    paper = [c for c in clusters if c.source == "paper"]
+    assert len(paper) == 1
+    assert paper[0].drawings == ["Sheet"]
+    assert paper[0].score == 1
+
