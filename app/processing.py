@@ -32,7 +32,7 @@ from app.models import (
     CONFIDENCE_LEVELS
 )
 from app.core.takeoff import (
-    Issue, clear_previous_measurements, run as takeoff_run,
+    Issue, clear_previous_measurements, params_from_project, run as takeoff_run,
 )
 from app.core.takeoff.rows import to_measurement
 
@@ -69,7 +69,10 @@ def process_project(project, drawings):
     clear_previous_measurements(project)
 
     scale = project.scale or DEFAULT_PIXELS_PER_METER
-    floor_height = project.default_floor_height or 2.80
+    # 层高按 TakeoffParams 口径取（业态默认/用户填写）；无依据时给 0，
+    # 派生的图片墙行自然为 0（wall_area > 0 闸门），不再拿 2.80 兜底冒充。
+    _height_mm = params_from_project(project).effective_floor_height_mm()
+    floor_height = _height_mm / 1000.0 if _height_mm else 0.0
 
     # Classify drawings by type. 光栅阶段只吃图片；PDF/DXF 走各自的矢量管线
     raster_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
@@ -819,6 +822,17 @@ def _generate_hidden_items(project, rooms=None):
         # 的重复值，且分部 2 数值主源已归 DXF（设计 §2.7），不在此再派生。
         bath_rooms = [r for r in rooms if '卫生间' in (r.label or '')
                       and not (r.category or '').startswith('dxf_')]
+        # DXF 卫生间行不带 perimeter，防水（地面+上翻）无法按算式计量：
+        # 显式披露，不计算、不造假（待大样图确认）。
+        dxf_bath_rooms = [r for r in rooms if '卫生间' in (r.label or '')
+                          and (r.category or '').startswith('dxf_')]
+        if dxf_bath_rooms:
+            bath_labels = [r.label for r in dxf_bath_rooms]
+            current_app.logger.warning(
+                "takeoff issue waterproof_dxf_room_unverified: 房间 %s；"
+                "DXF 房间行无 perimeter，防水（地面+上翻）本轮未计量，需大样确认；"
+                "labels=%s",
+                "、".join(bath_labels), bath_labels)
         for br in bath_rooms:
             waterproof_area = round((br.area or 0) + (br.perimeter or 0) * 0.3, 2)
             m = Measurement(

@@ -126,7 +126,13 @@ def test_openings_counted_by_physical_tatami_not_segments():
 
 
 def test_net_height_priority_soffit_office_default_fallback():
-    """净高优先级：吊顶净高 > 业态默认 > 兜底 2800（不得直传 floor_height 绕过业态）。"""
+    """净高优先级：吊顶净高 > 业态默认；待参数业态按**房间净高证据**逐间判。
+
+    T10 修复轮 I4 裁定：requires_floor_height 的业态（mall/hotel/未知）里，
+    无 ceiling_levels 的房间**整间不出墙面行**（不给分母、不拿兜底 2800 冒充），
+    有吊顶标高的房间照常用 soffit_mm 出墙。原用例 3「未知业态兜底 2800」按此裁定
+    已不成立，改为断言不出行 + 有标高时用标高。
+    """
     # 1) 吊顶净高 2600 → 14.00 × 2.600 = 36.4
     wall = [r for r in _synth(_box_rooms(soffit_mm=2600)) if r.division_id == 2][0]
     assert abs(wall.value - 36.4) <= 0.05
@@ -136,11 +142,16 @@ def test_net_height_priority_soffit_office_default_fallback():
             if r.division_id == 2][0]
     assert abs(wall.value - 42.0) <= 0.05
     assert "3.000" in wall.formula_text
-    # 3) 无 soffit、未知业态 → effective 为 None → 兜底 2800 → 39.2
-    wall = [r for r in _synth(_box_rooms(), params=TakeoffParams(project_type="mystery"))
+    # 3) 未知业态（requires_floor_height）且无 ceiling_levels → 无墙面行
+    rows = _synth(_box_rooms(), params=TakeoffParams(project_type="mystery"))
+    assert [r for r in rows if r.division_id == 2] == []
+    assert [r for r in rows if r.division_id in (1, 3, 5)]      # 非墙面分部照出
+    #    同业态有吊顶标高 → 用 soffit 出墙：14.00 × 2.750 = 38.5
+    wall = [r for r in _synth(_box_rooms(ceiling_levels=[2750.0], soffit_mm=2750.0),
+                              params=TakeoffParams(project_type="mystery"))
             if r.division_id == 2][0]
-    assert abs(wall.value - 39.2) <= 0.05
-    assert "2.800" in wall.formula_text
+    assert abs(wall.value - 38.5) <= 0.05
+    assert "2.750" in wall.formula_text
 
 
 # ---- Task 8：吊顶标高按 doc/bounds 提取 + 天棚造型/平顶列项（投影不展开） ----

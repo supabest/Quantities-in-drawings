@@ -5,7 +5,9 @@
   · 3 天棚列项：逐间吊顶标高 ≥2 级 → 跌级造型天花（特征披露灯槽/检修口），
     否则平顶刮腻子/涂料；两者都按水平投影计量、不展开（造型不放大面积）；
   · 2 墙面：Σ边长×净高 − 门宽×门高 − 窗宽×窗高；净高优先 room["soffit_mm"]，
-    否则 params.effective_floor_height_mm()（含业态默认），再否则 2800；
+    否则 params.effective_floor_height_mm()（含业态默认），再否则 2800。
+    业态缺层高（requires_floor_height）时**逐间**判：无 ceiling_levels 的房间
+    整间不出墙面行（coverage 记「待参数」），有吊顶标高的房间照常用 soffit_mm；
   · 5 踢脚：净周长 − 门洞总宽（窗不落地，不扣）；
   · 4 门窗洞口：按**物理洞口**计（每条 poly 边投影 opening_intervals →
     同类中点距 <300mm 去重），unit=樘，每洞口一行——不按线段条数计。
@@ -177,7 +179,11 @@ def rows_for_divisions(data, params):
         pos = "05平面围合 comp_id=%s" % comp
         rem_comp = "comp_id=%s;layer=围合面" % comp
         per = sum(e[4] for e in edges)
-        h_net, h_src = _net_height(room, params)
+        # 层高闸门按**房间净高证据**逐间判：业态无依据默认层高时，只有带吊顶
+        # 标高（ceiling_levels → soffit_mm）的房间才出墙面行；其余整间不出 div2，
+        # coverage 已同步记「待参数」。不得整批丢，也不得拿兜底高度冒充。
+        has_height = (not params.requires_floor_height()
+                      or bool(room.get("ceiling_levels")))
 
         # ---- 1 地面 / 3 天棚：围合净面积（鞋带可复算） ----
         area = round(float(room.get("area") or 0.0), 2)
@@ -207,17 +213,20 @@ def rows_for_divisions(data, params):
         # ---- 2 墙面：Σ边长×净高 − 门/窗洞口 ----
         door_w = min(sum(_opening_width(doors, e, False) for e in edges), per)
         win_w = min(sum(_opening_width(windows, e, True) for e in edges), per)
-        gross = per * h_net / 1e6
-        net = max(gross - door_w * door_h / 1e6 - win_w * win_h / 1e6, 0.0)
-        rows.append(Row(
-            2, "%s-墙面抹灰/腻子/涂料基层" % name, "dxf_wall", "m2", round(net, 2),
-            "净墙=Σ边{:.2f}×净高{:.3f} − 门{:.2f}×{:.2f} − 窗{:.2f}×{:.2f}".format(
-                per / 1e3, h_net / 1e3, door_w / 1e3, door_h / 1e3,
-                win_w / 1e3, win_h / 1e3),
-            pos, remarks=rem_comp + ";height=%s" % h_src,
-            source_tag="几何推算",
-            confidence_level="medium",
-            check={"gross_m2": round(gross, 2), "openings_m2": round(gross - net, 2)}))
+        if has_height:
+            h_net, h_src = _net_height(room, params)
+            gross = per * h_net / 1e6
+            net = max(gross - door_w * door_h / 1e6 - win_w * win_h / 1e6, 0.0)
+            rows.append(Row(
+                2, "%s-墙面抹灰/腻子/涂料基层" % name, "dxf_wall", "m2", round(net, 2),
+                "净墙=Σ边{:.2f}×净高{:.3f} − 门{:.2f}×{:.2f} − 窗{:.2f}×{:.2f}".format(
+                    per / 1e3, h_net / 1e3, door_w / 1e3, door_h / 1e3,
+                    win_w / 1e3, win_h / 1e3),
+                pos, remarks=rem_comp + ";height=%s" % h_src,
+                source_tag="几何推算",
+                confidence_level="medium",
+                check={"gross_m2": round(gross, 2),
+                       "openings_m2": round(gross - net, 2)}))
 
         # ---- 5 踢脚：净周长 − 门洞总宽（窗不落地） ----
         bb = max(per / 1e3 - door_w / 1e3, 0.0)

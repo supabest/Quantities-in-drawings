@@ -157,6 +157,9 @@ def start_processing(project_id):
         })
 
     except Exception as e:
+        # 先回滚：process_project 开头已 flush 过删除，直接 commit 会把上一轮
+        # 计量行永久删掉；回滚后旧行仍在，只落 status=failed。
+        db.session.rollback()
         project.status = 'failed'
         db.session.commit()
         return jsonify({'success': False, 'error': f'处理出错: {str(e)}'}), 500
