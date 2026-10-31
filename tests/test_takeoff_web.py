@@ -267,6 +267,18 @@ def test_phase3_skips_dxf_rooms_and_flagged_divisions(web_env):
         db.session.add(Measurement(
             project_id=pid, division_id=1, category="dxf_floor", label="DXF房间",
             area=7.0, perimeter=20.0, unit="m²"))
+        # 证据行与零面积行都不得派生天棚（否则 0m² 低置信行灌进待确认清单）；
+        # 旧库遗留的注记行可能仍带正面积，pdf_* 过滤必须独立生效。
+        db.session.add(Measurement(
+            project_id=pid, division_id=1, category="pdf_floor_area",
+            label="PDF面积标注: 客厅 20m²", area=None, unit="注记",
+            data_json=json.dumps({"check": {"note_m2": 20.0}})))
+        db.session.add(Measurement(
+            project_id=pid, division_id=1, category="pdf_floor_area",
+            label="旧注记残留", area=20.0, unit="注记"))
+        db.session.add(Measurement(
+            project_id=pid, division_id=1, category="room", label="零面积房间",
+            area=0.0, perimeter=12.0, unit="m²"))
         db.session.commit()
 
         derived = _generate_derived_measurements(
@@ -276,6 +288,52 @@ def test_phase3_skips_dxf_rooms_and_flagged_divisions(web_env):
         ceilings = [m for m in derived if m.division_id == 3]
         assert len(ceilings) == 1
         assert abs(ceilings[0].area - 10.0) < 1e-9
+        assert "图片房间" in ceilings[0].label
+
+
+def test_ceiling_formula_does_not_claim_floor_equality(web_env):
+    """图片路径的第3分部只能写「投影估算」，不得谎称天棚=地面（缺陷 #4）。"""
+    app, pid, uid = web_env
+    with app.app_context():
+        from app import db
+        from app.models import Measurement, Project
+        from app.processing import _generate_derived_measurements
+
+        db.session.add(Measurement(
+            project_id=pid, division_id=1, category="room", label="图片房间",
+            area=10.0, perimeter=14.0, unit="m²"))
+        db.session.commit()
+
+        fn = _generate_derived_measurements
+        assert "= 地面面积" not in (fn.__doc__ or "")
+        ceilings = [m for m in fn(Project.query.get(pid), 2.8, 1.0)
+                    if m.division_id == 3]
+        assert ceilings, "图片房间应派生天棚行"
+        for m in ceilings:
+            assert "天棚投影估算" in m.formula_text
+            # 旧谎言是「天棚面积 = 地面净面积 = X」；新式只能写近似，且不得编造校正量
+            assert "天棚面积 = 地面净面积" not in m.formula_text
+            assert "≈" in m.formula_text
+            assert "未作校正" in m.formula_text
+            assert "校正项" not in m.formula_text
+            assert "须以天花图复核" in m.formula_text
+            assert m.confidence_level == "low"
+            assert m.confidence_icon == "🔴"
+            assert m.confidence == pytest.approx(0.4)
+
+
+def test_pdf_area_note_not_booked():
+    """PDF 面积注记必须只作证据行（缺陷 #5）；行为断言见 test_pdf_semantics Tier A。"""
+    import inspect
+    from app import processing
+
+    src = inspect.getsource(processing._process_pdf_drawings)
+    note_block = src.split("# 面积注记", 1)[1]
+    assert "area=val" not in note_block, "面积注记仍在落 area"
+    assert "area=None" in note_block
+    assert "unit='注记'" in note_block
+    assert "'note_m2'" in note_block and "'check'" in note_block
+    assert "证据行·不计量" in note_block
 
 
 def _one_room_dxf(path, label_xy=(0, 1500)):

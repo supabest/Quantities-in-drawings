@@ -236,9 +236,13 @@ def test_pdf_semantics_persisted_with_project_id(tmp_path):
         assert any('天花布置图' in (m.position_desc or '') for m in stored)
 
         AREA_CATS = ('pdf_floor_area', 'pdf_wall_area', 'pdf_ceiling_area')
+        import json as _json
         areas = [m for m in stored if m.category in AREA_CATS]
         assert len(areas) == 3, [(m.category, m.area) for m in areas]
-        assert all(isinstance(m.area, float) and m.area > 0 for m in areas)
+        # 注记不是工程量：area 不落值，unit 标「注记」，原值留档在 data_json.check
+        assert all(m.area is None and m.unit == '注记' for m in areas)
+        assert all(_json.loads(m.data_json)['check']['note_m2'] > 0 for m in areas)
+        assert all('证据行·不计量' in (m.remarks or '') for m in areas)
         # 每行必须带计算式与可追溯位置（算量核心原则）
         assert all(m.formula_text and 'page=' in (m.remarks or '')
                    for m in areas)
@@ -251,7 +255,6 @@ def test_pdf_semantics_persisted_with_project_id(tmp_path):
         assert '合计口径' in merged[0].remarks
 
         # 分区行：候选证据，不落 area、带 WKT、引线归属到入账域
-        import json as _json
         from shapely import wkt as swkt
         zones = [m for m in stored if m.category == 'pdf_ceiling_zone']
         assert zones and all(m.area is None and m.unit == '候选' for m in zones)
@@ -288,6 +291,13 @@ def test_candidate_zone_area_must_not_book():
     ]) if '候选分区' in w]
     assert quiet == []
 
+    # 注记不再入账后 booked_area 可为 0：告警仍须出现，但不得写「远大于 0」
+    zero = [w for w in _check_reasonableness([
+        mk('pdf_ceiling_zone', None, _json.dumps({'area_m2': 10})),
+        mk('pdf_ceiling_area', None, _json.dumps({'check': {'note_m2': 20.0}})),
+    ]) if '候选分区' in w]
+    assert zero and '尚未入账' in zero[0], zero
+
 
 # ── Tier B：真实图纸收敛基准 ───────────────────────────────────────────
 @pytest.mark.skipif(not os.path.exists(PDF), reason='施工图纸 PDF 不在本地')
@@ -295,7 +305,8 @@ def test_full_set_dedup_convergence():
     """111 页整套图纸必须收敛到 376 行及既定分类分布。
 
     房间标签从 106 降到 72：说明句里的房间词被 ROOM_LABEL_NOISE 排除；
-    腾出的量由 s.m. 面积注记（地面 17 + 立面 4）补回，均为真实工程量。
+    s.m. 面积注记（地面 17 + 立面 4）保留为**证据行**（unit=注记、不计量），
+    不再直接补进分部合计——注记口径含墙/轴线注释，入账会污染工程量。
     """
     import config as _cfg
     from app import create_app, db
@@ -325,10 +336,16 @@ def test_full_set_dedup_convergence():
                         for m in rows if m.category == 'pdf_ceiling_zone'})
         assert pages == [12, 13, 14, 15, 46, 47, 48, 49, 50, 51, 52, 53]
 
+        import json as _json
         area_rows = [m for m in rows
                      if m.category in ('pdf_floor_area', 'pdf_wall_area')]
         assert len(area_rows) == 21
-        assert all(m.area and m.formula_text for m in area_rows)
+        # 注记只作证据：area 不落值、unit=注记，原值留在 data_json.check
+        assert all(m.area is None and m.unit == '注记' and m.formula_text
+                   for m in area_rows)
+        assert all(_json.loads(m.data_json)['check']['note_m2'] > 0
+                   for m in area_rows)
+        assert all('证据行·不计量' in (m.remarks or '') for m in area_rows)
         # 降级必须精确命中这两条：合并标签合计口径 + 图名与标签冲突
         lows = {m.label for m in area_rows if m.confidence_level == 'low'}
         assert lows == {'PDF面积标注: 客厅/茶室 65.6m²',
@@ -340,7 +357,6 @@ def test_full_set_dedup_convergence():
         assert all(m.area is None and m.unit == '候选' for m in zones)
         assert sum(m.area or 0 for m in rows if m.division_id == 3) == 0.0
 
-        import json as _json
         payloads = [_json.loads(m.data_json) for m in zones]
         assert all(swkt.loads(d['wkt']).area > 0 for d in payloads)
         assert all(d['crs'] == 'pdf_pt_y_down' for d in payloads)

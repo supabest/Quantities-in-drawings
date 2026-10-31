@@ -245,7 +245,11 @@ def _check_reasonableness(measurements):
                 continue
     booked_area = sum(m.area or 0 for m in measurements
                       if m.division_id == 3 and m.category != 'pdf_ceiling_zone')
-    if zone_area > 0 and zone_area > 3 * booked_area:
+    if zone_area > 0 and booked_area <= 0:
+        warnings.append(
+            f'⚠️ 天棚候选分区合计 {zone_area:.1f}m²，但尚未入账任何天棚量：'
+            f'分区为跨页候选证据，未去重前禁止计入清单')
+    elif zone_area > 3 * booked_area:
         warnings.append(
             f'⚠️ 天棚候选分区合计 {zone_area:.1f}m² 远大于已入账天棚量 '
             f'{booked_area:.1f}m²：分区为跨页候选证据，未去重前禁止计入清单')

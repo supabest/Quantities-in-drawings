@@ -304,7 +304,8 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None,
     """Generate derived measurements based on floor plan analysis.
 
     - Division 2 (Walls): Wall area = perimeter × height - openings
-    - Division 3 (Ceilings): Same as floor area (horizontal projection)
+    - Division 3 (Ceilings): Horizontal-projection estimate from floor net area;
+      the image path has no ceiling-boundary evidence, so flag low confidence
     - Division 5 (Baseboard): perimeter - door widths - cabinet widths
     - Division 6 (Fixed Cabinets): by room type
 
@@ -321,8 +322,10 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None,
         ).all()
     # DXF 房间（category=dxf_*）已由 Phase 1.2 直接出数，不能再派生一遍天棚
     # （否则地面/天棚各 19.73 → 天棚变 39.46）。不能用 ~like('dxf_%')：
-    # category 为 NULL 时三值逻辑会把老行一起滤掉。
-    rooms = [m for m in rooms if not (m.category or "").startswith("dxf_")]
+    # category 为 NULL 时三值逻辑会把老行一起滤掉。PDF 标签/注记只是证据行，
+    # 同样不是可派生的房间。
+    rooms = [m for m in rooms
+             if not (m.category or "").startswith(("dxf_", "pdf_"))]
     skip = set(skip_divisions or ())
 
     doors = Measurement.query.filter_by(
@@ -369,26 +372,31 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None,
             db.session.add(m)
             derived.append(m)
 
-        # ── Division 3: Ceiling Area (天棚面积 = 水平投影面积 = 地面面积) ──
-        m = Measurement(
-            label=f"{label}-天棚",
-            division_id=3,
-            category='ceiling',
-            area=area_m2,
-            perimeter=perimeter_m,
-            unit='m²',
-            source_tag='几何推算',
-            source_tag_icon='🔢',
-            confidence_level='high',
-            confidence_icon='🟢',
-            confidence=0.85,
-            position_desc=f"{label}-天花",
-            formula_text=f"天棚面积 = 地面净面积 = {area_m2}m²（水平投影）",
-            project_features="轻钢龙骨石膏板吊顶" if area_m2 > 20 else "平顶乳胶漆",
-            project_id=project.id
-        )
-        db.session.add(m)
-        derived.append(m)
+        # ── Division 3: Ceiling Area（图片路径只做水平投影估算） ──
+        # 图片路径没有天花边界证据，不能用地面净面积冒充天棚量：
+        # 露明顶/不同吊顶标高/外挑都可能让两者不等。
+        # 0 净面积不是房间：证据行/空行不得派生 0m² 天棚。
+        if area_m2 > 0:
+            m = Measurement(
+                label=f"{label}-天棚",
+                division_id=3,
+                category='ceiling',
+                area=area_m2,
+                perimeter=perimeter_m,
+                unit='m²',
+                source_tag='几何推算',
+                source_tag_icon='🔢',
+                confidence_level='low',
+                confidence_icon='🔴',
+                confidence=0.4,
+                position_desc=f"{label}-天花",
+                formula_text=(f"天棚投影估算 ≈ 地面净面积 {area_m2}m²"
+                              f"（未识别天花边界，未作校正；须以天花图复核）"),
+                project_features="轻钢龙骨石膏板吊顶" if area_m2 > 20 else "平顶乳胶漆",
+                project_id=project.id
+            )
+            db.session.add(m)
+            derived.append(m)
 
         # ── Division 5: Baseboard (踢脚线 = 净周长 - 门洞 - 固定柜) ──
         cabinet_deduction = 1.5 if any(kw in label for kw in ['主卧', '次卧', '卧室']) else 0
@@ -461,6 +469,7 @@ def _process_pdf_drawings(pdf_drawings, project):
     去重收敛：同名标签/同代号全局合并（保留首次定位+出现页数），
     避免整套施工图产生上千条噪声行污染清单。
     天花分区仅在识别为天花图的页面输出。
+    面积注记仅作证据：unit=注记、area 不落值，原值见 data_json.check。
     """
     import fitz
     from collections import defaultdict
@@ -512,7 +521,7 @@ def _process_pdf_drawings(pdf_drawings, project):
                     dims[key] = (x, y, page_idx, set())
                 dims[key][3].add(page_idx)
 
-            # 面积注记逐处入账（立面图上一处=一面墙的饰面面积，不可去重）
+            # 面积注记逐处收集为证据行（不计量；立面图上一处=一面墙的立面参照，不可去重）
             for val, x, y in extract_area_annotations(page, x_min=200):
                 areas.append((page_idx, val, x, y, title, page_rooms))
 
@@ -626,17 +635,25 @@ def _process_pdf_drawings(pdf_drawings, project):
             label='PDF面积标注: %s %gm²' % (room or '未归属', val),
             division_id=div,
             category=cat,
-            area=val,
+            # 注记不是工程量：面积口径含墙/轴线注释，直接入账会污染分部合计；
+            # 原值留档在 data_json.check 供人工复核与后续融合，unit 标「注记」。
+            area=None,
+            unit='注记',
+            data_json=json.dumps(
+                {'check': {'note_m2': val,
+                           'caliber': '含墙/轴线注释口径，不计量'}},
+                ensure_ascii=False),
             source_tag='PDF语义提取',
             confidence_level=conf,
             position_desc='PDF p%d(%s) (%.0f,%.0f) 房间=%s' % (
                 pidx, title or '无图名', x, y, room or '未归属'),
-            formula_text='图纸面积注记直读: %gm²%s' % (
-                val, '（立面→墙面饰面面积）' if is_elev else ''),
+            formula_text='图纸面积注记直读: %gm²（注记口径，不计量%s）' % (
+                val, '；立面页仅作立面参照（非净墙面积）' if is_elev else ''),
             remarks='; '.join(filter(None, [
                 'page=%d' % pidx,
                 'room=%s' % room if room else '',
                 'label_dist=%.0fpt' % ndist if nearest else '',
+                '证据行·不计量',
                 note,
             ])),
         )
