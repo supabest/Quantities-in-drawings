@@ -6,14 +6,18 @@
 名义尺寸 4000×3000 的客厅，画出来实际净空是 4000×2800（上墙 200 向内），
 手算 9.75 而非计划伪代码里的 12.00；计划那组 12/9/4/25 与夹具几何不自洽。
 """
+from types import SimpleNamespace
+
 import ezdxf
+import numpy as np
+import pytest
 
 from app.core.takeoff.enclosure import build_rooms, detect_leaks
 from app.core.takeoff.layers import resolve_roles
 from app.core.takeoff.types import TakeoffParams
 
 KEYS = {"bounds", "res", "V", "rooms", "walls_strict", "enc", "doors", "windows",
-        "seals", "grid", "lab", "n", "border", "anchors", "counts"}
+        "seals", "grid", "lab", "n", "border", "anchors", "unplaced_anchors", "counts"}
 # 栅格内缩：180mm 线宽 / 20mm 网格 → 每面 110mm（见模块 docstring）
 INSET_MM = 110
 
@@ -69,7 +73,8 @@ def test_three_rooms_area_matches_hand_calc(tmp_path):
 def test_leak_detected_when_room_opens_to_border(tmp_path):
     doc = _plan(tmp_path)
     msp = doc.modelspace()
-    # 卫生间上墙实际在 y=2000 与 y=2200（不是 2400）；两条都删，缺口 2400>GMAX 2200
+    # 卫生间上墙两线在 y=2000/2200（不是 2400）；缺口 2000 ≤ GMAX 2200，
+    # 但 2000 > AUTO 1200，没有门邻触发膨胀桥接，所以仍漏向 border。
     for e in list(msp.query('LINE[layer=="WALL"]')):
         s, t = e.dxf.start, e.dxf.end
         if abs(s.y - t.y) < 1 and 1999 <= s.y <= 2201 and min(s.x, t.x) >= 11000:
@@ -78,7 +83,12 @@ def test_leak_detected_when_room_opens_to_border(tmp_path):
     data = build_rooms(doc, roles, roles.bounds, TakeoffParams())
     leaks = detect_leaks(data)
     assert "卫生间" in leaks
-    assert data["border"]  # 确实存在贴边连通域
+    assert "客厅" not in leaks and "卧室" not in leaks
+    # border 断言要落在具体锚点上：卫生间标签所在像素确属贴边连通域
+    x, y, _ = next(a for a in data["anchors"] if a[2] == "卫生间")
+    gx = int(round((x - data["bounds"][0]) / data["res"]))
+    gy = int(round((data["bounds"][3] - y) / data["res"]))
+    assert int(data["lab"][gy, gx]) in data["border"]
 
 
 def test_build_rooms_keys_and_counts(tmp_path):
@@ -90,6 +100,9 @@ def test_build_rooms_keys_and_counts(tmp_path):
     assert len(data["seals"]) == 0
     assert set(data["counts"]) == {"wall_solid", "FIN_axial", "FIN_part",
                                    "door", "window", "curb"}
+    # 3 个盒子 × 8 条双线墙 = 24；DOOR 1 条；其余角色 0
+    assert data["counts"] == {"wall_solid": 24, "FIN_axial": 0, "FIN_part": 0,
+                              "door": 1, "window": 0, "curb": 0}
 
 
 def test_detect_leaks_empty_when_closed(tmp_path):
@@ -97,3 +110,36 @@ def test_detect_leaks_empty_when_closed(tmp_path):
     roles = resolve_roles(doc)
     data = build_rooms(doc, roles, roles.bounds, TakeoffParams(floor_height_mm=2800.0))
     assert detect_leaks(data) == []
+    assert data["unplaced_anchors"] == []
+
+
+def test_detect_leaks_skips_out_keys_at_same_pixel():
+    """同一 border 像素上的井道名不报漏房，真实房间名照报。"""
+    lab = np.ones((4, 4), np.int32) * 7
+    data = {"bounds": (0, 0, 60, 60), "res": 20.0, "lab": lab, "border": {7},
+            "anchors": [(0, 60, "风井"), (0, 60, "卫生间")]}
+    assert detect_leaks(data) == ["卫生间"]
+
+
+@pytest.mark.parametrize("anchor", [(1000, 500, "边界"), (500, 0, "边界")])
+def test_boundary_anchor_does_not_crash_and_reports_leak(anchor):
+    """x==X1 / y==Y0 的锚点取像素会越界一格；clamp 后仍参与漏房判定。"""
+    roles = SimpleNamespace(segments={}, labels=[anchor])
+    data = build_rooms(None, roles, (0, 0, 1000, 1000), TakeoffParams())
+    assert detect_leaks(data) == ["边界"]
+
+
+def test_anchor_on_wall_line_goes_to_unplaced():
+    """压在墙线上的标签不再 IndexError，也不再静默消失：进 unplaced_anchors。"""
+    walls = [(0, 0, 1000, 0), (1000, 0, 1000, 1000),
+             (1000, 1000, 0, 1000), (0, 1000, 0, 0)]
+    roles = SimpleNamespace(segments={"wall_solid": walls}, labels=[(1000, 500, "压墙")])
+    data = build_rooms(None, roles, (0, 0, 1000, 1000), TakeoffParams())
+    assert (1000, 500, "压墙") in data["unplaced_anchors"]
+
+
+@pytest.mark.parametrize("bounds", [None, (0, 0, 0, 100), (0, 0, 100, 0), (100, 0, 0, 100)])
+def test_invalid_bounds_raise_value_error(bounds):
+    roles = SimpleNamespace(segments={}, labels=[])
+    with pytest.raises(ValueError):
+        build_rooms(None, roles, bounds, TakeoffParams())

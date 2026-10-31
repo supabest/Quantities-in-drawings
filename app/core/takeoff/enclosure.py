@@ -5,10 +5,11 @@
 标签来自 roles.labels，边界/res/seals/竖向参数由调用方给定。判据与常数
 （栅格 20mm、线宽 180、门膨胀 700、桥接 1200/2200/80、CLOSE×2）一律未改。
 
-本模块是纯几何：只依赖 numpy/cv2 与 .layers/.types，不导入 flask/app/modeling。
+本模块是纯几何：只依赖 numpy/cv2，不导入 flask/app/modeling/layers/types。
 """
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 
 import cv2
@@ -30,7 +31,7 @@ def _vertical(params) -> dict:
 
     227 口径 story 3170 / slab 100 / finish 50 → clear 3020；缺省 2800 净高。
     """
-    story = float(params.floor_height_mm or 2800.0)
+    story = float(params.effective_floor_height_mm() or 2800.0)
     slab = float(params.slab_mm or 0.0)
     finish = float(params.floor_finish_mm or 0.0)
     return {"story_height": story, "slab": slab, "floor_finish": finish,
@@ -42,10 +43,26 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
 
     doc 只为签名对称（数据早已由 roles 取好，不再读图）；bounds=(x0,y0,x1,y1)
     是栅格窗口，units 与段坐标一致（mm）。roles 必须已按调用方 scope 裁过：
-    本函数**不**再按 bounds 二次裁剪段集。
+    本函数**不**再按 bounds 二次裁剪段集。bounds 会先按 res 外扩对齐
+    （floor/ceil 到 res 整数倍），返回的 data["bounds"] 是**对齐后**的窗口；
+    这样同一几何在不同原点窗口下栅格相位一致，面积不随窗口漂移。
     """
+    if bounds is None:
+        raise ValueError("bounds 不能为空：需要 (x0, y0, x1, y1)")
     X0, Y0, X1, Y1 = bounds
     res = float(res)
+    if not res > 0:
+        raise ValueError("res 必须为正数，实得 %r" % (res,))
+    if not (X1 > X0 and Y1 > Y0):
+        raise ValueError("bounds 必须满足 x1>x0 且 y1>y0，实得 %r" % (tuple(bounds),))
+    # 栅格相位对齐：窗口原点/右上角外扩到 res 整数倍；227 窗口本身即为
+    # 20 的整数倍，floor/ceil 是无操作，数值逐位不变。
+    def _aligned(v, fn): return fn(v / res) * res
+    def _number(v): return int(v) if float(v).is_integer() else float(v)
+    X0 = _number(_aligned(X0, math.floor))
+    Y0 = _number(_aligned(Y0, math.floor))
+    X1 = _number(_aligned(X1, math.ceil))
+    Y1 = _number(_aligned(Y1, math.ceil))
     seg = roles.segments
     wall_solid = seg.get("wall_solid", [])
     fin_axial = seg.get("wall_fin_axial", [])
@@ -65,7 +82,7 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
     ENC = WALLS_STRICT if strict_enc else (wall_solid + fin_axial)
 
     # 门标记栅格(膨胀 700mm)
-    W = int((X1 - X0) / res); H = int((Y1 - Y0) / res)
+    W = int(round((X1 - X0) / res)); H = int(round((Y1 - Y0) / res))
     door_grid = np.zeros((H, W), np.uint8)
     for x0, y0, x1, y1 in doors:
         cv2.line(door_grid, (_px(x0), _py(y0)), (_px(x1), _py(y1)), 1,
@@ -101,8 +118,13 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
                     if gap <= AUTO or door_near((gx + hx) // 2, (gy + hy) // 2):
                         cv2.line(grid, (gx, gy), (hx, hy), 1, tw, lineType=8)
     grid = cv2.morphologyEx(grid, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8), iterations=2)
-    n, lab, stats, cent = cv2.connectedComponentsWithStats((1 - grid).astype(np.uint8), connectivity=4)
+    n, lab, _, cent = cv2.connectedComponentsWithStats((1 - grid).astype(np.uint8), connectivity=4)
     border = set(lab[0, :]) | set(lab[-1, :]) | set(lab[:, 0]) | set(lab[:, -1]); border.discard(0)
+
+    # 锚点取像素：x==X1 / y==Y0 会落在 W/H（越界一格），clamp 到最后一格，
+    # 边界标签既不崩也不静默丢（压墙线的会进 unplaced_anchors）。
+    def _gx(x): return min(max(_px(x), 0), W - 1)
+    def _gy(y): return min(max(_py(y), 0), H - 1)
 
     # 房间标签锚点：roles.labels 已按调用方 scope 取好；这里只保留落在栅格窗口内的
     anchors = [(x, y, t) for x, y, t in roles.labels if X0 <= x <= X1 and Y0 <= y <= Y1]
@@ -117,13 +139,15 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
 
     rooms = []
     assigned = set()
+    placed = set()
     for i in range(1, n):
         if i in border: continue
         comp = (lab == i)
         area = comp.sum() * (res * res) / 1e6
         if area < MIN_ROOM_AREA_M2: continue
-        anc = [(x, y, t) for x, y, t in anchors if comp[_py(y), _px(x)]]
-        for x, y, t in anc: assigned.add(t)
+        anc = [(x, y, t) for x, y, t in anchors if comp[_gy(y), _gx(x)]]
+        for x, y, t in anc:
+            assigned.add(t); placed.add((x, y, t))
         names = [t for x, y, t in anc]
         isout = any(any(k in t for k in OUT_KEYS) for t in names)
         cx = X0 + (cent[i, 0] + 0.5) * res; cy = Y1 - (cent[i, 1] + 0.5) * res
@@ -133,13 +157,24 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
     # Minibar 并入主人卧室
     for x, y, t in anchors:
         if t == "Minibar" and t not in assigned:
-            ci = lab[_py(y), _px(x)]
+            ci = lab[_gy(y), _gx(x)]
             if ci not in border and ci != 0:
                 pk = (lab == ci); add = pk.sum() * (res * res) / 1e6
                 for r in rooms:
                     if any("主人卧室" in nm for nm in r["names"]):
                         r["area"] = round(r["area"] + add, 2); break
-                assigned.add("Minibar")
+                assigned.add("Minibar"); placed.add((x, y, t))
+
+    # 落不到房间的锚点显式披露：压墙线(comp 0)或连通域被面积过滤未成房。
+    # border 域锚点不在内——那是 detect_leaks 的漏房信号。
+    room_comps = {r["comp_id"] for r in rooms}
+    unplaced = []
+    for x, y, t in anchors:
+        if (x, y, t) in placed: continue
+        ci = int(lab[_gy(y), _gx(x)])
+        if ci in border: continue
+        if ci == 0 or ci not in room_comps:
+            unplaced.append((x, y, t))
 
     return {
         "bounds": (X0, Y0, X1, Y1), "res": res, "V": V,
@@ -150,6 +185,7 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
         "windows": windows,
         "seals": seals,
         "grid": grid, "lab": lab, "n": n, "border": border, "anchors": anchors,
+        "unplaced_anchors": unplaced,
         "counts": {"wall_solid": len(wall_solid), "FIN_axial": len(fin_axial),
                    "FIN_part": len(fin_part), "door": len(doors),
                    "window": len(windows), "curb": len(curbs)},
@@ -171,10 +207,9 @@ def detect_leaks(data) -> list:
     for x, y, t in data["anchors"]:
         if any(k in t for k in OUT_KEYS):
             continue
-        gx = int(round((x - X0) / res))
-        gy = int(round((Y1 - y) / res))
-        if not (0 <= gy < h and 0 <= gx < w):
-            continue
+        # 与 build_rooms 同口径 clamp：边界锚点取最后一格，不因越界静默跳过
+        gx = min(max(int(round((x - X0) / res)), 0), w - 1)
+        gy = min(max(int(round((Y1 - y) / res)), 0), h - 1)
         if int(lab[gy, gx]) in border:
             leaks.add(t)
     return sorted(leaks)

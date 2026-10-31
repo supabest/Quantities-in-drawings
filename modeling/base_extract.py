@@ -91,22 +91,33 @@ def _base_window(doc, strict_enc):
     return base.bounds, (x0 - 200, y0 - 200, x1 + 200, y1 + 200)
 
 
-def build(strict_enc=False, dxf=None):
-    """定稿底图的房间/墙段/洞口。dxf=None 走 227 固定窗口，行为与 Task 6 前逐位一致。"""
+def build(strict_enc=False, dxf=None, seals=None, params=None):
+    """定稿底图的房间/墙段/洞口。
+
+    两条入口的缺省值互不串味：
+      dxf=None  走 227 固定窗口；seals 缺省 SEALS，params 缺省由模块 V 派生
+                （结构层高 3170 / 板 100 / 找平 50），行为与 Task 6 前数值一致。
+      dxf=path  先切簇选底图再按底图范围取线；seals 缺省 ()、params 缺省
+                TakeoffParams()（不继承 227 的垭口分界与层高）。调用方可显式传入
+                seals=... / params=... 覆盖。无底图时 raise ValueError。
+    """
     from app.core.takeoff.enclosure import build_rooms
     from app.core.takeoff.layers import resolve_roles
     from app.core.takeoff.types import TakeoffParams
 
     doc = ezdxf.readfile(dxf or DXF)
-    bounds, scope = _window() if dxf is None else _base_window(doc, strict_enc)
+    if dxf is None:
+        if seals is None: seals = SEALS
+        if params is None:
+            params = TakeoffParams(floor_height_mm=V["story_height"], slab_mm=V["slab"],
+                                   floor_finish_mm=V["floor_finish"])
+        bounds, scope = _window()
+    else:
+        if seals is None: seals = ()
+        if params is None: params = TakeoffParams()
+        bounds, scope = _base_window(doc, strict_enc)
     roles = resolve_roles(doc, strict_enc=strict_enc, scope_bounds=scope)
-    data = build_rooms(
-        doc, roles, bounds,
-        TakeoffParams(floor_height_mm=V["story_height"], slab_mm=V["slab"],
-                      floor_finish_mm=V["floor_finish"]),
-        seals=SEALS, strict_enc=strict_enc)
-    data["V"] = V
-    data["bounds"] = bounds
+    data = build_rooms(doc, roles, bounds, params, seals=seals, strict_enc=strict_enc)
     # 挂 p11 参考面积(几何为真值, p11 仅对账) + 含墙外包面积(最宽口径上界)
     for r in data["rooms"]:
         r["p11"] = p11_ref(r["names"])
@@ -116,9 +127,10 @@ def build(strict_enc=False, dxf=None):
         from . import ceiling_levels
         ceiling_levels.annotate(data)
     except Exception:
+        clear = data["V"]["clear_to_soffit"]
         for r in data["rooms"]:
-            r["soffit_mm"] = V["clear_to_soffit"]; r["ceiling_levels"] = []
-            r["ceiling_drop_mm"] = 0.0; r["ceiling_min_mm"] = V["clear_to_soffit"]
+            r["soffit_mm"] = clear; r["ceiling_levels"] = []
+            r["ceiling_drop_mm"] = 0.0; r["ceiling_min_mm"] = clear
     return data
 
 
