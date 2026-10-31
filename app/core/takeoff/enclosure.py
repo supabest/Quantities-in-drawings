@@ -154,23 +154,27 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
         rooms.append({"names": names, "area": round(area, 2), "cx": cx, "cy": cy,
                       "is_out": isout, "poly": mask_to_poly(comp), "comp_id": i})
 
-    # Minibar 并入主人卧室
+    # Minibar 并入主人卧室：只有真并入（找到主人卧室）才记 placed；
+    # 无主人卧室时该锚点留给 unplaced 显式披露，不得假装归房。
     for x, y, t in anchors:
         if t == "Minibar" and t not in assigned:
             ci = lab[_gy(y), _gx(x)]
             if ci not in border and ci != 0:
                 pk = (lab == ci); add = pk.sum() * (res * res) / 1e6
-                for r in rooms:
-                    if any("主人卧室" in nm for nm in r["names"]):
-                        r["area"] = round(r["area"] + add, 2); break
-                assigned.add("Minibar"); placed.add((x, y, t))
+                master = next((r for r in rooms
+                               if any("主人卧室" in nm for nm in r["names"])), None)
+                if master is not None:
+                    master["area"] = round(master["area"] + add, 2)
+                    assigned.add("Minibar"); placed.add((x, y, t))
 
     # 落不到房间的锚点显式披露：压墙线(comp 0)或连通域被面积过滤未成房。
     # border 域锚点不在内——那是 detect_leaks 的漏房信号。
+    # 井道/户外名天生不是房间，与 detect_leaks 的 isout 同口径过滤。
     room_comps = {r["comp_id"] for r in rooms}
     unplaced = []
     for x, y, t in anchors:
         if (x, y, t) in placed: continue
+        if any(k in t for k in OUT_KEYS): continue
         ci = int(lab[_gy(y), _gx(x)])
         if ci in border: continue
         if ci == 0 or ci not in room_comps:

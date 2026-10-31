@@ -143,3 +143,31 @@ def test_invalid_bounds_raise_value_error(bounds):
     roles = SimpleNamespace(segments={}, labels=[])
     with pytest.raises(ValueError):
         build_rooms(None, roles, bounds, TakeoffParams())
+
+
+def test_minibar_without_master_stays_unplaced(tmp_path):
+    """没有「主人卧室」时 Minibar 不得假装并入：该锚点进 unplaced_anchors。"""
+    doc = ezdxf.new("R2018", setup=True)
+    for n in ("WALL", "P-TEXT"):
+        doc.layers.add(n)
+    msp = doc.modelspace()
+
+    def box(x0, y0, w, h):          # 单线墙盒
+        pts = [(x0, y0), (x0 + w, y0), (x0 + w, y0 + h), (x0, y0 + h)]
+        for a, b in zip(pts, pts[1:] + pts[:1]):
+            msp.add_line(a, b, dxfattribs={"layer": "WALL"})
+
+    box(0, 0, 4000, 3000)           # 大房 ≈10.5 m²，含「客厅」
+    # 小屋 600×600：180 线宽 + CLOSE×2 后净空 ≈420×420 ≈0.18 m² < 0.4 未成房。
+    # （300×300 的内腔会被 180 线宽整个吃掉，锚点落墙线 → 测不到 Minibar 分支。）
+    box(6000, 0, 600, 600)
+    msp.add_text("客厅", height=250, dxfattribs={"layer": "P-TEXT"}).set_placement((2000, 1500))
+    msp.add_text("Minibar", height=250, dxfattribs={"layer": "P-TEXT"}).set_placement((6300, 300))
+    p = tmp_path / "minibar.dxf"
+    doc.saveas(p)
+
+    doc = ezdxf.readfile(p)
+    roles = resolve_roles(doc)
+    data = build_rooms(doc, roles, roles.bounds, TakeoffParams(floor_height_mm=2800.0))
+    assert [r["names"] for r in data["rooms"]] == [["客厅"]]
+    assert (6300, 300, "Minibar") in data["unplaced_anchors"]

@@ -77,6 +77,19 @@ def _window():
     return (X0, Y0, X1, Y1), (X0 - 200, Y0 - 200, X1 + 200, Y1 + 200)
 
 
+def _fallback_ceiling(data):
+    """无吊顶标注时的兜底：结构净高作主顶，无下沉、无跌级。
+
+    dxf 入口暂不做吊顶标注（`ceiling_levels.annotate` 硬编码读 227 图，见 T6
+    复审 N1），T8 迁移到通用标注后再接；此前一律走本函数，避免把 227 的
+    +2xxx 标高注入别的图（默认 2800 层高时会出现 soffit 2950 > 净高 / 负下沉）。
+    """
+    clear = data["V"]["clear_to_soffit"]
+    for r in data["rooms"]:
+        r["soffit_mm"] = clear; r["ceiling_levels"] = []
+        r["ceiling_drop_mm"] = 0.0; r["ceiling_min_mm"] = clear
+
+
 def _base_window(doc, strict_enc):
     """显式给图时：切簇选底图，返回 (bounds, scope)。无底图 raise ValueError。"""
     from app.core.takeoff import frames
@@ -100,6 +113,9 @@ def build(strict_enc=False, dxf=None, seals=None, params=None):
       dxf=path  先切簇选底图再按底图范围取线；seals 缺省 ()、params 缺省
                 TakeoffParams()（不继承 227 的垭口分界与层高）。调用方可显式传入
                 seals=... / params=... 覆盖。无底图时 raise ValueError。
+                吊顶标高不走 227 标注，一律兜底结构净高（T8 迁移）。
+
+    dxf=None 的 227 入口行为逐位不变（含 ceiling_levels.annotate 的 soffit_mm）。
     """
     from app.core.takeoff.enclosure import build_rooms
     from app.core.takeoff.layers import resolve_roles
@@ -123,14 +139,15 @@ def build(strict_enc=False, dxf=None, seals=None, params=None):
         r["p11"] = p11_ref(r["names"])
         r["gross_area"] = gross_area(r["poly"], data["walls_strict"]) if r["poly"] else None
     # 逐间吊顶标高→主吊顶净高 soffit_mm(P3b 几何可机读部分); 失败兜底结构净高(不影响主链路)
-    try:
-        from . import ceiling_levels
-        ceiling_levels.annotate(data)
-    except Exception:
-        clear = data["V"]["clear_to_soffit"]
-        for r in data["rooms"]:
-            r["soffit_mm"] = clear; r["ceiling_levels"] = []
-            r["ceiling_drop_mm"] = 0.0; r["ceiling_min_mm"] = clear
+    # 仅 227 封账入口(固定窗口)读标注；显式 dxf 入口一律兜底（T8 迁移通用标注）。
+    if dxf is None:
+        try:
+            from . import ceiling_levels
+            ceiling_levels.annotate(data)
+        except Exception:
+            _fallback_ceiling(data)
+    else:
+        _fallback_ceiling(data)
     return data
 
 
