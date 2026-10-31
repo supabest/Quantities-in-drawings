@@ -8,7 +8,7 @@
 """
 from app.core.takeoff.enclosure import build_rooms
 from app.core.takeoff.layers import resolve_roles
-from app.core.takeoff.takeoff import rows_for_divisions
+from app.core.takeoff.takeoff import ceiling_label, rows_for_divisions
 from app.core.takeoff.types import TakeoffParams
 from tests.test_takeoff_enclosure import _plan
 
@@ -129,3 +129,56 @@ def test_net_height_priority_soffit_office_default_fallback():
             if r.division_id == 2][0]
     assert abs(wall.value - 39.2) <= 0.05
     assert "2.800" in wall.formula_text
+
+
+# ---- Task 8：吊顶标高按 doc/bounds 提取 + 天棚造型/平顶列项（投影不展开） ----
+
+
+def test_ceiling_label_rule():
+    """单标高=平顶；多标高（主顶+跌级）=造型，特征须披露灯槽/检修口/不展开。"""
+    assert ceiling_label({"ceiling_levels": [2800.0]})[0] == "天棚刮腻子/涂料(基层)"
+    assert ceiling_label({"ceiling_levels": []})[0] == "天棚刮腻子/涂料(基层)"
+    assert ceiling_label({})[0] == "天棚刮腻子/涂料(基层)"
+    name, feat = ceiling_label({"ceiling_levels": [2800.0, 2600.0]})
+    assert name in ("跌级造型石膏板天花", "跌级造型天花")
+    assert "灯槽" in feat and "检修口" in feat and "不展开" in feat
+
+
+def test_shaped_ceiling_still_projection(tmp_path):
+    """造型天棚仍按围合水平投影计量（不展开），合计不得因造型而变。"""
+    data = _data(tmp_path)
+    room = data["rooms"][0]
+    room["ceiling_levels"] = [2750.0, 2600.0]
+    name = "+".join(room["names"])
+    rows, _ = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
+    ceil = [r for r in rows if r.division_id == 3]
+    assert len(ceil) == 3
+    assert abs(sum(r.value for r in ceil) - 19.73) <= 0.05   # 投影不展开
+    shaped = [r for r in ceil if r.label.startswith(name + "-")][0]
+    assert "跌级" in shaped.label or "造型" in shaped.label
+    assert "灯槽" in shaped.project_features and "不展开" in shaped.project_features
+    assert shaped.value == round(room["area"], 2)
+    assert "ceiling_levels=+2750/+2600" in shaped.remarks
+    assert "comp_id=" in shaped.remarks
+
+
+def test_build_rooms_harvests_ceiling_levels(tmp_path):
+    """吊顶标高按传入 doc/bounds 提取：+2700 落客厅 → 客厅 soffit 2700、下沉 100。"""
+    doc = _plan(tmp_path)
+    doc.layers.add("CEILING-ANNO")
+    doc.modelspace().add_text(
+        "+2700", height=250,
+        dxfattribs={"layer": "CEILING-ANNO"}).set_placement((2000, 1500))
+    roles = resolve_roles(doc)
+    data = build_rooms(doc, roles, roles.bounds, TakeoffParams(floor_height_mm=2800.0))
+    by_name = {"".join(r["names"]): r for r in data["rooms"]}
+    living = by_name["客厅"]
+    assert living["ceiling_levels"] == [2700.0]
+    assert living["soffit_mm"] == 2700.0
+    assert living["ceiling_drop_mm"] == 100.0
+    assert living["ceiling_min_mm"] == 2700.0
+    for nm in ("卧室", "卫生间"):
+        assert by_name[nm]["ceiling_levels"] == []
+        assert by_name[nm]["soffit_mm"] == 2800.0
+    names = [t for r in data["rooms"] for t in r["names"]]
+    assert "+2700" not in names

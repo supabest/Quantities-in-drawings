@@ -2,6 +2,8 @@
 
 口径（与 modeling/wall_geometry.py 逐字同判据，不导入 modeling）：
   · 1 地面 / 3 天棚：房间围合多边形净面积（栅格围合，鞋带公式可复算）；
+  · 3 天棚列项：逐间吊顶标高 ≥2 级 → 跌级造型天花（特征披露灯槽/检修口），
+    否则平顶刮腻子/涂料；两者都按水平投影计量、不展开（造型不放大面积）；
   · 2 墙面：Σ边长×净高 − 门宽×门高 − 窗宽×窗高；净高优先 room["soffit_mm"]，
     否则 params.effective_floor_height_mm()（含业态默认），再否则 2800；
   · 5 踢脚：净周长 − 门洞总宽（窗不落地，不扣）；
@@ -29,6 +31,18 @@ MIN_W = 200.0        # 洞口最小净宽 mm，以下视为碎线
 CLAMP = 20.0         # 区间向边外延的截断余量 mm
 DEDUP = 300.0        # 同一物理洞口跨房间去重：同类中点距阈值 mm
 FALLBACK_HEIGHT_MM = 2800.0
+
+# 天棚项目特征（材料未确证时不写「石膏板」，只按投影计量）
+SHAPED_FEATURE_UNKNOWN = "含灯槽、跌级、窗帘盒、检修口；面层材料待确认；按水平投影面积计量，不展开"
+FLAT_FEATURE = "平顶，含检修口（检修口不扣减）；按水平投影面积计量"
+
+
+def ceiling_label(room):
+    """天棚列项名 + 项目特征：多标高（主顶+跌级/灯槽）=造型，否则平顶。"""
+    levels = [float(v) for v in (room.get("ceiling_levels") or []) if v]
+    if len(set(levels)) >= 2:
+        return "跌级造型天花", SHAPED_FEATURE_UNKNOWN
+    return "天棚刮腻子/涂料(基层)", FLAT_FEATURE
 
 
 def _seg_ang(x0, y0, x1, y1):
@@ -171,10 +185,22 @@ def rows_for_divisions(data, params):
             1, "%s-地面" % name, "dxf_floor", "m2", area,
             "净面积=围合多边形鞋带公式 |Σ(x_i·y_(i+1)−x_(i+1)·y_i)|/2 = {:.2f}".format(area),
             pos, remarks=rem_comp))
+        # 天棚：造型/平顶按逐间标高数判；面积一律围合水平投影，不展开
+        ceil_core, ceil_feat = ceiling_label(room)
+        # 标高按房间存储顺序披露（去重、不改序：主顶/跌级原样可见）
+        lvs = list(dict.fromkeys(float(v) for v in (room.get("ceiling_levels") or []) if v))
+        if len(lvs) >= 2:
+            ceil_formula = ("天棚投影=同房间围合多边形 {:.2f}（跌级/灯槽按水平投影计量，"
+                            "不展开）".format(area))
+            ceil_note = "ceiling_levels=" + "/".join("+%d" % int(v) for v in lvs)
+        else:
+            ceil_formula = ("天棚投影=同房间围合多边形 {:.2f}"
+                            "（校正 0：未见天花边界外挑/露明证据）".format(area))
+            ceil_note = "correction=0(无天花边界证据)"
         rows.append(Row(
-            3, "%s-天棚刮腻子/涂料(基层)" % name, "dxf_ceiling", "m2", area,
-            "天棚投影=同房间围合多边形 {:.2f}（校正 0：未见天花边界外挑/露明证据）".format(area),
-            pos, remarks=rem_comp + ";correction=0(无天花边界证据)",
+            3, "%s-%s" % (name, ceil_core), "dxf_ceiling", "m2", area,
+            ceil_formula, pos, remarks=rem_comp + ";" + ceil_note,
+            project_features=ceil_feat,
             confidence_level="medium"))
 
         # ---- 2 墙面：Σ边长×净高 − 门/窗洞口 ----

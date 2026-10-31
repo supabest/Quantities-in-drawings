@@ -5,11 +5,15 @@
 标签来自 roles.labels，边界/res/seals/竖向参数由调用方给定。判据与常数
 （栅格 20mm、线宽 180、门膨胀 700、桥接 1200/2200/80、CLOSE×2）一律未改。
 
-本模块是纯几何：只依赖 numpy/cv2，不导入 flask/app/modeling/layers/types。
+吊顶标高（+2xxx 文字）自 T8 起也由本模块按**传入 doc/bounds** 提取并映射到
+房间（此前 modeling/ceiling_levels.py 硬读 227 图），映射口径逐字对齐旧实现。
+
+本模块只依赖 numpy/cv2/re/math，不导入 flask/app/modeling/layers/types。
 """
 from __future__ import annotations
 
 import math
+import re
 from collections import defaultdict
 
 import cv2
@@ -25,6 +29,121 @@ AUTO_BRIDGE_MM = 1200.0   # 无条件桥接的端点间距上限
 MAX_BRIDGE_MM = 2200.0    # 桥接允许的最大缺口（超过视为真开口/漏房）
 BRIDGE_TOL_MM = 80.0      # 端点对齐容差
 
+# 吊顶标高：+2xxx(mm) 完成面标高文字，落点在窗口外扩 200mm 内才收
+LEVEL_RE = re.compile(r"^\+\s?(2\d{3})$")
+LEVEL_WINDOW_MM = 200.0
+LEVEL_MAP_TOL_MM = 3000.0   # 标签不在 poly 内时按质心兜底
+LEVEL_MAX_DEPTH = 6         # 块内 INSERT 展开深度上限（与旧实现一致）
+
+
+def _decode_text(s: str) -> str:
+    """还原 \\M+5xxxx 形式的 GBK 双字节转义（天正/理正文字常见）。"""
+    return re.sub(r"\\M\+5([0-9A-Fa-f]{4})",
+                  lambda m: bytes.fromhex(m.group(1)).decode("gbk", "replace"), s or "")
+
+
+def _harvest_levels(doc, bounds) -> list:
+    """从传入 doc 的 modelspace 收集 +2xxx 标高及其落点（mm）。
+
+    口径对齐 modeling/ceiling_levels.harvest_levels：INSERT 的 attribs 用
+    insert 坐标、块内 virtual_entities 递归（depth<6）；TEXT/MTEXT 用 dxf.insert，
+    MTEXT 先 plain_text() 失败再 .text。doc 为 None（纯几何单测）→ 返回 []。
+    """
+    if doc is None:
+        return []
+    X0, Y0, X1, Y1 = bounds
+    pad = LEVEL_WINDOW_MM
+    out = []
+
+    def add(text, x, y):
+        t = _decode_text((text or "").strip())
+        m = LEVEL_RE.match(t)
+        if not m:
+            return
+        if not (X0 - pad <= x <= X1 + pad and Y0 - pad <= y <= Y1 + pad):
+            return
+        out.append({"elev_mm": float(m.group(1)), "x": float(x), "y": float(y)})
+
+    def walk(ents, depth):
+        for e in ents:
+            t = e.dxftype()
+            if t == "INSERT" and depth < LEVEL_MAX_DEPTH:
+                ins = e.dxf.insert
+                for a in e.attribs:
+                    add(a.dxf.text, ins.x, ins.y)
+                try:
+                    walk(list(e.virtual_entities()), depth + 1)
+                except Exception:
+                    pass
+            elif t == "TEXT":
+                p = e.dxf.insert
+                add(e.dxf.text, p.x, p.y)
+            elif t == "MTEXT":
+                p = e.dxf.insert
+                try:
+                    add(e.plain_text(), p.x, p.y)
+                except Exception:
+                    add(e.text, p.x, p.y)
+
+    walk(doc.modelspace(), 0)
+    return out
+
+
+def _in_poly(x, y, poly) -> bool:
+    """射线法点在多边形内（不依赖 shapely；poly 为 [(x,y),...]）。"""
+    n = len(poly or [])
+    if n < 3:
+        return False
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = poly[i]
+        xj, yj = poly[j]
+        if (yi > y) != (yj > y):
+            if x < xi + (y - yi) * (xj - xi) / (yj - yi):
+                inside = not inside
+        j = i
+    return inside
+
+
+def _annotate_ceilings(rooms, levels, clear):
+    """按落点把标高映射到房间（含 is_out），挂吊顶四字段（口径逐字对齐 modeling）。
+
+    第一个 poly 包含落点的房间胜出；都不包含 → 最近质心且 ≤LEVEL_MAP_TOL_MM。
+    有标高：soffit=max(主顶)、drop=round(clear−max,1)、min=最低跌级；
+    无标高：三字段兜底结构净高。标高 > clear 时 drop 为负是真实披露，不 clamp。
+    """
+    clear = float(clear)
+    hits = [[] for _ in rooms]
+    for lv in levels:
+        x, y = lv["x"], lv["y"]
+        idx = None
+        for i, r in enumerate(rooms):
+            if r.get("poly") and _in_poly(x, y, r["poly"]):
+                idx = i
+                break
+        if idx is None:
+            bd, cand = 1e18, None
+            for i, r in enumerate(rooms):
+                d = math.hypot(x - r["cx"], y - r["cy"])
+                if d < bd:
+                    bd, cand = d, i
+            if cand is not None and bd <= LEVEL_MAP_TOL_MM:
+                idx = cand
+        if idx is not None:
+            hits[idx].append(lv["elev_mm"])
+    for r, hs in zip(rooms, hits):
+        lvs = sorted(set(hs))
+        r["ceiling_levels"] = lvs
+        if lvs:
+            r["soffit_mm"] = max(lvs)
+            r["ceiling_drop_mm"] = round(clear - max(lvs), 1)
+            r["ceiling_min_mm"] = min(lvs)
+        else:
+            r["soffit_mm"] = clear
+            r["ceiling_drop_mm"] = 0.0
+            r["ceiling_min_mm"] = clear
+
 
 def _vertical(params) -> dict:
     """竖向参数：floor_height_mm 是结构层高（story），不是净高。
@@ -39,13 +158,14 @@ def _vertical(params) -> dict:
 
 
 def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False) -> dict:
-    """把角色段集围合成房间。
+    """把角色段集围合成房间，并按 doc 内的 +2xxx 标高挂吊顶字段。
 
-    doc 只为签名对称（数据早已由 roles 取好，不再读图）；bounds=(x0,y0,x1,y1)
-    是栅格窗口，units 与段坐标一致（mm）。roles 必须已按调用方 scope 裁过：
-    本函数**不**再按 bounds 二次裁剪段集。bounds 会先按 res 外扩对齐
-    （floor/ceil 到 res 整数倍），返回的 data["bounds"] 是**对齐后**的窗口；
-    这样同一几何在不同原点窗口下栅格相位一致，面积不随窗口漂移。
+    doc 只用于吊顶标高提取（几何早已由 roles 取好），可为 None（纯几何单测）。
+    bounds=(x0,y0,x1,y1) 是栅格窗口，units 与段坐标一致（mm）。roles 必须已按
+    调用方 scope 裁过：本函数**不**再按 bounds 二次裁剪段集。bounds 会先按 res
+    外扩对齐（floor/ceil 到 res 整数倍），返回的 data["bounds"] 是**对齐后**的窗口；
+    这样同一几何在不同原点窗口下栅格相位一致，面积不随窗口漂移。吊顶标高的
+    收集窗口即对齐后的 bounds 各向外扩 200mm。
     """
     if bounds is None:
         raise ValueError("bounds 不能为空：需要 (x0, y0, x1, y1)")
@@ -179,6 +299,10 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
         if ci in border: continue
         if ci == 0 or ci not in room_comps:
             unplaced.append((x, y, t))
+
+    # 吊顶标高：按传入 doc + 对齐后的窗口提取并逐间映射（含 is_out；口径同旧 modeling）
+    _annotate_ceilings(rooms, _harvest_levels(doc, (X0, Y0, X1, Y1)),
+                       V["clear_to_soffit"])
 
     return {
         "bounds": (X0, Y0, X1, Y1), "res": res, "V": V,
