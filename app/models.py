@@ -116,6 +116,7 @@ class Project(db.Model):
     address = db.Column(db.String(256))
     project_type = db.Column(db.String(32), default='residential')  # residential/commercial/lobby/showroom
     default_floor_height = db.Column(db.Float, default=2.80)
+    takeoff_params = db.Column(db.Text, nullable=True)  # JSON：seals/参数假设等
     drawing_type = db.Column(db.String(32), default='floor_plan')
     scale = db.Column(db.Float, default=1.0)
     scale_reference = db.Column(db.String(64))
@@ -144,6 +145,7 @@ class Drawing(db.Model):
     original_name = db.Column(db.String(256), nullable=False)
     file_type = db.Column(db.String(10), nullable=False)
     file_size = db.Column(db.Integer)
+    is_base = db.Column(db.Boolean, nullable=True)   # NULL=自动判簇；显式值=人工钉定稿底图
     width = db.Column(db.Integer)
     height = db.Column(db.Integer)
     drawing_type = db.Column(db.String(20), default='floor_plan')
@@ -202,6 +204,7 @@ class Measurement(db.Model):
     remarks = db.Column(db.Text)                 # 备注
     data_json = db.Column(db.Text)
     confidence = db.Column(db.Float)
+    manual_pinned = db.Column(db.Boolean, nullable=True)  # True=人工钉定行，重算整行冻结
 
     # Phase 2 区域级并行：区域归属与边界标记
     zone_id = db.Column(db.String(32), index=True)      # 所属区域标识（如 zone_public）
