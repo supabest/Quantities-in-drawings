@@ -7,9 +7,9 @@
 
 部位口径（与 takeoff.rows_for_divisions 的出数分部对应）：
   · 地面 / 天棚 / 踢脚：房间有围合 poly 即有源（面积/周长直接量出）；
-  · 无房间标注的围合域（残条/空腔）：只计地面，天棚/墙面/踢脚记无源——
-    与出数口径一致（takeoff 发 `unlabeled_enclosure_region` 披露）；
-    但**全图都没有房间名**（标签层缺失）时照常记有源，由 `no_room_labels` 披露；
+  · 非房间残条（无名窄条，平均宽 2A/P ≤ 250mm）：只计地面，天棚/墙面/踢脚记
+    无源——与出数口径一致（takeoff 发 `unlabeled_enclosure_region` 披露）；
+  · 无名但足够宽的围合域仍按「未命名空间N」记有源，由 rows 标低置信；
   · 墙面：来源=围合边长×净高。requires_floor_height() 且房间无吊顶标高标准
     （ceiling_levels）→ 待参数；有吊顶标高证据或层高可解析 → 有源；
   · 洞口（项目级）：doors 或 windows 任一存在 → 有源；
@@ -17,24 +17,20 @@
     无未落房锚点 → 有源("anchors")；否则 待确认，source 列未落房锚点名
     （sorted 去重，逗号顿号皆可），不静默丢。
 
-同名空间：仅当户内房名重复时追加 `#comp_id` 消歧（如 `(无标注)#3`、
-`(无标注)#24`）；唯一名保持原样，不改变 T10 文案。
+空间名：无名围合域按 comp_id 出「未命名空间N」（设计稿 §3.4）；同名命名房间
+追加 `#comp_id` 消歧；唯一名保持原样。与 takeoff 共用 labels 模块，同一房间
+在行与覆盖矩阵里不得两种叫法。
 
-纯包：只 import .types 与标准库 collections；不得导入 flask / app.models / modeling。
+纯包：只 import .types/.labels 与标准库 collections；不得导入 flask / app.models / modeling。
 """
 from __future__ import annotations
 
-from collections import Counter
-
+from . import labels
 from .types import Coverage
 
 PARTS = ("地面", "天棚", "墙面", "洞口", "踢脚")
 PROJECT = "(项目)"
 ROOM_PARTS = ("地面", "天棚", "墙面", "踢脚")
-
-
-def _room_name(room):
-    return "+".join(room.get("names") or []) or "(无标注)"
 
 
 def _has_poly(room):
@@ -46,20 +42,16 @@ def build_coverage(data, params):
     cov = Coverage()
     need_h = params.requires_floor_height()
     rooms = [r for r in (data.get("rooms") or []) if not r.get("is_out")]
-    has_named = any(r.get("names") for r in rooms)
-    name_counts = Counter(_room_name(r) for r in rooms)
+    counts = labels.name_counts(rooms)
     for room in rooms:
-        name = _room_name(room)
-        if name_counts[name] > 1:
-            name = "%s#%s" % (name, room.get("comp_id"))
+        name = labels.display_name(room, counts)
         if not _has_poly(room):
             for part in ROOM_PARTS:
                 cov.mark(name, part, "无源", None)
             continue
         cov.mark(name, "地面", "有源", "dxf")
-        if not room.get("names") and has_named:
-            # 有名字房间里夹着的无名围合域=非房间残条，只计地面
-            # （与 rows_for_divisions 同口径）；全图无标签时照常记有源。
+        if labels.is_residual(room):
+            # 非房间残条：只计地面（与 rows_for_divisions 同口径）。
             for part in ("天棚", "墙面", "踢脚"):
                 cov.mark(name, part, "无源", None)
             continue

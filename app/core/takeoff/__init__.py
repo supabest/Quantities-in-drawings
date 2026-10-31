@@ -219,6 +219,10 @@ def run(project, drawings, upload_folder):
                 {"file": filename}))
             continue
 
+        # 逐图披露需能指认图纸：同一张坏图/残条在多图项目里不得只靠消息区分。
+        for issue in row_issues:
+            issue.detail.setdefault("drawing", name)
+            issue.detail.setdefault("file", filename)
         issues.extend(row_issues)
         if divisions:
             # 角色层代理对象：受影响分部整批不出数；代理图元不可分解，不猜。

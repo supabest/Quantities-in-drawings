@@ -278,6 +278,8 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
     # 该域 < MIN_ROOM_AREA 且是柜体龛，封账口径主卧地面/天棚按 17.15㎡ 计；
     # 加面积会把 227 地面从 163.75 虚增到 163.92。并入记录留给下游披露。
     # 无主人卧室时该锚点留给 unplaced 显式披露，不得假装归房。
+    # 已知债务：Minibar/主人卧室 是 227 标签词表，里程碑 B 应像 seals 一样
+    # 移入 takeoff_params，避免其它业态的龛位误并入。
     for x, y, t in anchors:
         if t == "Minibar" and t not in assigned:
             ci = lab[_gy(y), _gx(x)]
