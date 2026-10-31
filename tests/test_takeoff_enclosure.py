@@ -171,3 +171,38 @@ def test_minibar_without_master_stays_unplaced(tmp_path):
     data = build_rooms(doc, roles, roles.bounds, TakeoffParams(floor_height_mm=2800.0))
     assert [r["names"] for r in data["rooms"]] == [["客厅"]]
     assert (6300, 300, "Minibar") in data["unplaced_anchors"]
+
+
+def test_minibar_merge_does_not_inflate_master_area(tmp_path):
+    """Minibar 只做标签归属、不加净面积（227 封账：主卧 17.15，不是 17.32）。"""
+    def build(path, with_minibar):
+        doc = ezdxf.new("R2018", setup=True)
+        for n in ("WALL", "P-TEXT"):
+            doc.layers.add(n)
+        msp = doc.modelspace()
+
+        def box(x0, y0, w, h):
+            pts = [(x0, y0), (x0 + w, y0), (x0 + w, y0 + h), (x0, y0 + h)]
+            for a, b in zip(pts, pts[1:] + pts[:1]):
+                msp.add_line(a, b, dxfattribs={"layer": "WALL"})
+
+        box(0, 0, 5000, 4000)
+        box(6000, 0, 600, 600)
+        msp.add_text("主人卧室", height=250,
+                     dxfattribs={"layer": "P-TEXT"}).set_placement((2500, 2000))
+        if with_minibar:
+            msp.add_text("Minibar", height=250,
+                         dxfattribs={"layer": "P-TEXT"}).set_placement((6300, 300))
+        doc.saveas(path)
+        doc = ezdxf.readfile(path)
+        roles = resolve_roles(doc)
+        return build_rooms(doc, roles, roles.bounds, TakeoffParams(floor_height_mm=2800.0))
+
+    plain = build(tmp_path / "plain.dxf", False)
+    merged = build(tmp_path / "merged.dxf", True)
+    master = lambda d: [r for r in d["rooms"] if r["names"] == ["主人卧室"]][0]
+    assert master(merged)["area"] == master(plain)["area"]
+    labels = master(merged)["merged_labels"]
+    assert [m["label"] for m in labels] == ["Minibar"]
+    assert labels[0]["area"] == pytest.approx(0.14, abs=0.02)
+    assert merged["unplaced_anchors"] == []

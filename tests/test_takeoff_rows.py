@@ -391,8 +391,47 @@ def test_coverage_duplicate_names_disambiguated_by_comp_id():
     assert "客厅#7" not in spaces
     for space in ("(无标注)#3", "(无标注)#24"):
         assert len([r for r in rows if r["space"] == space]) == 4
+    # 无标注围合域只计地面，与 rows_for_divisions 同口径（T10.5）
+    cells = {(r["space"], r["part"]): r["status"] for r in rows}
+    for space in ("(无标注)#3", "(无标注)#24"):
+        assert cells[(space, "地面")] == "有源"
+        for part in ("天棚", "墙面", "踢脚"):
+            assert cells[(space, part)] == "无源"
     # 两间同名房 8 格 + 客厅 4 格 + 项目级 2 格
     assert len(rows) == 14
+
+
+def test_unnamed_region_only_floor_and_disclosed():
+    """无标注围合域（非房间残条）只出地面：2/3/5 不出行，并由 issue 披露。
+
+    227 封账：地面 163.75 含两块残条 1.60㎡，天棚/墙面/踢脚按 162.15/437.22/166.73
+    只认有房间名的围合域（设计稿 §3.3）。
+    """
+    data = {"rooms": [
+        {"comp_id": 1, "names": ["客厅"], "is_out": False,
+         "poly": [(0, 0), (4000, 0), (4000, 3000), (0, 3000)], "area": 12.0},
+        {"comp_id": 2, "names": [], "is_out": False,
+         "poly": [(0, 4000), (2000, 4000), (2000, 5000), (0, 5000)], "area": 2.0},
+    ], "doors": [], "windows": [], "unplaced_anchors": []}
+    rows, issues = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
+    by_div = {}
+    for r in rows:
+        by_div.setdefault(r.division_id, []).append(r)
+    assert len(by_div[1]) == 2
+    for d in (2, 3, 5):
+        assert len(by_div[d]) == 1, d
+    assert not by_div.get(4)
+
+    strip = [r for r in by_div[1] if r.label == "(无标注)-地面"][0]
+    assert "非房间残条" in strip.formula_text
+    assert "不参与天棚" in strip.formula_text
+    living = [r for r in by_div[1] if r.label == "客厅-地面"][0]
+    assert "非房间残条" not in living.formula_text
+
+    issue = [i for i in issues if i.code == "unlabeled_enclosure_region"]
+    assert len(issue) == 1
+    assert issue[0].detail["regions"] == [{"comp_id": 2, "area": 2.0}]
+    assert "Σ2.00㎡" in issue[0].message
 
 
 def test_reconcile_only_two_bands(tmp_path):
@@ -552,3 +591,24 @@ def test_rows_module_import_is_lazy():
                           capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip() == "m²"
+
+
+def test_no_labels_anywhere_still_measures_all_parts():
+    """全图无房间名（标签层缺失）不得把每间都当残条：2/3/5 照常出量并披露。
+
+    只有「已有有名字房间」时才把无名围合域降为只计地面（227 残条口径）。
+    """
+    data = {"rooms": [
+        {"comp_id": 1, "names": [], "is_out": False,
+         "poly": [(0, 0), (4000, 0), (4000, 3000), (0, 3000)], "area": 12.0},
+    ], "doors": [], "windows": [], "unplaced_anchors": []}
+    rows, issues = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
+    assert {r.division_id for r in rows} == {1, 2, 3, 5}
+    assert [i.code for i in issues] == ["no_room_labels"]
+    floor = [r for r in rows if r.division_id == 1][0]
+    assert "非房间残条" not in floor.formula_text
+
+    cells = {(r["space"], r["part"]): r["status"]
+             for r in build_coverage(data, TakeoffParams(floor_height_mm=2800)).rows()}
+    assert cells[("(无标注)", "天棚")] == "有源"
+    assert cells[("(无标注)", "墙面")] == "有源"

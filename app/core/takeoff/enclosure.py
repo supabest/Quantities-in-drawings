@@ -274,7 +274,9 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
         rooms.append({"names": names, "area": round(area, 2), "cx": cx, "cy": cy,
                       "is_out": isout, "poly": mask_to_poly(comp), "comp_id": i})
 
-    # Minibar 并入主人卧室：只有真并入（找到主人卧室）才记 placed；
+    # Minibar 并入主人卧室：只做标签归属，**不把龛位面积并进房间净面积**——
+    # 该域 < MIN_ROOM_AREA 且是柜体龛，封账口径主卧地面/天棚按 17.15㎡ 计；
+    # 加面积会把 227 地面从 163.75 虚增到 163.92。并入记录留给下游披露。
     # 无主人卧室时该锚点留给 unplaced 显式披露，不得假装归房。
     for x, y, t in anchors:
         if t == "Minibar" and t not in assigned:
@@ -284,7 +286,8 @@ def build_rooms(doc, roles, bounds, params, seals=(), res=RES, strict_enc=False)
                 master = next((r for r in rooms
                                if any("主人卧室" in nm for nm in r["names"])), None)
                 if master is not None:
-                    master["area"] = round(master["area"] + add, 2)
+                    master.setdefault("merged_labels", []).append(
+                        {"label": t, "area": round(add, 2)})
                     assigned.add("Minibar"); placed.add((x, y, t))
 
     # 落不到房间的锚点显式披露：压墙线(comp 0)或连通域被面积过滤未成房。

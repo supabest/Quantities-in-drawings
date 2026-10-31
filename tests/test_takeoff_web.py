@@ -643,3 +643,49 @@ def test_params_from_project_tolerates_dirty_json():
         project_type="sample_flat",
         takeoff_params=json.dumps({"seals": [[0, 0, 1, 0], "x", [1, 2, 3]]})))
     assert partly.seals == [(0.0, 0.0, 1.0, 0.0)]      # 合法项保留，坏项丢弃
+
+
+DRAWINGS = os.path.join(BASE, "装修图纸", "227户型dxf")
+DXF_227 = os.path.join(DRAWINGS, "05.227户型平面图 （施工图纸） rev-33.dxf")
+SEAL_227 = (52176828, 227805421, 52179628, 227805421)
+
+
+@pytest.mark.skipif(not os.path.isfile(DXF_227), reason="227 图纸未入库，仅本地跑")
+@pytest.mark.slow
+def test_web_chain_227_sealed_values(web_env):
+    """里程碑 A 过关线：227 干净 DXF 经 process_project 落库 = 封账值，且重算不叠加。
+
+    封账：地面 163.75 / 天棚 162.15 / 墙面 437.22 / 合计 763.12 m²，
+    踢脚 166.73 m，洞口 42 樘。只认 Web Measurement 行，不读报告文本。
+    """
+    app, pid, _ = web_env
+    shutil.copy(DXF_227, os.path.join(app.config["UPLOAD_FOLDER"], "227.dxf"))
+    with app.app_context():
+        from app import db
+        from app.models import Measurement, Project
+        from app.processing import process_project
+
+        _add_dxf_drawing(pid, "227.dxf")
+        p = Project.query.get(pid)
+        p.takeoff_params = json.dumps({
+            "floor_height_mm": 3170, "slab_mm": 100, "floor_finish_mm": 50,
+            "seals": [list(SEAL_227)]})
+        db.session.commit()
+
+        process_project(p, p.drawings.all())
+        n1 = Measurement.query.filter_by(project_id=pid).count()
+        s1 = _division_sums(pid)
+        assert abs(s1[1] - 163.75) <= TOL, s1
+        assert abs(s1[3] - 162.15) <= TOL, s1
+        assert abs(s1[2] - 437.22) <= TOL, s1
+        assert abs(s1[1] + s1[2] + s1[3] - 763.12) <= 0.02, s1
+        assert abs(s1[5] - 166.73) <= TOL, s1
+        assert s1[4] == 42, s1
+
+        process_project(p, p.drawings.all())
+        n2 = Measurement.query.filter_by(project_id=pid).count()
+        s2 = _division_sums(pid)
+        assert n2 == n1
+        for div in (1, 2, 3, 5):
+            assert abs(s2[div] - s1[div]) < 1e-6, (div, s1[div], s2[div])
+        assert s2[4] == s1[4]

@@ -11,6 +11,9 @@
   · 5 踢脚：净周长 − 门洞总宽（窗不落地，不扣）；
   · 4 门窗洞口：按**物理洞口**计（每条 poly 边投影 opening_intervals →
     同类中点距 <300mm 去重），unit=樘，每洞口一行——不按线段条数计。
+  · 无房间标注的围合域（残条/空腔）：只出 1 地面，不出 2/3/5，并发
+    `unlabeled_enclosure_region` 披露（封账口径地面含 227 的 1.60㎡ 残条，
+    但天棚/墙面/踢脚只认有房间名的围合域）；洞口仍按物理事实参与。
 
 来源标注（设计稿 2026-10-17 general-takeoff-engine-design.md:253-255）：
   · 1 地面 / 3 天棚：矢量墙线直接围合量出 → 图纸实测（默认，不显式传）；
@@ -167,6 +170,12 @@ def rows_for_divisions(data, params):
     windows = data.get("windows") or []
 
     cand = []   # 物理洞口候选：(kind, cx, cy, w, comp_id)
+    unknown = []  # 无房间标注的围合域（只计地面）
+    rooms = [r for r in (data.get("rooms") or []) if not r.get("is_out")]
+    # 全图没有任何房间名（标签层缺失）时不得把每间都当残条：照常出 2/3/5，
+    # 只发 `no_room_labels` 降级披露；只有**已存在有名字房间**时，无名域才按
+    # 「非房间残条」只计地面（227 的 0.46+1.14）。
+    has_named = any(r.get("names") for r in rooms)
     for room in data.get("rooms") or []:
         if room.get("is_out"):
             continue
@@ -175,6 +184,7 @@ def rows_for_divisions(data, params):
         if not edges:
             continue                      # 无 poly 的室内房间不造假行
         name = _room_name(room)
+        leftover = not room.get("names") and has_named   # 非房间残条
         comp = room.get("comp_id")
         pos = "05平面围合 comp_id=%s" % comp
         rem_comp = "comp_id=%s;layer=围合面" % comp
@@ -185,12 +195,32 @@ def rows_for_divisions(data, params):
         has_height = (not params.requires_floor_height()
                       or bool(room.get("ceiling_levels")))
 
+        # ---- 4 洞口候选：逐边取逐樘区间（无名域也参与，洞口是物理事实） ----
+        for e in edges:
+            x0, y0, x1, y1, L = e
+            dx, dy = (x1 - x0) / L, (y1 - y0) / L
+            for segs, kind, par in ((doors, "门", False), (windows, "窗", True)):
+                for a, b in _opening_intervals(segs, e, parallel_only=par):
+                    wx0, wy0 = x0 + dx * a, y0 + dy * a
+                    wx1, wy1 = x0 + dx * b, y0 + dy * b
+                    cand.append((kind, (wx0 + wx1) / 2, (wy0 + wy1) / 2, b - a, comp))
+
         # ---- 1 地面 / 3 天棚：围合净面积（鞋带可复算） ----
         area = round(float(room.get("area") or 0.0), 2)
+        floor_formula = ("净面积=围合多边形鞋带公式 |Σ(x_i·y_(i+1)−x_(i+1)·y_i)|/2 = {:.2f}"
+                         .format(area))
+        if leftover:
+            # 设计稿 §3.3：227 的 0.46+1.14 是「非房间残条」，地面表计入、
+            # 天花/墙面/踢脚不参与；不得把它写成有房间名房间的几何推导。
+            floor_formula += "（非房间残条，不参与天棚/墙面/踢脚）"
         rows.append(Row(
             1, "%s-地面" % name, "dxf_floor", "m2", area,
-            "净面积=围合多边形鞋带公式 |Σ(x_i·y_(i+1)−x_(i+1)·y_i)|/2 = {:.2f}".format(area),
-            pos, remarks=rem_comp))
+            floor_formula, pos, remarks=rem_comp))
+        # 无标注围合域（残条/空腔）只计地面：封账口径地面含 227 的 1.60㎡ 残条，
+        # 但天棚/墙面/踢脚不认无名域，避免把结构缝虚增成房间工程量。
+        if leftover:
+            unknown.append({"comp_id": comp, "area": area})
+            continue
         # 天棚：造型/平顶按逐间标高数判；面积一律围合水平投影，不展开
         ceil_core, ceil_feat = ceiling_label(room)
         # 标高按升序去重披露（最低跌级在前、主顶在后）；仅用于溯源，
@@ -236,16 +266,6 @@ def rows_for_divisions(data, params):
                 "踢脚=净周长{:.2f} − 门洞{:.2f}".format(per / 1e3, door_w / 1e3),
                 pos, remarks=rem_comp, source_tag="几何推算"))
 
-        # ---- 4 洞口候选：逐边取逐樘区间 ----
-        for e in edges:
-            x0, y0, x1, y1, L = e
-            dx, dy = (x1 - x0) / L, (y1 - y0) / L
-            for segs, kind, par in ((doors, "门", False), (windows, "窗", True)):
-                for a, b in _opening_intervals(segs, e, parallel_only=par):
-                    wx0, wy0 = x0 + dx * a, y0 + dy * a
-                    wx1, wy1 = x0 + dx * b, y0 + dy * b
-                    cand.append((kind, (wx0 + wx1) / 2, (wy0 + wy1) / 2, b - a, comp))
-
     # 共享墙会在相邻两间各命中一次：同类且中点距 <DEDUP 视为同一物理洞口
     uniq = []
     for c in cand:
@@ -266,4 +286,27 @@ def rows_for_divisions(data, params):
             "05平面 %s comp_id=%s 中点=(%.0f,%.0f)" % (layer, comp, cx, cy),
             remarks="comp_id=%s;width_mm=%.0f;center=(%.0f,%.0f)" % (comp, width, cx, cy),
             source_tag="几何推算"))
+    if unknown:
+        issues.append(Issue(
+            "unlabeled_enclosure_region", "warn",
+            "无房间标注的围合域（非房间残条）%d 处（Σ%.2f㎡）只计入地面，"
+            "不出天棚/墙面/踢脚"
+            % (len(unknown), sum(u["area"] for u in unknown)),
+            {"regions": unknown}))
+    elif rooms and not has_named:
+        issues.append(Issue(
+            "no_room_labels", "warn",
+            "全图无房间名（标签层缺失/未取到）：%d 间按 comp_id 出量，"
+            "房间归属与列项需人工核对" % len(rooms),
+            {"comp_ids": [r.get("comp_id") for r in rooms]}))
+    merged = [{"comp_id": room.get("comp_id"), **item}
+              for room in (data.get("rooms") or [])
+              for item in (room.get("merged_labels") or [])]
+    if merged:
+        issues.append(Issue(
+            "sub_threshold_enclosure_label", "info",
+            "%d 个小于最小房间面积的标签位已归入相邻房间，不计入净面积：%s"
+            % (len(merged), "、".join("%s(%.2f㎡)" % (m["label"], m["area"])
+                                      for m in merged)),
+            {"merged": merged}))
     return rows, issues

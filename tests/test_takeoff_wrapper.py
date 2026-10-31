@@ -70,7 +70,9 @@ def test_dxf_entry_matches_default_numerically(default_data, dxf_data):
 
     inn = [r for r in dxf_data["rooms"] if not r["is_out"]]
     assert len(inn) == 16
-    assert round(sum(r["area"] for r in inn), 2) == 163.92
+    # 163.75 = 封账地面值；Minibar 0.17㎡ 柜体龛只做标签归属、不计净面积，
+    # 旧实现把龛位并进主卧得到 163.92，与 P1 封账不符（T10.5）。
+    assert round(sum(r["area"] for r in inn), 2) == 163.75
 
     assert dxf_data["counts"] == default_data["counts"]
     assert detect_leaks(default_data) == []
