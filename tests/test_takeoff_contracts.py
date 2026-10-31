@@ -82,3 +82,30 @@ def test_explicit_null_floor_height_survives_insert(tmp_path):
                 f"{project_type} 的显式 NULL 层高被默认值覆盖为 "
                 f"{project.default_floor_height!r}"
             )
+
+
+from app.core.takeoff.types import Coverage, Row, TakeoffParams
+
+
+def test_row_unit_mapping_is_declared():
+    r = Row(division_id=1, label='客厅-地面', category='dxf_floor',
+            unit='m2', value=12.0, formula_text='4.0×3.0=12.00')
+    assert r.check is None or isinstance(r.check, dict)
+    assert r.unit == 'm2'
+
+
+def test_requires_floor_height_only_for_mall_hotel_and_unknown():
+    assert TakeoffParams(project_type='mall').requires_floor_height() is True
+    assert TakeoffParams(project_type='hotel').requires_floor_height() is True
+    assert TakeoffParams(project_type='lobby').requires_floor_height() is True   # 未知→同待遇
+    assert TakeoffParams(project_type='sample_flat').requires_floor_height() is False
+    assert TakeoffParams(project_type='office').requires_floor_height() is False
+    assert TakeoffParams(project_type='showroom').requires_floor_height() is False
+
+
+def test_coverage_mark_and_rows():
+    c = Coverage()
+    c.mark('客厅', '地面', '有源', 'dxf')
+    c.mark('客厅', '墙面', '待参数')
+    rows = c.rows()
+    assert {'space': '客厅', 'part': '墙面', 'status': '待参数', 'source': None} in rows
