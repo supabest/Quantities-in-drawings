@@ -173,7 +173,8 @@ def rows_for_divisions(data, params):
     unnamed = []  # 无名但足够宽的围合域（照常出量，标低置信）
     rooms = [r for r in (data.get("rooms") or []) if not r.get("is_out")]
     counts = labels.name_counts(rooms)
-    has_named = any(r.get("names") for r in rooms)
+    has_named = any(labels.has_names(r) for r in rooms)
+    emitted = 0
     for room in data.get("rooms") or []:
         if room.get("is_out"):
             continue
@@ -182,7 +183,7 @@ def rows_for_divisions(data, params):
         if not edges:
             continue                      # 无 poly 的室内房间不造假行
         name = labels.display_name(room, counts)
-        unnamed_room = not room.get("names")
+        unnamed_room = not labels.has_names(room)
         conf = "low" if unnamed_room else "high"
         # 残条只按几何判（无名窄条），不看图上有没有别的房间名：部分房间漏标时
         # 未命名的大房间仍是房间（评审 Important 1）。
@@ -220,6 +221,7 @@ def rows_for_divisions(data, params):
         rows.append(Row(
             1, "%s-地面" % name, "dxf_floor", "m2", area,
             floor_formula, pos, remarks=rem_comp, confidence_level=conf))
+        emitted += 1
         # 无名窄条残条只计地面：封账口径地面含 227 的 1.60㎡ 残条，
         # 但天棚/墙面/踢脚不认，避免把结构缝虚增成房间工程量。
         if residual:
@@ -301,17 +303,23 @@ def rows_for_divisions(data, params):
             "不出天棚/墙面/踢脚"
             % (len(unknown), sum(u["area"] for u in unknown)),
             {"regions": unknown}))
-    if not rooms:
+    if not rooms or not emitted:
         issues.append(Issue(
             "no_enclosed_rooms", "warn",
-            "本图未围合出任何房间：请检查墙层/门窗洞口/图纸比例或钉定底图；"
-            "第 1/2/3/4/5 分部无几何行"))
+            "本图未围合出任何可用房间（房间列表为空或无可用围合多边形）："
+            "请检查墙层/门窗洞口/图纸比例或钉定底图；第 1/2/3/4/5 分部无几何行"))
     elif not has_named:
+        residual_ids = [r.get("comp_id") for r in rooms if labels.is_residual(r)]
+        measured = len(rooms) - len(residual_ids)
+        message = ("全图无房间名（标签层缺失/未取到）：%d 间按 comp_id 出「未命名空间N」"
+                   "并标低置信" % measured)
+        if residual_ids:
+            message += "，%d 处窄条残条只计地面" % len(residual_ids)
         issues.append(Issue(
             "no_room_labels", "warn",
-            "全图无房间名（标签层缺失/未取到）：%d 间按 comp_id 出「未命名空间N」"
-            "并标低置信，房间归属与列项需人工核对" % len(rooms),
-            {"comp_ids": [r.get("comp_id") for r in rooms]}))
+            message + "；房间归属与列项需人工核对",
+            {"comp_ids": [r.get("comp_id") for r in rooms],
+             "residual_comp_ids": residual_ids}))
     elif unnamed:
         issues.append(Issue(
             "unnamed_rooms", "warn",

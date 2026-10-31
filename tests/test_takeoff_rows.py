@@ -475,6 +475,45 @@ def test_zero_enclosed_rooms_disclosed():
     assert [i.code for i in issues] == ["no_enclosed_rooms"]
 
 
+def test_rooms_without_poly_disclosed_as_no_enclosed_rooms():
+    """有房间记录但全无可用围合多边形 → 同样发 no_enclosed_rooms，不得静默。"""
+    data = {"rooms": [
+        {"comp_id": 1, "names": ["空房"], "is_out": False, "poly": [], "area": 0.0},
+    ], "doors": [], "windows": [], "unplaced_anchors": []}
+    rows, issues = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
+    assert rows == []
+    assert [i.code for i in issues] == ["no_enclosed_rooms"]
+    assert "无可用围合多边形" in issues[0].message
+
+
+def test_empty_string_names_are_unnamed_not_high_confidence():
+    """names=[""] 不是房间名：标签/置信/issue 三处都必须按未命名处理。"""
+    data = {"rooms": [
+        {"comp_id": 1, "names": [""], "is_out": False,
+         "poly": [(0, 0), (4000, 0), (4000, 3000), (0, 3000)], "area": 12.0},
+    ], "doors": [], "windows": [], "unplaced_anchors": []}
+    rows, issues = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
+    assert {r.division_id for r in rows} == {1, 2, 3, 5}
+    assert all(r.label.startswith("未命名空间1-") for r in rows)
+    assert all(r.confidence_level == "low" for r in rows)
+    assert [i.code for i in issues] == ["no_room_labels"]
+    assert issues[0].detail["comp_ids"] == [1]
+
+
+def test_residual_only_drawing_message_not_overclaiming():
+    """整图只有窄条残条：no_room_labels 不得声称这些残条出全部分部。"""
+    data = {"rooms": [
+        {"comp_id": 1, "names": [], "is_out": False,
+         "poly": [(0, 0), (5000, 0), (5000, 200), (0, 200)], "area": 1.0},
+    ], "doors": [], "windows": [], "unplaced_anchors": []}
+    rows, issues = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
+    assert {r.division_id for r in rows} == {1}
+    assert [i.code for i in issues] == ["unlabeled_enclosure_region", "no_room_labels"]
+    msg = [i for i in issues if i.code == "no_room_labels"][0]
+    assert "0 间" in msg.message and "1 处窄条残条" in msg.message
+    assert msg.detail["residual_comp_ids"] == [1]
+
+
 def test_reconcile_only_two_bands(tmp_path):
     """恰好两条带：墙地比 4.15、踢脚比 1.47 均越带；只写 check，不改 value、不增行。"""
     data = _data(tmp_path)
@@ -595,6 +634,7 @@ def test_to_measurement_maps_units_and_trace(tmp_path):
     mb = to_measurement(bb, project_id=7)
     assert mb.length == bb.value and mb.area is None and mb.count is None
     assert mb.unit == "m"
+    assert mb.confidence_level == "high" and mb.confidence_icon == "🟢"
     assert "baseboard_ratio" in json.loads(mb.data_json)["check"]
 
     opening = [r for r in rows if r.division_id == 4][0]

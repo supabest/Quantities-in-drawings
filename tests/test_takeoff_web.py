@@ -317,6 +317,20 @@ def test_run_reports_unplaced_room_label(tmp_path):
     assert issue.detail.get("anchors")
 
 
+def test_run_issue_detail_names_the_drawing(tmp_path):
+    """逐图 issue 必须带 drawing/file：多图项目里同类披露可区分来源。"""
+    from app.core.takeoff import run
+
+    doc, msp = _new_doc()
+    _box(msp, 0, 0, 4000, 3000)                  # 无房间标签 → no_room_labels
+    doc.saveas(tmp_path / "unlabeled.dxf")
+    result = run(_project(), [_drawing("unlabeled.dxf")], str(tmp_path))
+
+    issue = next(i for i in result.issues if i.code == "no_room_labels")
+    assert issue.detail["drawing"] == "unlabeled.dxf"
+    assert issue.detail["file"] == "unlabeled.dxf"
+
+
 # ---- T10 修复轮 1：C1 单图兜底 / I1 清 PDF 行 / I2 单 DXF / I4 逐间层高闸门 ----
 # 合成 DXF 一律现场造（不读 装修图纸/），纯 run() 用例沿用 SimpleNamespace 写法。
 

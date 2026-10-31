@@ -33,9 +33,14 @@ def mean_width_mm(room):
     return 2.0 * area / per
 
 
+def has_names(room):
+    """有非空房间名。空串/None 不算名字——与 base_name 的过滤同口径。"""
+    return any(str(n).strip() for n in (room.get("names") or []) if n is not None)
+
+
 def is_residual(room):
     """无名窄条不是房间：只计地面，不出天棚/墙面/踢脚。"""
-    if room.get("names"):
+    if has_names(room):
         return False
     if len(room.get("poly") or []) < 3:
         return False
@@ -44,7 +49,8 @@ def is_residual(room):
 
 
 def base_name(room):
-    names = [str(n) for n in (room.get("names") or []) if n]
+    names = [str(n).strip() for n in (room.get("names") or [])
+             if n is not None and str(n).strip()]
     if names:
         return "+".join(names)
     return "%s%s" % (UNNAMED_PREFIX, room.get("comp_id"))
