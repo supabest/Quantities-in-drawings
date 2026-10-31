@@ -32,6 +32,8 @@ def test_floor_and_ceiling_totals(tmp_path):
     assert abs(sum(r.value for r in ceil) - 19.73) <= 0.05
     assert all(r.unit == "m2" and "围合" in r.formula_text for r in floor + ceil)
     assert all(r.position_desc and "comp_id=" in r.position_desc for r in floor + ceil)
+    # 矢量墙线直接围合量出 → 图纸实测（默认口径）
+    assert all(r.source_tag == "图纸实测" for r in floor + ceil)
 
 
 def test_wall_deducts_door_and_has_formula(tmp_path):
@@ -47,6 +49,11 @@ def test_wall_deducts_door_and_has_formula(tmp_path):
     assert "×" in living.formula_text
     assert "comp_id=" in living.position_desc
     assert living.formula_text.strip()
+    # 公式断言不只看客厅：卧室周长 10.64 必须真的进了算式
+    bedroom = [r for r in wall if "卧室" in r.label][0]
+    assert "10.64" in bedroom.formula_text
+    # 净高、门洞扣减均属参数派生 → 几何推算
+    assert all(r.source_tag == "几何推算" for r in wall)
 
 
 def test_baseboard_deducts_door(tmp_path):
@@ -57,6 +64,9 @@ def test_baseboard_deducts_door(tmp_path):
     assert abs(sum(r.value for r in bb) - 29.02) <= 0.15
     living = [r for r in bb if "客厅" in r.label][0]
     assert abs(living.value - (12.64 - 0.90)) <= 0.06
+    bedroom = [r for r in bb if "卧室" in r.label][0]
+    assert "10.64" in bedroom.formula_text
+    assert all(r.source_tag == "几何推算" for r in bb)
 
 
 def test_openings_counted_by_tatami_unit(tmp_path):
@@ -66,3 +76,56 @@ def test_openings_counted_by_tatami_unit(tmp_path):
     assert all(r.unit == "樘" and r.value == 1 for r in openings)
     assert "0.90" in openings[0].formula_text
     assert "comp_id=" in openings[0].position_desc
+    assert all(r.source_tag == "几何推算" for r in openings)
+
+
+# ---- 以下为合成数据用例：不依赖 _plan 夹具，直接构造 data 打 rows_for_divisions ----
+
+
+def _box_rooms(**fields):
+    """4000×3000 方盒房间列表；fields 覆盖/附加到首个房间。"""
+    room = {"comp_id": 1, "names": ["A"], "is_out": False,
+            "poly": [(0, 0), (4000, 0), (4000, 3000), (0, 3000)], "area": 12.0}
+    room.update(fields)
+    return [room]
+
+
+def _synth(rooms, doors=(), windows=(), params=None):
+    data = {"rooms": rooms, "doors": list(doors), "windows": list(windows)}
+    return rows_for_divisions(data, params or TakeoffParams())[0]
+
+
+def test_openings_counted_by_physical_tatami_not_segments():
+    """共享墙两侧各画一条门线：物理洞口 1 樘，不得按线段数计成 2。"""
+    rooms = [
+        {"comp_id": 1, "names": ["A"], "is_out": False,
+         "poly": [(0, 0), (4000, 0), (4000, 3000), (0, 3000)], "area": 12.0},
+        {"comp_id": 2, "names": ["B"], "is_out": False,
+         "poly": [(4000, 0), (8000, 0), (8000, 3000), (4000, 3000)], "area": 12.0},
+    ]
+    # 同一樘门两条平行线，均在两侧房间 x=4000 共享墙的 400mm 容差内
+    doors = [(3960, 1000, 3960, 1900), (3990, 1000, 3990, 1900)]
+    rows = _synth(rooms, doors=doors)
+    assert len(doors) == 2                    # 前提：线段确实两条，排除假通过
+    openings = [r for r in rows if r.division_id == 4]
+    assert len(openings) == 1
+    assert openings[0].unit == "樘" and openings[0].value == 1
+    assert "0.90" in openings[0].formula_text
+
+
+def test_net_height_priority_soffit_office_default_fallback():
+    """净高优先级：吊顶净高 > 业态默认 > 兜底 2800（不得直传 floor_height 绕过业态）。"""
+    # 1) 吊顶净高 2600 → 14.00 × 2.600 = 36.4
+    wall = [r for r in _synth(_box_rooms(soffit_mm=2600)) if r.division_id == 2][0]
+    assert abs(wall.value - 36.4) <= 0.05
+    assert "2.600" in wall.formula_text
+    # 2) 无 soffit、业态 office → 默认 3000 → 14.00 × 3.000 = 42.0
+    wall = [r for r in _synth(_box_rooms(), params=TakeoffParams(project_type="office"))
+            if r.division_id == 2][0]
+    assert abs(wall.value - 42.0) <= 0.05
+    assert "3.000" in wall.formula_text
+    # 3) 无 soffit、未知业态 → effective 为 None → 兜底 2800 → 39.2
+    wall = [r for r in _synth(_box_rooms(), params=TakeoffParams(project_type="mystery"))
+            if r.division_id == 2][0]
+    assert abs(wall.value - 39.2) <= 0.05
+    assert "2.800" in wall.formula_text

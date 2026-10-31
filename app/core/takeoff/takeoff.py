@@ -8,6 +8,10 @@
   · 4 门窗洞口：按**物理洞口**计（每条 poly 边投影 opening_intervals →
     同类中点距 <300mm 去重），unit=樘，每洞口一行——不按线段条数计。
 
+来源标注（设计稿 2026-10-17 general-takeoff-engine-design.md:253-255）：
+  · 1 地面 / 3 天棚：矢量墙线直接围合量出 → 图纸实测（默认，不显式传）；
+  · 2 墙面 / 4 洞口 / 5 踢脚：由参数派生（净高、门洞宽、洞口尺寸）→ 几何推算。
+
 纯包：只依赖 math 与 .types；不得导入 flask / app.models / modeling。
 """
 from __future__ import annotations
@@ -184,6 +188,7 @@ def rows_for_divisions(data, params):
                 per / 1e3, h_net / 1e3, door_w / 1e3, door_h / 1e3,
                 win_w / 1e3, win_h / 1e3),
             pos, remarks=rem_comp + ";height=%s" % h_src,
+            source_tag="几何推算",
             confidence_level="medium",
             check={"gross_m2": round(gross, 2), "openings_m2": round(gross - net, 2)}))
 
@@ -193,7 +198,7 @@ def rows_for_divisions(data, params):
             rows.append(Row(
                 5, "%s-踢脚线" % name, "dxf_baseboard", "m", round(bb, 2),
                 "踢脚=净周长{:.2f} − 门洞{:.2f}".format(per / 1e3, door_w / 1e3),
-                pos, remarks=rem_comp))
+                pos, remarks=rem_comp, source_tag="几何推算"))
 
         # ---- 4 洞口候选：逐边取逐樘区间 ----
         for e in edges:
@@ -223,5 +228,6 @@ def rows_for_divisions(data, params):
             "洞口计数=1（{}洞 净宽{:.2f}m×高{:.2f}m 中点({:.0f},{:.0f})，物理洞口去重后计 1 樘）".format(
                 kind, width / 1e3, hh / 1e3, cx, cy),
             "05平面 %s comp_id=%s 中点=(%.0f,%.0f)" % (layer, comp, cx, cy),
-            remarks="comp_id=%s;width_mm=%.0f;center=(%.0f,%.0f)" % (comp, width, cx, cy)))
+            remarks="comp_id=%s;width_mm=%.0f;center=(%.0f,%.0f)" % (comp, width, cx, cy),
+            source_tag="几何推算"))
     return rows, issues
