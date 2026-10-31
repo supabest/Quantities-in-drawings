@@ -139,18 +139,24 @@ def decode_text(s: str) -> str:
 
 def segs_of(e) -> list:
     st = e.dxftype()
-    out = []
     if st == "LINE":
         s, t = e.dxf.start, e.dxf.end
-        out.append((s.x, s.y, t.x, t.y))
-    elif st in ("LWPOLYLINE", "POLYLINE"):
-        try:
+        return [(s.x, s.y, t.x, t.y)]
+    if st not in ("LWPOLYLINE", "POLYLINE"):
+        return []
+    try:
+        if st == "LWPOLYLINE":
             pts = [(p[0], p[1]) for p in e.get_points()]
-            for a, b in zip(pts, pts[1:]):
-                out.append((a[0], a[1], b[0], b[1]))
-        except Exception:
-            pass
-    return out
+        else:
+            # Polyline 没有 get_points()：优先 points()（Vec3 取前两维），
+            # 不可用时退回顶点实体；2D/3D 都按相邻点成段。
+            try:
+                pts = [(p[0], p[1]) for p in e.points()]
+            except Exception:
+                pts = [(v.dxf.location.x, v.dxf.location.y) for v in e.vertices]
+    except Exception:
+        return []
+    return [(a[0], a[1], b[0], b[1]) for a, b in zip(pts, pts[1:])]
 
 
 def text_of(e):
@@ -170,6 +176,13 @@ def _ang(dx, dy) -> float:
 
 @dataclass
 class LayerRoles:
+    """角色取线结果。
+
+    bounds 在未给 scope_bounds 时是**全局**所有已归账段端点的包围盒（±200mm），
+    可能横跨镜像副本/别张图纸，不是簇范围：T5 应先用全局结果定簇，再以簇范围
+    作为 scope_bounds 重新调用 resolve_roles，取局部几何建房间。
+    给了 scope_bounds 时 bounds 原样返回该框。
+    """
     segments: dict
     labels: list
     used_layers: dict
@@ -177,8 +190,18 @@ class LayerRoles:
     bounds: tuple
 
 
-def _collect(msp, roles_by_layer):
-    """深度遍历取几何段（块内 < 8 层），审计层单独归账备回退。"""
+def _inb(x, y, bounds) -> bool:
+    """点是否落在 (x0, y0, x1, y1) 内（含边界），与 base_extract._inb 同口径。"""
+    x0, y0, x1, y1 = bounds
+    return x0 <= x <= x1 and y0 <= y <= y1
+
+
+def _collect(msp, roles_by_layer, scope_bounds=None):
+    """深度遍历取几何段（块内 < 8 层），审计层单独归账备回退。
+
+    scope_bounds=(x0, y0, x1, y1) 时只保留任一端点落在框内（含边界）的段，
+    角色段与审计段同口径裁剪。
+    """
     by_role = {}
     audit = {}
 
@@ -187,6 +210,9 @@ def _collect(msp, roles_by_layer):
             st = e.dxftype()
             if st in ("LINE", "LWPOLYLINE", "POLYLINE"):
                 segs = segs_of(e)
+                if scope_bounds is not None:
+                    segs = [s for s in segs
+                            if _inb(s[0], s[1], scope_bounds) or _inb(s[2], s[3], scope_bounds)]
                 if not segs:
                     continue
                 layer = e.dxf.layer
@@ -206,11 +232,16 @@ def _collect(msp, roles_by_layer):
     return by_role, audit
 
 
-def resolve_roles(doc, strict_enc=False) -> LayerRoles:
+def resolve_roles(doc, strict_enc=False, scope_bounds=None) -> LayerRoles:
     """按图层角色取线：真墙/FIN 双线间墙/门窗/反坎/房间标签 + 审计层零命中回退。
 
     strict_enc 不改变取线结果：wall_fin_part（严格）与 wall_fin_axial（宽松）
     两套候选同时返回，由下游围合按精度选取（对应 base_extract 的 ENC 取舍）。
+
+    scope_bounds=(x0, y0, x1, y1) 时只保留任一端点落在框内（含边界）的段与标签，
+    prim / wall_fin_axial / wall_fin_part / 审计回退均基于裁剪后的墙线计算，
+    bounds 原样返回该框。缺省 None 保持全局视图（T5 定簇需要）：此时 bounds
+    可能横跨镜像副本/别张图纸，不能当作簇范围，须定簇后再传入簇范围重取。
     """
     msp = doc.modelspace()
     roles_by_layer = {}
@@ -221,7 +252,7 @@ def resolve_roles(doc, strict_enc=False) -> LayerRoles:
         if role:
             roles_by_layer[name] = role
             used[role].append(name)
-    by_role, audit = _collect(msp, roles_by_layer)
+    by_role, audit = _collect(msp, roles_by_layer, scope_bounds)
 
     # 真墙层零命中 → 回退审计层（只补 wall_solid，不猜其它角色；227 实测审计层
     # 不参与正常算量，仅用于真墙层缺失的图纸）
@@ -314,11 +345,16 @@ def resolve_roles(doc, strict_enc=False) -> LayerRoles:
         else:
             addtxt(e)
 
-    pts = [p for segs in by_role.values() for s in segs for p in ((s[0], s[1]), (s[2], s[3]))]
-    xs = [p[0] for p in pts] or [0.0]
-    ys = [p[1] for p in pts] or [0.0]
-    pad = 200.0
-    bounds = (min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad)
+    if scope_bounds is not None:
+        labels = [l for l in labels if _inb(l[0], l[1], scope_bounds)]
+        bounds = tuple(scope_bounds)
+    else:
+        pts = [p for segs in by_role.values() for s in segs
+               for p in ((s[0], s[1]), (s[2], s[3]))]
+        xs = [p[0] for p in pts] or [0.0]
+        ys = [p[1] for p in pts] or [0.0]
+        pad = 200.0
+        bounds = (min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad)
 
     segments = {
         "wall_solid": by_role.get("wall_solid", []),

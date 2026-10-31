@@ -165,7 +165,8 @@ AUDIT = "$TD_AUDIT_GENERATED_GEOM"
 
 
 def _audit_only(tmp_path):
-    """无真墙几何，只有审计层：一条边由 LWPOLYLINE + LINE 组成，另有块内 LINE。"""
+    """无真墙几何，只有审计层：一条边由 LWPOLYLINE + LINE 组成，另有块内 LINE
+    和一条模型空间 POLYLINE。"""
     doc = ezdxf.new("R2018")
     doc.layers.add(AUDIT)
     blk = doc.blocks.new("AUDWALL")
@@ -173,6 +174,7 @@ def _audit_only(tmp_path):
     msp = doc.modelspace()
     msp.add_lwpolyline([(0, 0), (4400, 0)], dxfattribs={"layer": AUDIT})
     msp.add_line((0, 200), (4400, 200), dxfattribs={"layer": AUDIT})
+    msp.add_polyline2d([(0, 400), (4400, 400)], dxfattribs={"layer": AUDIT})
     msp.add_blockref("AUDWALL", (5000, 0))
     p = tmp_path / "audit.dxf"
     doc.saveas(p)
@@ -182,8 +184,8 @@ def _audit_only(tmp_path):
 def test_resolve_roles_audit_fallback_when_no_true_wall(tmp_path):
     roles = resolve_roles(_audit_only(tmp_path))
     assert roles.audit_fallback == [AUDIT]
-    # LINE + LWPOLYLINE（模型空间）+ 块内 LINE 全部纳入
-    assert len(roles.segments["wall_solid"]) == 3
+    # LINE + LWPOLYLINE + POLYLINE（模型空间）+ 块内 LINE 全部纳入
+    assert len(roles.segments["wall_solid"]) == 4
     x0, y0, x1, y1 = roles.bounds
     assert x1 >= 5000 and y1 >= 200
 
@@ -215,3 +217,81 @@ def test_resolve_roles_label_filter_matches_base_extract(tmp_path):
         msp.add_text(t, height=250, dxfattribs={"layer": "P-TEXT"}).set_placement(xy)
     texts = [t for _, _, t in resolve_roles(doc).labels]
     assert texts == ["客厅", "主卧", "客厅"]
+
+
+def test_resolve_roles_polyline2d_segments():
+    """POLYLINE 没有 get_points()，2D POLYLINE 曾整类被静默丢弃。"""
+    doc = ezdxf.new("R2018")
+    doc.layers.add("WALL")
+    msp = doc.modelspace()
+    msp.add_polyline2d([(0, 0), (1000, 0), (1000, 500)], dxfattribs={"layer": "WALL"})
+    segs = resolve_roles(doc).segments["wall_solid"]
+    assert segs == [(0.0, 0.0, 1000.0, 0.0), (1000.0, 0.0, 1000.0, 500.0)]
+
+
+def test_resolve_roles_polyline3d_segments():
+    """3D POLYLINE 取前两维成段（忽略 z）。"""
+    doc = ezdxf.new("R2018")
+    doc.layers.add("WALL")
+    msp = doc.modelspace()
+    msp.add_polyline3d([(0, 0, 500), (1000, 0, 500), (1000, 500, 0)],
+                       dxfattribs={"layer": "WALL"})
+    segs = resolve_roles(doc).segments["wall_solid"]
+    assert segs == [(0.0, 0.0, 1000.0, 0.0), (1000.0, 0.0, 1000.0, 500.0)]
+
+
+def _scope_doc(tmp_path, name, off_band):
+    """带内 4.0×3.0 净空双线墙房间 + 房内两条 45° FIN；可选带外 45° 墙线与房名。"""
+    doc = ezdxf.new("R2018")
+    for n in ("WALL", "FIN", "P-TEXT"):
+        doc.layers.add(n)
+    msp = doc.modelspace()
+    for y in (0, 200):
+        msp.add_line((0, y), (4400, y), dxfattribs={"layer": "WALL"})
+    for y in (3200, 3400):
+        msp.add_line((0, y), (4400, y), dxfattribs={"layer": "WALL"})
+    for x in (0, 200):
+        msp.add_line((x, 0), (x, 3400), dxfattribs={"layer": "WALL"})
+    for x in (4200, 4400):
+        msp.add_line((x, 0), (x, 3400), dxfattribs={"layer": "WALL"})
+    msp.add_line((500, 500), (900, 900), dxfattribs={"layer": "FIN"})
+    msp.add_line((1600, 500), (2000, 900), dxfattribs={"layer": "FIN"})
+    msp.add_text("客厅", height=250, dxfattribs={"layer": "P-TEXT"}).set_placement((1000, 1500))
+    if off_band:
+        msp.add_line((20000, 20000), (25000, 25000), dxfattribs={"layer": "WALL"})
+        msp.add_text("主卧", height=250,
+                     dxfattribs={"layer": "P-TEXT"}).set_placement((21000, 21000))
+    p = tmp_path / f"{name}.dxf"
+    doc.saveas(p)
+    return ezdxf.readfile(p)
+
+
+def test_resolve_roles_scope_bounds_excludes_offband_geometry(tmp_path):
+    band = (0, 0, 4400, 3400)
+    doc_off = _scope_doc(tmp_path, "with_off", True)
+    base = resolve_roles(_scope_doc(tmp_path, "base", False))
+
+    # 无裁剪：带外 45° 墙把 45° 计入主方向，房内 45° FIN 被误判为轴向
+    glob = resolve_roles(doc_off)
+    assert len(glob.segments["wall_solid"]) == 9          # 8 带内 + 1 带外 45°
+    assert [t for _, _, t in glob.labels] == ["客厅", "主卧"]
+    assert len(glob.segments["wall_fin_axial"]) == 2
+
+    # 按房间边界裁剪：带外墙线与标签剔除，45° 不是带内主方向 → 无轴向 FIN
+    scoped = resolve_roles(doc_off, scope_bounds=band)
+    assert scoped.bounds == band
+    assert scoped.segments["wall_solid"] == base.segments["wall_solid"]
+    assert len(scoped.segments["wall_solid"]) == 8
+    assert [t for _, _, t in scoped.labels] == ["客厅"]
+    assert scoped.segments["wall_fin_axial"] == base.segments["wall_fin_axial"] == []
+    assert scoped.segments["wall_fin_part"] == []
+
+
+def test_resolve_roles_scope_bounds_kept_when_doc_empty():
+    doc = ezdxf.new("R2018")
+    band = (52161000.0, 227791000.0, 52186500.0, 227815500.0)
+    roles = resolve_roles(doc, scope_bounds=band)
+    assert roles.bounds == band
+    assert roles.labels == []
+    assert roles.audit_fallback == []
+    assert all(segs == [] for segs in roles.segments.values())
