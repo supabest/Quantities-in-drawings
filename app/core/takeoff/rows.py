@@ -1,7 +1,7 @@
 """Row → Measurement。takeoff 包内唯一允许触碰 ORM 的适配层（惰性 import）。
 
-模块级只 import json；app.models 必须放在 to_measurement 函数内，保证
-``import app.core.takeoff.rows`` 本身不拉 Flask/ORM（纯包边界可自动断言）。
+模块级只 import json；`app.models` 惰性导入，保证模块导入期不加载 ORM。
+Flask 由既有 `app/__init__.py` 在导入 app 包时引入，不属本适配层职责。
 
 落库口径：
   · m2/m² → area + unit="m²"；m → length（unit 保持 "m"）；

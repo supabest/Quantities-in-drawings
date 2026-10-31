@@ -11,6 +11,8 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 from app.core.takeoff.coverage import build_coverage
 from app.core.takeoff.enclosure import _decode_text, build_rooms
 from app.core.takeoff.layers import resolve_roles
@@ -355,6 +357,33 @@ def test_coverage_no_poly_is_no_source():
     assert cells[("零面积", "地面")] == "有源"
 
 
+def test_coverage_duplicate_names_disambiguated_by_comp_id():
+    """同名户内房按 comp_id 消歧（各 4 部位格）；唯一名保持原样（不影响 T10 文案）。"""
+    data = {"rooms": [
+        # 227 同款：两间无标注房，面积/位置不同但名字相同
+        {"comp_id": 3, "names": [], "is_out": False,
+         "poly": [(0, 0), (1000, 0), (1000, 1000)], "area": 0.46},
+        {"comp_id": 24, "names": [], "is_out": False,
+         "poly": [(2000, 0), (3000, 0), (3000, 1000)], "area": 1.14},
+        {"comp_id": 7, "names": ["客厅"], "is_out": False,
+         "poly": [(4000, 0), (5000, 0), (5000, 1000)], "area": 2.0},
+        # is_out 同名房不参与消歧：户内「客厅」仍是唯一名
+        {"comp_id": 8, "names": ["客厅"], "is_out": True,
+         "poly": [(6000, 0), (7000, 0), (7000, 1000)], "area": 3.0},
+    ], "doors": [], "windows": [], "unplaced_anchors": []}
+    cov = build_coverage(data, TakeoffParams(floor_height_mm=2800))
+    rows = cov.rows()
+    spaces = {r["space"] for r in rows}
+    assert "(无标注)#3" in spaces and "(无标注)#24" in spaces
+    assert "(无标注)" not in spaces
+    assert "客厅" in spaces                      # 唯一名不加后缀
+    assert "客厅#7" not in spaces
+    for space in ("(无标注)#3", "(无标注)#24"):
+        assert len([r for r in rows if r["space"] == space]) == 4
+    # 两间同名房 8 格 + 客厅 4 格 + 项目级 2 格
+    assert len(rows) == 14
+
+
 def test_reconcile_only_two_bands(tmp_path):
     """恰好两条带：墙地比 4.15、踢脚比 1.47 均越带；只写 check，不改 value、不增行。"""
     data = _data(tmp_path)
@@ -404,6 +433,48 @@ def test_reconcile_band_respects_project_type(tmp_path):
     assert synth[2].check["baseboard_ratio"] == 0.8       # 原 check=None → 新建 dict
 
 
+def test_reconcile_ratio_rounded_before_band_check():
+    """比值先舍入到 2 位：3.004→3.00 不报；3.006→3.01 报，check/message/detail 同值。"""
+    def synth(wall_value):
+        return [
+            Row(1, "地面", "dxf_floor", "m2", 10.0, "f"),
+            Row(2, "墙面", "dxf_wall", "m2", wall_value, "f"),
+        ]
+
+    in_band = synth(30.04)                       # 30.04/10 = 3.004 → 3.00
+    assert reconcile_apply(in_band) == []
+    assert in_band[1].check["wall_floor_ratio"] == 3.0
+
+    out_band = synth(30.06)                      # 30.06/10 = 3.006 → 3.01
+    issues = reconcile_apply(out_band)
+    wf = [i for i in issues if i.code == "wall_floor_ratio"][0]
+    assert wf.detail["ratio"] == 3.01
+    assert "3.01" in wf.message
+    assert out_band[1].check["wall_floor_ratio"] == 3.01
+
+
+def test_reconcile_empty_and_zero_totals_short_circuit():
+    """空 rows、floor=0、baseboard=0：不报、不崩、不写无定义比值。"""
+    assert reconcile_apply([]) == []
+
+    # floor=0（只有 div2/div5）：两个比值都无定义 → 不判、不建 check
+    no_floor = [
+        Row(2, "墙面", "dxf_wall", "m2", 30.0, "f"),
+        Row(5, "踢脚", "dxf_baseboard", "m", 8.0, "f"),
+    ]
+    assert reconcile_apply(no_floor) == []
+    assert no_floor[0].check is None and no_floor[1].check is None
+
+    # baseboard=0（有 floor/wall、无 div5）：只判墙地比 25/10=2.5 落带内 → 不报
+    no_baseboard = [
+        Row(1, "地面", "dxf_floor", "m2", 10.0, "f"),
+        Row(2, "墙面", "dxf_wall", "m2", 25.0, "f", check={"gross_m2": 25.0}),
+    ]
+    assert reconcile_apply(no_baseboard) == []
+    assert no_baseboard[1].check == {"gross_m2": 25.0, "wall_floor_ratio": 2.5}
+    assert "baseboard_ratio" not in no_baseboard[1].check
+
+
 def test_to_measurement_maps_units_and_trace(tmp_path):
     """单位映射 + 来源/置信图标 + 计算式/部位原样 + check 落 data_json。"""
     data = _data(tmp_path)
@@ -446,6 +517,12 @@ def test_to_measurement_maps_units_and_trace(tmp_path):
     mw2 = to_measurement(weird, project_id=7)
     assert mw2.source_tag_icon == ""
     assert mw2.confidence_icon == "🟡"
+
+
+def test_to_measurement_unknown_unit_raises():
+    """未知单位必须显式 ValueError，不得静默按 area 落库。"""
+    with pytest.raises(ValueError, match="未知单位"):
+        to_measurement(Row(1, "怪", "dxf_floor", "kg", 1.0, "f"), project_id=7)
 
 
 def test_rows_module_import_is_lazy():

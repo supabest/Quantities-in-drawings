@@ -14,9 +14,14 @@
     无未落房锚点 → 有源("anchors")；否则 待确认，source 列未落房锚点名
     （sorted 去重，逗号顿号皆可），不静默丢。
 
-纯包：只 import .types；不得导入 flask / app.models / modeling。
+同名空间：仅当户内房名重复时追加 `#comp_id` 消歧（如 `(无标注)#3`、
+`(无标注)#24`）；唯一名保持原样，不改变 T10 文案。
+
+纯包：只 import .types 与标准库 collections；不得导入 flask / app.models / modeling。
 """
 from __future__ import annotations
+
+from collections import Counter
 
 from .types import Coverage
 
@@ -37,10 +42,12 @@ def build_coverage(data, params):
     """data（T6/T7 的 rooms/doors/windows/unplaced_anchors）+ params → Coverage。"""
     cov = Coverage()
     need_h = params.requires_floor_height()
-    for room in data.get("rooms") or []:
-        if room.get("is_out"):
-            continue
+    rooms = [r for r in (data.get("rooms") or []) if not r.get("is_out")]
+    name_counts = Counter(_room_name(r) for r in rooms)
+    for room in rooms:
         name = _room_name(room)
+        if name_counts[name] > 1:
+            name = "%s#%s" % (name, room.get("comp_id"))
         if not _has_poly(room):
             for part in ROOM_PARTS:
                 cov.mark(name, part, "无源", None)
