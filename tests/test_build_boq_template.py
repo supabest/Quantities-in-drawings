@@ -27,6 +27,16 @@ def test_material_of_uses_controlled_vocabulary():
     assert vocab.material_of("无法识别的东西") is None
 
 
+def test_material_of_uses_head_noun():
+    # 中文中心语在后：取最靠右的受控词，不能把修饰语（洗衣机/马桶）当材料
+    assert vocab.material_of("洗衣机地漏") == "地漏"
+    assert vocab.material_of("洗衣机龙头") == "龙头"
+    assert vocab.material_of("马桶喷枪") == "喷枪"
+    # 「开关型」是修饰用法，跳过该次命中后无有效词 → None（转人工复核）
+    assert vocab.material_of("电动二通阀(开关型)DN20") is None
+    assert vocab.material_of("8路开关执行器") == "开关"
+
+
 def test_assert_no_quantities_rejects_numbers():
     mod.assert_no_quantities({"items": [{"name": "x", "unit": "m2"}]})
     import pytest
@@ -55,6 +65,7 @@ def _write_workbook(path):
     ws.append(["三", "天棚装饰工程"])
     ws.append(["（五）", "天棚装饰线"])
     ws.append(["", "定制GRG线条1", "", ""])
+    ws.append(["", "其他项目", "", ""])
     ws.append(["ZS02-A-106", "天棚刮腻子每增减一遍", "", "m2"])
 
     wb_b = wb.create_sheet("ZS02-B- 精装修水电136、227户型")
@@ -83,7 +94,13 @@ def test_build_from_synthetic_workbook(tmp_path):
     assert len([it for it in items if it["name"] == "瓷砖地面铺贴阳台"]) == 1
     assert by_name["踢脚线不锈钢饰面"]["division"] == 5
     assert by_name["踢脚线不锈钢饰面"]["capability"] == "baseboard_length"
-    assert by_name["定制GRG线条1"]["group_only"] is True
+    # 空白计量单位但名称属线性列项（GRG/线条/灯槽…）→ 真实行项，按 m 计
+    assert by_name["定制GRG线条1"]["unit"] == "m"
+    assert by_name["定制GRG线条1"]["group_only"] is False
+    assert by_name["定制GRG线条1"]["division"] == 3
+    # 其余空白计量单位行仍是分组标题
+    assert by_name["其他项目"]["unit"] == "项"
+    assert by_name["其他项目"]["group_only"] is True
     assert by_name["天棚刮腻子每增减一遍"]["group_only"] is True
     assert by_name["厨房空调"]["division"] == 8
     assert by_name["厨房空调"]["capability"] == "hvac"

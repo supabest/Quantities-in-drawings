@@ -80,6 +80,16 @@ def test_material_of_uses_controlled_vocabulary():
     assert vocab.material_of("无法识别的东西") is None
 
 
+def test_material_of_uses_head_noun():
+    # 中文中心语在后：取最靠右的受控词，不能把修饰语（洗衣机/马桶）当材料
+    assert vocab.material_of("洗衣机地漏") == "地漏"
+    assert vocab.material_of("洗衣机龙头") == "龙头"
+    assert vocab.material_of("马桶喷枪") == "喷枪"
+    # 「开关型」是修饰用法，跳过该次命中后无有效词 → None（转人工复核）
+    assert vocab.material_of("电动二通阀(开关型)DN20") is None
+    assert vocab.material_of("8路开关执行器") == "开关"
+
+
 def test_assert_no_quantities_rejects_numbers():
     mod.assert_no_quantities({"items": [{"name": "x", "unit": "m2"}]})
     import pytest
@@ -108,6 +118,7 @@ def _write_workbook(path):
     ws.append(["三", "天棚装饰工程"])
     ws.append(["（五）", "天棚装饰线"])
     ws.append(["", "定制GRG线条1", "", ""])
+    ws.append(["", "其他项目", "", ""])
     ws.append(["ZS02-A-106", "天棚刮腻子每增减一遍", "", "m2"])
 
     wb_b = wb.create_sheet("ZS02-B- 精装修水电136、227户型")
@@ -136,7 +147,13 @@ def test_build_from_synthetic_workbook(tmp_path):
     assert len([it for it in items if it["name"] == "瓷砖地面铺贴阳台"]) == 1
     assert by_name["踢脚线不锈钢饰面"]["division"] == 5
     assert by_name["踢脚线不锈钢饰面"]["capability"] == "baseboard_length"
-    assert by_name["定制GRG线条1"]["group_only"] is True
+    # 空白计量单位但名称属线性列项（GRG/线条/灯槽…）→ 真实行项，按 m 计
+    assert by_name["定制GRG线条1"]["unit"] == "m"
+    assert by_name["定制GRG线条1"]["group_only"] is False
+    assert by_name["定制GRG线条1"]["division"] == 3
+    # 其余空白计量单位行仍是分组标题
+    assert by_name["其他项目"]["unit"] == "项"
+    assert by_name["其他项目"]["group_only"] is True
     assert by_name["天棚刮腻子每增减一遍"]["group_only"] is True
     assert by_name["厨房空调"]["division"] == 8
     assert by_name["厨房空调"]["capability"] == "hvac"
@@ -197,8 +214,8 @@ MATERIAL_TOKENS = (
     "洗手台", "门套",
 )
 
-# 长词优先：避免「灯」先命中「灯带」
-_MATERIALS_LONGEST_FIRST = tuple(sorted(MATERIAL_TOKENS, key=len, reverse=True))
+# 「型」紧跟词后是修饰用法（如「开关型」），不算材料名
+_MODIFIER_SUFFIX = "型"
 
 
 def normalize_unit(raw):
@@ -209,11 +226,23 @@ def normalize_unit(raw):
 
 
 def material_of(name):
+    """取名称中最靠右的受控词作为材料（中文中心语在后）。
+
+    「洗衣机地漏」→「地漏」、「洗衣机龙头」→「龙头」、「马桶喷枪」→「喷枪」；
+    同一位置有长短词重叠时取长词。紧跟「型」出现的是修饰用法（如「开关型」），
+    跳过该次命中；若再无有效命中则返回 None，交由人工复核。
+    """
     text = name or ""
-    for token in _MATERIALS_LONGEST_FIRST:
-        if token in text:
-            return token
-    return None
+    best = None  # (起点, 词长, 词)
+    for token in MATERIAL_TOKENS:
+        start = text.find(token)
+        while start != -1:
+            end = start + len(token)
+            if text[end:end + 1] != _MODIFIER_SUFFIX:
+                if best is None or start > best[0] or (start == best[0] and len(token) > best[1]):
+                    best = (start, len(token), token)
+            start = text.find(token, start + 1)
+    return best[2] if best else None
 ```
 
 - [ ] **Step 4: 写抽取脚本 `scripts/build_boq_template.py`**
@@ -253,6 +282,8 @@ SHEET_MAPS = {
     "户内门": {"一": 4},
 }
 MODIFIER_MARKERS = ("每增减", "每增一遍", "每减一遍", "面层增减一遍")
+# 计量单位空缺但实为线性列项的名称关键字（GRG 线条、灯槽等，源表 E 列有 m 长度）
+LINEAR_UNIT_MARKERS = ("GRG", "装饰线", "线条", "凹槽", "灯槽", "窗帘盒")
 TOTAL_NAMES = ("合计", "总合计")
 FORBIDDEN_KEYS = {
     "quantity", "qty", "amount", "area", "length", "count", "total", "price",
@@ -318,6 +349,21 @@ def _division_for(sheet, sec, sub, name, unit):
     return base
 
 
+def _classify_unit(raw_unit, name):
+    """返回 (单位, 是否仅作分组标题)。
+
+    计量单位空缺的行默认是分组标题（单位「项」）；但天棚装饰线一类线性列项
+    （GRG 线条、灯槽、窗帘盒…）在源表里真的漏填单位、E 列却带 m 长度，
+    按判定口径归为真实行项，单位记「m」。名称含「每增减」等调整标记的行
+    无论单位是否空缺都只作分组标题。
+    """
+    if any(marker in name for marker in MODIFIER_MARKERS):
+        return normalize_unit(raw_unit), True
+    if not raw_unit and any(marker in name for marker in LINEAR_UNIT_MARKERS):
+        return "m", False
+    return normalize_unit(raw_unit), not raw_unit
+
+
 def parse_workbook(path):
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     items = []
@@ -329,7 +375,7 @@ def parse_workbook(path):
         sec_name = sub_name = ""
         for row in ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=4, values_only=True):
             c0, c1 = _s(row[0]), _s(row[1])
-            unit = normalize_unit(_s(row[3]) if len(row) > 3 else "")
+            raw_unit = _s(row[3]) if len(row) > 3 else ""
             if re.fullmatch(r"[一二三四五六七八九十]+", c0):
                 sec, sub, sec_name, sub_name = c0, "", c1, ""
                 continue
@@ -339,10 +385,10 @@ def parse_workbook(path):
             name = _clean_name(c1)
             if not name or name in TOTAL_NAMES or name.startswith("项目名称"):
                 continue
+            unit, group_only = _classify_unit(raw_unit, name)
             division = _division_for(sheet, sec, sub, name, unit)
             if division is None:
                 continue
-            group_only = (not _s(row[3])) or any(m in name for m in MODIFIER_MARKERS)
             items.append({
                 "division": division,
                 "name": name,
@@ -419,7 +465,7 @@ if __name__ == "__main__":
 - [ ] **Step 5: 运行测试确认通过**
 
 Run: `./venv/bin/python -m pytest tests/test_build_boq_template.py -q`
-Expected: 前 4 个用例 PASS；`test_committed_sample_flat_is_sanitized` FAIL（JSON 尚未生成）
+Expected: 前 5 个用例 PASS；`test_committed_sample_flat_is_sanitized` FAIL（JSON 尚未生成）
 
 - [ ] **Step 6: 生成真正的样板房模板**
 
@@ -440,9 +486,15 @@ d=json.load(open("app/core/takeoff/templates/sample_flat.json",encoding="utf-8")
 print(len(d["items"]), d["ranges"])
 print([i["name"] for i in d["items"] if i["division"]==4])
 print([i["name"] for i in d["items"] if i["division"]==5])
+grg=[i for i in d["items"] if i["name"].startswith("定制GRG线条")]
+print([(i["name"], i["unit"], i["group_only"]) for i in grg])
+by={i["name"]: i["material"] for i in d["items"]}
+print([by[n] for n in ("洗衣机地漏","洗衣机龙头","马桶喷枪","电动二通阀(开关型)DN20","8路开关执行器")])
 PY
 ```
-Expected: 全部 PASS；第 4 分部只有 `户内门`；第 5 分部含 `踢脚线不锈钢饰面`、`美缝`；JSON 无任何工程量字段。
+Expected: 全部 PASS；第 4 分部只有 `户内门`；第 5 分部含 `踢脚线不锈钢饰面`、`美缝`；
+`定制GRG线条1..6` 六行均为 `unit="m"`、`group_only=False`；材料依次为
+`地漏 / 龙头 / 喷枪 / None / 开关`；JSON 无任何工程量字段。
 
 - [ ] **Step 8: 提交**
 

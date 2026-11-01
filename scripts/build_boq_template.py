@@ -32,6 +32,8 @@ SHEET_MAPS = {
     "户内门": {"一": 4},
 }
 MODIFIER_MARKERS = ("每增减", "每增一遍", "每减一遍", "面层增减一遍")
+# 计量单位空缺但实为线性列项的名称关键字（GRG 线条、灯槽等，源表 E 列有 m 长度）
+LINEAR_UNIT_MARKERS = ("GRG", "装饰线", "线条", "凹槽", "灯槽", "窗帘盒")
 TOTAL_NAMES = ("合计", "总合计")
 FORBIDDEN_KEYS = {
     "quantity", "qty", "amount", "area", "length", "count", "total", "price",
@@ -97,6 +99,21 @@ def _division_for(sheet, sec, sub, name, unit):
     return base
 
 
+def _classify_unit(raw_unit, name):
+    """返回 (单位, 是否仅作分组标题)。
+
+    计量单位空缺的行默认是分组标题（单位「项」）；但天棚装饰线一类线性列项
+    （GRG 线条、灯槽、窗帘盒…）在源表里真的漏填单位、E 列却带 m 长度，
+    按判定口径归为真实行项，单位记「m」。名称含「每增减」等调整标记的行
+    无论单位是否空缺都只作分组标题。
+    """
+    if any(marker in name for marker in MODIFIER_MARKERS):
+        return normalize_unit(raw_unit), True
+    if not raw_unit and any(marker in name for marker in LINEAR_UNIT_MARKERS):
+        return "m", False
+    return normalize_unit(raw_unit), not raw_unit
+
+
 def parse_workbook(path):
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     items = []
@@ -108,7 +125,7 @@ def parse_workbook(path):
         sec_name = sub_name = ""
         for row in ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=4, values_only=True):
             c0, c1 = _s(row[0]), _s(row[1])
-            unit = normalize_unit(_s(row[3]) if len(row) > 3 else "")
+            raw_unit = _s(row[3]) if len(row) > 3 else ""
             if re.fullmatch(r"[一二三四五六七八九十]+", c0):
                 sec, sub, sec_name, sub_name = c0, "", c1, ""
                 continue
@@ -118,10 +135,10 @@ def parse_workbook(path):
             name = _clean_name(c1)
             if not name or name in TOTAL_NAMES or name.startswith("项目名称"):
                 continue
+            unit, group_only = _classify_unit(raw_unit, name)
             division = _division_for(sheet, sec, sub, name, unit)
             if division is None:
                 continue
-            group_only = (not _s(row[3])) or any(m in name for m in MODIFIER_MARKERS)
             items.append({
                 "division": division,
                 "name": name,

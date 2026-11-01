@@ -30,8 +30,8 @@ MATERIAL_TOKENS = (
     "洗手台", "门套",
 )
 
-# 长词优先：避免「灯」先命中「灯带」
-_MATERIALS_LONGEST_FIRST = tuple(sorted(MATERIAL_TOKENS, key=len, reverse=True))
+# 「型」紧跟词后是修饰用法（如「开关型」），不算材料名
+_MODIFIER_SUFFIX = "型"
 
 
 def normalize_unit(raw):
@@ -42,8 +42,20 @@ def normalize_unit(raw):
 
 
 def material_of(name):
+    """取名称中最靠右的受控词作为材料（中文中心语在后）。
+
+    「洗衣机地漏」→「地漏」、「洗衣机龙头」→「龙头」、「马桶喷枪」→「喷枪」；
+    同一位置有长短词重叠时取长词。紧跟「型」出现的是修饰用法（如「开关型」），
+    跳过该次命中；若再无有效命中则返回 None，交由人工复核。
+    """
     text = name or ""
-    for token in _MATERIALS_LONGEST_FIRST:
-        if token in text:
-            return token
-    return None
+    best = None  # (起点, 词长, 词)
+    for token in MATERIAL_TOKENS:
+        start = text.find(token)
+        while start != -1:
+            end = start + len(token)
+            if text[end:end + 1] != _MODIFIER_SUFFIX:
+                if best is None or start > best[0] or (start == best[0] and len(token) > best[1]):
+                    best = (start, len(token), token)
+            start = text.find(token, start + 1)
+    return best[2] if best else None
