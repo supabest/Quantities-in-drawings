@@ -35,6 +35,7 @@ from app.core.takeoff import (
     Issue, clear_previous_measurements, params_from_project, reconcile_pinned,
     run as takeoff_run,
 )
+from app.core.takeoff import template as takeoff_template
 from app.core.takeoff.rows import to_measurement
 
 # ── Constants ──
@@ -94,6 +95,36 @@ def takeoff_banners(takeoff):
             banners.append(message)
             seen.add(message)
     return banners
+
+
+def _measurement_views(measurements):
+    from app.core.takeoff.reconcile import measurement_view
+    return [measurement_view(m) for m in measurements]
+
+
+def _excluded_template_items(project):
+    raw = getattr(project, "takeoff_params", None)
+    if not raw:
+        return set()
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return set()
+    items = data.get("excluded_template_items") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        return set()
+    return {str(item) for item in items}
+
+
+def _merge_issues(target, extra):
+    seen = {(i.code, json.dumps(i.detail, sort_keys=True, ensure_ascii=False))
+            for i in target}
+    for issue in extra:
+        key = (issue.code, json.dumps(issue.detail, sort_keys=True, ensure_ascii=False))
+        if key in seen:
+            continue
+        target.append(issue)
+        seen.add(key)
 
 
 def process_project(project, drawings):
@@ -230,6 +261,16 @@ def process_project(project, drawings):
             "钉定行差异 %d 条：机器值未覆盖钉定值，已记入 remarks 待复核",
             pinned_changed)
 
+    # Phase 5: 模板漏项与合理性（只披露，不新增/不改数值行）
+    template_audit, template_issues = takeoff_template.audit(
+        _measurement_views(dxf_measurements + all_measurements),
+        dxf_result.coverage,
+        project.project_type,
+        metrics=dxf_result.metrics,
+        excluded=_excluded_template_items(project),
+    )
+    _merge_issues(dxf_result.issues, template_issues)
+
     # Generate annotated images
     for drawing in drawing_map['floor_plan']:
         image_path = os.path.join(current_app.config['UPLOAD_FOLDER'], drawing.filename)
@@ -244,6 +285,7 @@ def process_project(project, drawings):
         'dxf_divisions': sorted(dxf_divisions),
         'superseded_image_divisions': sorted(suppressed_image_divisions),
         'metrics': dxf_result.metrics,
+        'template': template_audit,
     }
     return {'measurement_count': len(all_measurements) + len(dxf_measurements),
             'takeoff': takeoff}

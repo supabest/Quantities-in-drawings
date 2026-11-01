@@ -1573,3 +1573,44 @@ def test_boq_page_shows_takeoff_issues_and_coverage(web_env, tmp_path):
 
     data = client.get("/api/measurements/%d" % pid).get_json()
     assert any("压墙房" in b for b in data.get("banners") or []), data.get("banners")
+
+
+def test_phase5_persists_template_audit_without_adding_rows(web_env, tmp_path):
+    """Phase 5 只披露：Measurement 行数与分部合计不变，summary 带 template 审计。"""
+    app, pid, _ = web_env
+    _copy_plan(tmp_path, app)
+    with app.app_context():
+        from app import db
+        from app.models import Measurement, Project
+        from app.processing import latest_takeoff_summary, process_project
+
+        _add_dxf_drawing(pid)
+        p = Project.query.get(pid)
+        summary = process_project(p, p.drawings.all())
+        n1 = Measurement.query.filter_by(project_id=pid).count()
+        s1 = _division_sums(pid)
+
+        # process_project 只负责算量并返回 summary；生产链路由 /api/process 落 Report。
+        # 本用例直接调 process_project，故按同一口径补写 Report 才能读持久化披露。
+        from app.models import Report
+        db.session.add(Report(title="三间房", format="html", project_id=pid,
+                              summary_json=json.dumps(summary,
+                                                      ensure_ascii=False)))
+        db.session.commit()
+
+        takeoff = latest_takeoff_summary(pid)
+        audit = takeoff["template"]
+        assert audit["available"] is True
+        assert audit["counts"]["checked"] > 0
+        assert audit["counts"]["missing"] == 0
+        assert audit["counts"]["no_source"] > 0          # 第 6 分部等无图源
+        assert takeoff["metrics"]["floor_m2"] > 0
+        assert any(i["code"] == "template_no_source" for i in takeoff["issues"])
+        assert not any(i["code"] == "template_item_missing" for i in takeoff["issues"])
+
+        process_project(p, p.drawings.all())
+        assert Measurement.query.filter_by(project_id=pid).count() == n1
+        s2 = _division_sums(pid)
+        for div in (1, 2, 3, 5):
+            assert abs(s2[div] - s1[div]) < 1e-6
+        assert s2[4] == s1[4]
