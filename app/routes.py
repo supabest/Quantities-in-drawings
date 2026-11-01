@@ -7,8 +7,11 @@ from app.models import (
     DIVISIONS, CONFIDENCE_LEVELS, PROJECT_TYPES
 )
 from datetime import datetime
+import math
 import os
 import json
+
+from app.core.takeoff import MISSING_FLOOR_HEIGHT_BANNER, params_from_project
 
 main_bp = Blueprint('main', __name__)
 
@@ -37,18 +40,33 @@ def new_project():
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
         address = request.form.get('address', '').strip()
-        project_type = request.form.get('project_type', 'residential')
+        project_type = request.form.get('project_type', 'sample_flat')
 
         if not name:
             flash('请输入项目名称。', 'danger')
             return render_template('project_new.html')
 
-        # Get default floor height for project type
-        floor_height = 2.80
-        for pt_id, pt_name, fh in PROJECT_TYPES:
-            if pt_id == project_type:
-                floor_height = fh
-                break
+        # 层高：手填值优先；留空才回落到业态默认。商场/酒店无默认层高且表单
+        # 留空时拒绝创建——否则项目建出来就是个“待参数”的空壳。
+        raw_height = (request.form.get('default_floor_height') or '').strip()
+        floor_height = None
+        if raw_height:
+            try:
+                floor_height = float(raw_height)
+            except ValueError:
+                floor_height = None
+            # nan/inf 与比较运算不产生大小关系，必须显式挡掉，否则层高闸门失效。
+            if floor_height is None or not math.isfinite(floor_height) or floor_height <= 0:
+                flash('层高需为正数（米）。', 'danger')
+                return render_template('project_new.html')
+        else:
+            for pt_id, _pt_name, fh in PROJECT_TYPES:
+                if pt_id == project_type:
+                    floor_height = fh
+                    break
+            if floor_height is None:
+                flash('该业态没有默认层高，请先填写层高（米）。', 'danger')
+                return render_template('project_new.html')
 
         project = Project(
             name=name,
@@ -133,9 +151,16 @@ def edit_project(project_id):
         project.description = request.form.get('description', '').strip()
         project.address = request.form.get('address', '').strip()
         project.project_type = request.form.get('project_type', project.project_type)
-        fh = request.form.get('default_floor_height', type=float)
-        if fh and fh > 0:
-            project.default_floor_height = fh
+        # 表单显式提交该字段时以表单为准：空串=清空（商场/酒店），不再是“空串忽略”
+        if 'default_floor_height' in request.form:
+            raw = (request.form.get('default_floor_height') or '').strip()
+            if raw:
+                try:
+                    project.default_floor_height = float(raw)
+                except ValueError:
+                    flash('层高格式无效，已保留原值。', 'warning')
+            else:
+                project.default_floor_height = None
         db.session.commit()
         flash('项目信息已更新。', 'success')
         return redirect(url_for('main.project_detail', project_id=project.id))
@@ -168,6 +193,15 @@ def view_boq(project_id):
     measurements = Measurement.query.filter_by(project_id=project.id).order_by(
         Measurement.division_id, Measurement.id
     ).all()
+
+    # 缺层高时墙面分部不出数，必须在清单页可见（不得让用户以为已经量全）
+    banners = []
+    if params_from_project(project).requires_floor_height():
+        banners.append(MISSING_FLOOR_HEIGHT_BANNER)
+    from app.processing import latest_takeoff_summary, takeoff_banners
+
+    takeoff = latest_takeoff_summary(project.id)
+    banners.extend(takeoff_banners(takeoff))
 
     # Build 8-division structure
     divisions = []
@@ -203,8 +237,11 @@ def view_boq(project_id):
 
     return render_template('boq.html', project=project, divisions=divisions,
                            measurements=measurements, pending=pending,
-                           conf_dist=conf_dist, DIVISIONS=DIVISIONS,
-                           CONFIDENCE_LEVELS=CONFIDENCE_LEVELS)
+                           conf_dist=conf_dist, banners=banners,
+                           coverage=takeoff.get('coverage') or [],
+                           DIVISIONS=DIVISIONS,
+                           CONFIDENCE_LEVELS=CONFIDENCE_LEVELS,
+                           PROJECT_TYPES=PROJECT_TYPES)
 
 
 @main_bp.route('/project/<int:project_id>/export.xlsx')

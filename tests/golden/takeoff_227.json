@@ -1,0 +1,17 @@
+{
+  "floor_m2": 163.75,
+  "ceiling_m2": 162.15,
+  "wall_m2": 437.22,
+  "total_m2": 763.12,
+  "skirting_m": 166.73,
+  "openings_pcs": 42,
+  "ceiling_rows": 14,
+  "total_rows": 100,
+  "params": {
+    "floor_height_mm": 3170,
+    "slab_mm": 100,
+    "floor_finish_mm": 50
+  },
+  "seals": [[52176828, 227805421, 52179628, 227805421]],
+  "tolerance": 0.01
+}

@@ -31,6 +31,11 @@ from app.models import (
     BASE_LAYER_RULES, HIDDEN_ITEMS, SOURCE_TAGS,
     CONFIDENCE_LEVELS
 )
+from app.core.takeoff import (
+    Issue, clear_previous_measurements, params_from_project, reconcile_pinned,
+    run as takeoff_run,
+)
+from app.core.takeoff.rows import to_measurement
 
 # ── Constants ──
 
@@ -56,13 +61,51 @@ COLORS = {
 }
 
 
+class TakeoffRefused(Exception):
+    """DXF 主源在场但本轮零几何行：拒绝重算，上一轮清单原样保留。"""
+
+
+def latest_takeoff_summary(project_id):
+    """最近一次成功计量的 takeoff 披露（issues + 覆盖矩阵）；无则空 dict。"""
+    from app.models import Report
+
+    report = (Report.query.filter_by(project_id=project_id)
+              .order_by(Report.created_at.desc(), Report.id.desc()).first())
+    if not report or not report.summary_json:
+        return {}
+    try:
+        summary = json.loads(report.summary_json)
+    except (TypeError, ValueError):
+        return {}
+    takeoff = summary.get('takeoff') if isinstance(summary, dict) else None
+    return takeoff if isinstance(takeoff, dict) else {}
+
+
+def takeoff_banners(takeoff):
+    """把 takeoff 的 warn/error 转成用户可见横幅；参数闸门已有专用横幅，不重复。"""
+    banners, seen = [], set()
+    for issue in (takeoff or {}).get('issues') or []:
+        if issue.get('level') not in ('warn', 'error'):
+            continue
+        if issue.get('code') == 'param_required_floor_height':
+            continue
+        message = (issue.get('message') or '').strip()
+        if message and message not in seen:
+            banners.append(message)
+            seen.add(message)
+    return banners
+
+
 def process_project(project, drawings):
     """Main entry point: process all drawings for a project.
 
     Generates measurements organized by the 8-division system.
     """
     scale = project.scale or DEFAULT_PIXELS_PER_METER
-    floor_height = project.default_floor_height or 2.80
+    # 层高按 TakeoffParams 口径取（业态默认/用户填写）；无依据时给 0，
+    # 派生的图片墙行自然为 0（wall_area > 0 闸门），不再拿 2.80 兜底冒充。
+    _height_mm = params_from_project(project).effective_floor_height_mm()
+    floor_height = _height_mm / 1000.0 if _height_mm else 0.0
 
     # Classify drawings by type. 光栅阶段只吃图片；PDF/DXF 走各自的矢量管线
     raster_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
@@ -77,6 +120,33 @@ def process_project(project, drawings):
             drawing_map['floor_plan'].append(d)
 
     all_measurements = []
+
+    # Phase 1.2（先于光栅）：DXF 几何主源 run() 只读不落库。
+    dxf_result = takeoff_run(project, drawings, current_app.config['UPLOAD_FOLDER'])
+    dxf_divisions = {row.division_id for row in dxf_result.rows}
+    dxf_drawings = [d for d in drawings
+                    if (getattr(d, 'filename', '') or '').lower().endswith('.dxf')]
+    if dxf_drawings and not dxf_result.rows:
+        # 主源在场却零行：拒绝重算，不清旧行。若先清再报错，用户会静默丢掉
+        # 上一版清单（多 DXF 未钉定、坏图、文件缺失都会走到这里）。
+        detail = "；".join(i.message for i in dxf_result.issues) or "未识别到任何围合或构件"
+        raise TakeoffRefused(
+            "本轮 DXF 未产出任何几何行，清单未改动：%s" % detail)
+
+    # 缺陷 #8：确认本轮有可落库结果后才清旧识别产物；钉定行/历史参照不删。
+    clear_previous_measurements(project)
+
+    dxf_measurements = []
+    for row in dxf_result.rows:
+        # rows.to_measurement 已负责 data_json['check'] 与图标列，不再另写映射
+        m = to_measurement(row, project.id)
+        db.session.add(m)
+        dxf_measurements.append(m)
+    for issue in dxf_result.issues:
+        log = (current_app.logger.debug if issue.level == "info" else
+               current_app.logger.warning if issue.level == "warn" else
+               current_app.logger.error)
+        log("takeoff issue %s: %s %s", issue.code, issue.message, issue.detail)
 
     # Phase 1: Process floor plans → rooms, doors, base rooms
     for drawing in drawing_map['floor_plan']:
@@ -100,13 +170,65 @@ def process_project(project, drawings):
         ms = _process_elevation(image_path, drawing, project, scale)
         all_measurements.extend(ms)
 
+    # 设计 §2.6：DXF 几何行是唯一数值主源。同一项目同时上传 DXF 与光栅时，
+    # DXF 已出数的分部不得再落图片行（否则地面/天棚/墙面各算两遍）。
+    suppressed_image_divisions = set()
+    if dxf_divisions and raster_drawings:
+        raster_ids = {d.id for d in raster_drawings}
+        kept = []
+        for m in all_measurements:
+            if m.division_id in dxf_divisions and m.drawing_id in raster_ids:
+                # Phase 1/2 的行可能仍在 session.new（尚未 flush），不能直接 delete
+                if m in db.session.new:
+                    db.session.expunge(m)
+                else:
+                    db.session.delete(m)
+                suppressed_image_divisions.add(m.division_id)
+            else:
+                kept.append(m)
+        all_measurements = kept
+    if suppressed_image_divisions:
+        image_suppressed = Issue(
+            "image_rows_superseded", "info",
+            "DXF 几何主源已覆盖分部 %s，同分部图片行不落库"
+            % sorted(suppressed_image_divisions),
+            {"divisions": sorted(suppressed_image_divisions)})
+        dxf_result.issues.append(image_suppressed)
+        current_app.logger.info("takeoff issue %s: %s",
+                                image_suppressed.code, image_suppressed.message)
+
+    # 第一段钉定对账：赶在 Phase 3 派生之前删掉房间双胞胎，2/3/5/6 只按
+    # 钉定房行派生一套（否则钉定房行与机器房行会各派生一套，清单翻倍）。
+    reconcile_pinned(project, dxf_measurements + all_measurements)
+
     # Phase 3: Generate derived measurements (walls, baseboard, etc.)
-    derived = _generate_derived_measurements(project, floor_height, scale)
+    # 设计 §2.7：DXF 已有墙面/天棚/踢脚主源时，图片派生对应分部不落库。
+    skip_divisions = {d for d in (2, 3, 5) if d in dxf_divisions}
+    if skip_divisions:
+        suppressed = Issue(
+            "derived_rows_suppressed", "info",
+            "DXF 几何主源已覆盖分部 %s，本轮图片派生对应分部不落库"
+            % sorted(skip_divisions),
+            {"divisions": sorted(skip_divisions)})
+        dxf_result.issues.append(suppressed)
+        current_app.logger.info("takeoff issue %s: %s",
+                                suppressed.code, suppressed.message)
+    derived = _generate_derived_measurements(
+        project, floor_height, scale, skip_divisions=skip_divisions)
     all_measurements.extend(derived)
 
     # Phase 4: Generate hidden items (MEP, etc.)
     hidden = _generate_hidden_items(project)
     all_measurements.extend(hidden)
+
+    # 第二段对账：处理 Phase 3/4 才出现的机器行；第二段会剥掉第一段提示并按
+    # 本轮机器行重写（同一批对象结果一致），故这里统计的是最终提示条数。
+    pinned_changed = reconcile_pinned(
+        project, dxf_measurements + all_measurements)
+    if pinned_changed:
+        current_app.logger.info(
+            "钉定行差异 %d 条：机器值未覆盖钉定值，已记入 remarks 待复核",
+            pinned_changed)
 
     # Generate annotated images
     for drawing in drawing_map['floor_plan']:
@@ -115,7 +237,15 @@ def process_project(project, drawings):
             _generate_annotated_image(image_path, all_measurements, drawing, project, scale)
 
     db.session.commit()
-    return {'measurement_count': len(all_measurements)}
+    takeoff = {
+        'issues': [{'code': i.code, 'level': i.level, 'message': i.message,
+                    'detail': i.detail} for i in dxf_result.issues],
+        'coverage': dxf_result.coverage.rows() if dxf_result.coverage else [],
+        'dxf_divisions': sorted(dxf_divisions),
+        'superseded_image_divisions': sorted(suppressed_image_divisions),
+    }
+    return {'measurement_count': len(all_measurements) + len(dxf_measurements),
+            'takeoff': takeoff}
 
 
 # ════════════════════════════════════════════════════
@@ -266,23 +396,34 @@ def _process_elevation(image_path, drawing, project, scale):
 # Phase 3: Derived Measurements (推算项目)
 # ════════════════════════════════════════════════════
 
-def _generate_derived_measurements(project, floor_height, scale, rooms=None):
+def _generate_derived_measurements(project, floor_height, scale, rooms=None,
+                                   skip_divisions=()):
     """Generate derived measurements based on floor plan analysis.
 
     - Division 2 (Walls): Wall area = perimeter × height - openings
-    - Division 3 (Ceilings): Same as floor area (horizontal projection)
+    - Division 3 (Ceilings): Horizontal-projection estimate from floor net area;
+      the image path has no ceiling-boundary evidence, so flag low confidence
     - Division 5 (Baseboard): perimeter - door widths - cabinet widths
     - Division 6 (Fixed Cabinets): by room type
 
     Args:
         rooms: 指定参与计算的房间列表（Phase 2 区域级并行用）；
                None 时取项目全部分部1房间（Phase 1 行为不变）。
+        skip_divisions: 本轮不得派生的分部（设计 §2.7：DXF 几何主源已覆盖）；
+                       其它调用方默认空集，行为不变。
     """
     # Get existing room and door measurements
     if rooms is None:
         rooms = Measurement.query.filter_by(
             project_id=project.id, division_id=1
         ).all()
+    # DXF 房间（category=dxf_*）已由 Phase 1.2 直接出数，不能再派生一遍天棚
+    # （否则地面/天棚各 19.73 → 天棚变 39.46）。不能用 ~like('dxf_%')：
+    # category 为 NULL 时三值逻辑会把老行一起滤掉。PDF 标签/注记只是证据行，
+    # 同样不是可派生的房间。
+    rooms = [m for m in rooms
+             if not (m.category or "").startswith(("dxf_", "pdf_"))]
+    skip = set(skip_divisions or ())
 
     doors = Measurement.query.filter_by(
         project_id=project.id, division_id=4
@@ -305,7 +446,7 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None):
         openings_area = sum((d.length or 0) * (d.height or DEFAULT_DOOR_HEIGHT) for d in room_doors)
         wall_area = round(perimeter_m * floor_height - openings_area, 2)
 
-        if wall_area > 0:
+        if wall_area > 0 and 2 not in skip:
             m = Measurement(
                 label=f"{label}-墙面",
                 division_id=2,
@@ -328,32 +469,37 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None):
             db.session.add(m)
             derived.append(m)
 
-        # ── Division 3: Ceiling Area (天棚面积 = 水平投影面积 = 地面面积) ──
-        m = Measurement(
-            label=f"{label}-天棚",
-            division_id=3,
-            category='ceiling',
-            area=area_m2,
-            perimeter=perimeter_m,
-            unit='m²',
-            source_tag='几何推算',
-            source_tag_icon='🔢',
-            confidence_level='high',
-            confidence_icon='🟢',
-            confidence=0.85,
-            position_desc=f"{label}-天花",
-            formula_text=f"天棚面积 = 地面净面积 = {area_m2}m²（水平投影）",
-            project_features="轻钢龙骨石膏板吊顶" if area_m2 > 20 else "平顶乳胶漆",
-            project_id=project.id
-        )
-        db.session.add(m)
-        derived.append(m)
+        # ── Division 3: Ceiling Area（图片路径只做水平投影估算） ──
+        # 图片路径没有天花边界证据，不能用地面净面积冒充天棚量：
+        # 露明顶/不同吊顶标高/外挑都可能让两者不等。
+        # 0 净面积不是房间：证据行/空行不得派生 0m² 天棚。
+        if area_m2 > 0 and 3 not in skip:
+            m = Measurement(
+                label=f"{label}-天棚",
+                division_id=3,
+                category='ceiling',
+                area=area_m2,
+                perimeter=perimeter_m,
+                unit='m²',
+                source_tag='几何推算',
+                source_tag_icon='🔢',
+                confidence_level='low',
+                confidence_icon='🔴',
+                confidence=0.4,
+                position_desc=f"{label}-天花",
+                formula_text=(f"天棚投影估算 ≈ 地面净面积 {area_m2}m²"
+                              f"（未识别天花边界，未作校正；须以天花图复核）"),
+                project_features="轻钢龙骨石膏板吊顶" if area_m2 > 20 else "平顶乳胶漆",
+                project_id=project.id
+            )
+            db.session.add(m)
+            derived.append(m)
 
         # ── Division 5: Baseboard (踢脚线 = 净周长 - 门洞 - 固定柜) ──
         cabinet_deduction = 1.5 if any(kw in label for kw in ['主卧', '次卧', '卧室']) else 0
         baseboard_length = round(perimeter_m - door_width_sum - cabinet_deduction, 2)
 
-        if baseboard_length > 0:
+        if baseboard_length > 0 and 5 not in skip:
             deduction_note = f"（扣门洞{door_width_sum}m"
             if cabinet_deduction > 0:
                 deduction_note += f"+固定柜{cabinet_deduction}m"
@@ -420,6 +566,7 @@ def _process_pdf_drawings(pdf_drawings, project):
     去重收敛：同名标签/同代号全局合并（保留首次定位+出现页数），
     避免整套施工图产生上千条噪声行污染清单。
     天花分区仅在识别为天花图的页面输出。
+    面积注记仅作证据：unit=注记、area 不落值，原值见 data_json.check。
     """
     import fitz
     from collections import defaultdict
@@ -471,7 +618,7 @@ def _process_pdf_drawings(pdf_drawings, project):
                     dims[key] = (x, y, page_idx, set())
                 dims[key][3].add(page_idx)
 
-            # 面积注记逐处入账（立面图上一处=一面墙的饰面面积，不可去重）
+            # 面积注记逐处收集为证据行（不计量；立面图上一处=一面墙的立面参照，不可去重）
             for val, x, y in extract_area_annotations(page, x_min=200):
                 areas.append((page_idx, val, x, y, title, page_rooms))
 
@@ -585,17 +732,25 @@ def _process_pdf_drawings(pdf_drawings, project):
             label='PDF面积标注: %s %gm²' % (room or '未归属', val),
             division_id=div,
             category=cat,
-            area=val,
+            # 注记不是工程量：面积口径含墙/轴线注释，直接入账会污染分部合计；
+            # 原值留档在 data_json.check 供人工复核与后续融合，unit 标「注记」。
+            area=None,
+            unit='注记',
+            data_json=json.dumps(
+                {'check': {'note_m2': val,
+                           'caliber': '含墙/轴线注释口径，不计量'}},
+                ensure_ascii=False),
             source_tag='PDF语义提取',
             confidence_level=conf,
             position_desc='PDF p%d(%s) (%.0f,%.0f) 房间=%s' % (
                 pidx, title or '无图名', x, y, room or '未归属'),
-            formula_text='图纸面积注记直读: %gm²%s' % (
-                val, '（立面→墙面饰面面积）' if is_elev else ''),
+            formula_text='图纸面积注记直读: %gm²（注记口径，不计量%s）' % (
+                val, '；立面页仅作立面参照（非净墙面积）' if is_elev else ''),
             remarks='; '.join(filter(None, [
                 'page=%d' % pidx,
                 'room=%s' % room if room else '',
                 'label_dist=%.0fpt' % ndist if nearest else '',
+                '证据行·不计量',
                 note,
             ])),
         )
@@ -777,7 +932,21 @@ def _generate_hidden_items(project, rooms=None):
         bath_walls = Measurement.query.filter_by(
             project_id=project.id, division_id=2
         ).filter(Measurement.label.like('%卫生间%')).all()
-        bath_rooms = [r for r in rooms if '卫生间' in (r.label or '')]
+        # 防水=面积+周长×上翻：DXF 房间行不带 perimeter，按此式只能得到地面面积
+        # 的重复值，且分部 2 数值主源已归 DXF（设计 §2.7），不在此再派生。
+        bath_rooms = [r for r in rooms if '卫生间' in (r.label or '')
+                      and not (r.category or '').startswith('dxf_')]
+        # DXF 卫生间行不带 perimeter，防水（地面+上翻）无法按算式计量：
+        # 显式披露，不计算、不造假（待大样图确认）。
+        dxf_bath_rooms = [r for r in rooms if '卫生间' in (r.label or '')
+                          and (r.category or '').startswith('dxf_')]
+        if dxf_bath_rooms:
+            bath_labels = [r.label for r in dxf_bath_rooms]
+            current_app.logger.warning(
+                "takeoff issue waterproof_dxf_room_unverified: 房间 %s；"
+                "DXF 房间行无 perimeter，防水（地面+上翻）本轮未计量，需大样确认；"
+                "labels=%s",
+                "、".join(bath_labels), bath_labels)
         for br in bath_rooms:
             waterproof_area = round((br.area or 0) + (br.perimeter or 0) * 0.3, 2)
             m = Measurement(

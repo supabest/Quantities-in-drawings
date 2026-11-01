@@ -44,6 +44,10 @@ OTHER_UNITS = ("99户型", "131户型", "135户型", "136户型", "410")
 OTHER_PROJECTS = ("工控", "20层", "售楼部电气")
 # 已退出范围的历史数据源文件名（防被重新接回管线）
 BANNED = ("electrical.dxf", "extracted_texts.tsv", "quantity_summary.json")
+# 合成测试小样：由 scripts/make_minimal_dxf.py 现场生成、已脱敏，不是任何项目的
+# 真实图纸，故不适用「入库 CAD 必须带 227/210」的溯源判据。只放生成器产物，
+# 不得借此豁免真实图纸（test_B2 校验生成器仍在、文件仍存在）。
+SYNTHETIC_CAD_FIXTURES = {"tests/fixtures/minimal_flat.dxf"}
 
 
 def _has(txt, toks):
@@ -88,8 +92,20 @@ def test_A_no_out_of_scope_file_is_tracked():
 
 def test_B_tracked_cad_files_carry_227():
     bad = [p for p in TRACKED
-           if p.lower().endswith(CAD_EXT) and not any(a in p for a in UNIT_ALIASES)]
+           if p.lower().endswith(CAD_EXT)
+           and not any(a in p for a in UNIT_ALIASES)
+           and p not in SYNTHETIC_CAD_FIXTURES]
     assert not bad, f"入库 CAD 件未带 227/210 标识: {bad}"
+
+
+def test_B2_synthetic_fixture_exemption_stays_generated():
+    """豁免只给生成器产物：文件仍在、生成器仍产出该文件名，防止豁免变通用后门。"""
+    generator = os.path.join(ROOT, "scripts", "make_minimal_dxf.py")
+    with open(generator, encoding="utf-8") as fh:
+        source = fh.read()
+    for path in SYNTHETIC_CAD_FIXTURES:
+        assert os.path.exists(os.path.join(ROOT, path)), path
+        assert os.path.basename(path) in source, path
 
 
 def test_C_raw_drawings_not_committed():

@@ -40,8 +40,9 @@
     <div class="meta">
         <p><strong>项目：</strong>{{ project.name }}</p>
         {% if project.address %}<p><strong>地址：</strong>{{ project.address }}</p>{% endif %}
-        <p><strong>项目类型：</strong>{{ {'residential':'住宅/样板房','commercial':'商业/办公','lobby':'大堂/门厅','showroom':'售楼部/展厅'}.get(project.project_type, project.project_type) }}</p>
-        <p><strong>默认层高：</strong>{{ project.default_floor_height }}m</p>
+        {% set type_labels = {'sample_flat':'样板房','showroom':'售楼部/展厅','mall':'商场','hotel':'酒店','office':'办公'} %}
+        <p><strong>项目类型：</strong>{% if project.project_type %}{{ type_labels.get(project.project_type, project.project_type) }}{% else %}未填写{% endif %}</p>
+        <p><strong>默认层高：</strong>{% if project.default_floor_height is not none %}{{ project.default_floor_height }}m{% else %}待填写{% endif %}</p>
         <p><strong>生成时间：</strong>{{ generated_at }}</p>
         <p><strong>清单项数：</strong>{{ summary.total_items }} 项</p>
     </div>
@@ -65,6 +66,26 @@
             <div class="summary-label">待确认事项</div>
         </div>
     </div>
+
+    {% if summary.takeoff and summary.takeoff.coverage %}
+    {% set source_labels = {'dxf':'图纸几何','ceiling_levels':'吊顶标高','anchors':'房间标签','audit_layer_fallback':'审计层回退','t20_proxy':'代理对象降级'} %}
+    <h2>覆盖与缺图</h2>
+    <table class="boq-table">
+        <thead>
+            <tr><th>空间</th><th>部位</th><th>状态</th><th>来源 / 缺源说明</th></tr>
+        </thead>
+        <tbody>
+            {% for c in summary.takeoff.coverage %}
+            <tr>
+                <td>{{ c.space }}</td>
+                <td>{{ c.part }}</td>
+                <td>{{ c.status }}</td>
+                <td>{{ source_labels.get(c.source, c.source or '—') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
 
     <h2>二、工程量清单（八大分部）</h2>
     {% set div_names = {1:'楼地面工程',2:'墙柱面工程',3:'天棚工程',4:'门窗工程',5:'踢脚线工程',6:'固定柜台工程',7:'给排水工程',8:'电气工程'} %}

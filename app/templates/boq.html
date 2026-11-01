@@ -21,16 +21,57 @@
     <div class="card-body">
         <div class="info-grid">
             <div><strong>项目类型：</strong>
+                {% set type_ns = namespace(label='') %}
                 {% for pt_id, pt_name, _ in PROJECT_TYPES %}
-                    {% if pt_id == project.project_type %}{{ pt_name }}{% endif %}
+                    {% if pt_id == project.project_type %}{% set type_ns.label = pt_name %}{% endif %}
                 {% endfor %}
+                {{ type_ns.label or project.project_type or '未填写' }}
             </div>
-            <div><strong>默认层高：</strong>{{ project.default_floor_height }}m</div>
+            <div><strong>默认层高：</strong>{% if project.default_floor_height is not none %}{{ project.default_floor_height }}m{% else %}待填写{% endif %}</div>
             <div><strong>图纸数量：</strong>{{ project.drawings.count() }} 张</div>
             <div><strong>清单项数：</strong>{{ measurements|length }} 项</div>
         </div>
     </div>
 </div>
+
+{% if banners %}
+<div class="card" style="border-left: 4px solid #ff4d4f;">
+    <div class="card-body">
+        {% for banner in banners %}<div>⚠️ {{ banner }}</div>{% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if coverage %}
+{% set source_labels = {'dxf':'图纸几何','ceiling_levels':'吊顶标高','anchors':'房间标签','audit_layer_fallback':'审计层回退','t20_proxy':'代理对象降级'} %}
+<div class="card">
+    <div class="card-header"><h3>覆盖与缺图</h3></div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr><th>空间</th><th>部位</th><th>状态</th><th>来源 / 缺源说明</th></tr>
+                </thead>
+                <tbody>
+                    {% for c in coverage %}
+                    <tr>
+                        <td>{{ c.space }}</td>
+                        <td>{{ c.part }}</td>
+                        <td>
+                            {% if c.status == '有源' %}🟢 有源
+                            {% elif c.status == '待参数' %}🟡 待参数
+                            {% elif c.status == '待确认' %}🟡 待确认
+                            {% else %}🔴 无源{% endif %}
+                        </td>
+                        <td class="text-muted">{{ source_labels.get(c.source, c.source or '—') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% if not measurements %}
 <div class="empty-state">

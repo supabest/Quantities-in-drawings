@@ -29,6 +29,17 @@ PROJECT_NAME = "227户型样板房 · 装修工程量(几何封账)"
 SEAL_NOTE = ("封账基准：m² 763.12 ｜ m 166.73 ｜ 离散件 21 ｜ 72 行；"
              "数值全部由几何从图纸独立算出，每行带计算式与追溯")
 
+# 227 样本竖向参数与 P1 地面封账分界：只属种子数据，不得进引擎常量。
+# story 3170 / 板厚 100 / 地面完成面 50 → 净高 3020（enclosure._vertical）。
+PROJECT_TYPE = "sample_flat"
+DEFAULT_FLOOR_HEIGHT_M = 3.17
+TAKEOFF_PARAMS = {
+    "floor_height_mm": 3170,
+    "slab_mm": 100,
+    "floor_finish_mm": 50,
+    "seals": [[52176828, 227805421, 52179628, 227805421]],
+}
+
 # 来源标签映射：三态 → app/models.SOURCE_TAGS 的六个既有标签(不新增标签)
 def source_of(states, conf):
     if conf == "low":
@@ -106,7 +117,8 @@ def main():
         project = Project.query.filter_by(name=PROJECT_NAME).first()
         if project is None:
             project = Project(name=PROJECT_NAME, user_id=admin.id,
-                              project_type="residential", default_floor_height=2.80,
+                              project_type=PROJECT_TYPE,
+                              default_floor_height=DEFAULT_FLOOR_HEIGHT_M,
                               drawing_type="floor_plan", status="completed",
                               description=("227 户型(=210 户型别名)装修封账：地面 P1 / 墙面 P2 / "
                                            "天花 P3 + P3b 分级 / 固装 P4。数值全部几何自算，"
@@ -117,6 +129,10 @@ def main():
             # 幂等：清旧行重灌，避免同一封账出现两套清单
             old = Measurement.query.filter_by(project_id=project.id).delete()
             print("   复用项目 #%d，清理旧清单 %d 行" % (project.id, old))
+        # 竖向参数与封账 seal 每次校准：旧项目可能是 2.80 层高、无 seal 的版本。
+        project.project_type = PROJECT_TYPE
+        project.default_floor_height = DEFAULT_FLOOR_HEIGHT_M
+        project.takeoff_params = json.dumps(TAKEOFF_PARAMS)
         project.status = "completed"
         db.session.flush()
 

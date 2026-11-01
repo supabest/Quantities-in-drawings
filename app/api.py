@@ -10,7 +10,8 @@ from app.models import (
     Project, Drawing, Measurement, Report, HistoricalProject,
     SelfCheckItem, DIVISIONS, CONFIDENCE_LEVELS, SOURCE_TAGS, HIDDEN_ITEMS
 )
-from app.processing import process_project
+from app.processing import TakeoffRefused, process_project
+from app.core.takeoff import MISSING_FLOOR_HEIGHT_BANNER, params_from_project
 
 api_bp = Blueprint('api', __name__)
 
@@ -105,6 +106,12 @@ def start_processing(project_id):
     if not drawings:
         return jsonify({'success': False, 'error': '没有可处理的图纸'}), 400
 
+    # 层高闸门：商场/酒店等无依据默认层高的业态，未填结构净高前不得计量。
+    params = params_from_project(project)
+    if params.requires_floor_height():
+        return jsonify({'success': False,
+                        'error': '该业态无依据的默认层高，请先填写结构净高'}), 400
+
     # Check if historical reference was prompted
     if not project.historical_ref_prompted:
         project.historical_ref_prompted = True
@@ -123,6 +130,7 @@ def start_processing(project_id):
             Measurement.division_id, Measurement.id
         ).all()
         summary = _generate_boq_summary(measurements)
+        summary['takeoff'] = (results or {}).get('takeoff') or {}
         report_html = _render_report_html(project, measurements, summary)
 
         report_path = os.path.join(current_app.config['REPORTS_FOLDER'],
@@ -130,6 +138,9 @@ def start_processing(project_id):
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report_html)
 
+        # Project.report 是 1:1（uselist=False）：成功重算必须替换旧报告，
+        # 否则 project.report 取到最旧一轮，详情页报告与最新清单披露不一致。
+        Report.query.filter_by(project_id=project.id).delete()
         report = Report(
             title=f'{project.name} - 自动计量报告',
             format='html',
@@ -149,7 +160,17 @@ def start_processing(project_id):
             'warnings': _check_reasonableness(measurements)
         })
 
+    except TakeoffRefused as e:
+        # 预期内的拒绝（多 DXF/坏图/缺文件）：本轮尚未清旧行，回滚后旧清单仍在。
+        db.session.rollback()
+        project.status = 'failed'
+        db.session.commit()
+        return jsonify({'success': False, 'error': str(e)}), 422
+
     except Exception as e:
+        # 先回滚：process_project 可能已 flush 过删除，直接 commit 会把上一轮
+        # 计量行永久删掉；回滚后旧行仍在，只落 status=failed。
+        db.session.rollback()
         project.status = 'failed'
         db.session.commit()
         return jsonify({'success': False, 'error': f'处理出错: {str(e)}'}), 500
@@ -235,7 +256,11 @@ def _check_reasonableness(measurements):
                 continue
     booked_area = sum(m.area or 0 for m in measurements
                       if m.division_id == 3 and m.category != 'pdf_ceiling_zone')
-    if zone_area > 0 and zone_area > 3 * booked_area:
+    if zone_area > 0 and booked_area <= 0:
+        warnings.append(
+            f'⚠️ 天棚候选分区合计 {zone_area:.1f}m²，但尚未入账任何天棚量：'
+            f'分区为跨页候选证据，未去重前禁止计入清单')
+    elif zone_area > 3 * booked_area:
         warnings.append(
             f'⚠️ 天棚候选分区合计 {zone_area:.1f}m² 远大于已入账天棚量 '
             f'{booked_area:.1f}m²：分区为跨页候选证据，未去重前禁止计入清单')
@@ -271,6 +296,9 @@ def get_boq(project_id):
         })
 
     summary = _generate_boq_summary(measurements)
+    from app.processing import latest_takeoff_summary
+
+    summary['takeoff'] = latest_takeoff_summary(project.id)
 
     return jsonify({
         'success': True,
@@ -290,7 +318,16 @@ def get_measurements(project_id):
         return jsonify({'success': False, 'error': '无权访问'}), 403
 
     measurements = project.measurements.order_by(Measurement.division_id).all()
-    return jsonify({'success': True, 'measurements': [m.to_dict() for m in measurements]})
+    banners = []
+    if params_from_project(project).requires_floor_height():
+        banners.append(MISSING_FLOOR_HEIGHT_BANNER)
+    from app.processing import latest_takeoff_summary, takeoff_banners
+
+    takeoff = latest_takeoff_summary(project.id)
+    banners.extend(takeoff_banners(takeoff))
+    return jsonify({'success': True, 'banners': banners,
+                    'takeoff': takeoff,
+                    'measurements': [m.to_dict() for m in measurements]})
 
 
 @api_bp.route('/project/<int:project_id>/scale', methods=['POST'])
@@ -321,11 +358,8 @@ def rerun_processing(project_id):
     if project.user_id != current_user.id and not current_user.is_admin:
         return jsonify({'success': False, 'error': '无权操作'}), 403
 
-    Measurement.query.filter_by(project_id=project.id).delete()
-    Report.query.filter_by(project_id=project.id).delete()
-    SelfCheckItem.query.filter_by(project_id=project.id).delete()
-    db.session.commit()
-
+    # 不在处理前清表：process_project 在 DXF 成功出数后才清机器行，钉定/历史
+    # 行整行保留。失败（TakeoffRefused / 异常）时上一轮清单必须原样可查。
     return start_processing(project_id)
 
 
