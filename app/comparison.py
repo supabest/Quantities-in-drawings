@@ -23,6 +23,7 @@ from app.models import (
     Measurement, HistoricalProject, DIVISIONS, HIDDEN_ITEMS,
     SOURCE_TAGS, CONFIDENCE_LEVELS
 )
+from app.core.takeoff import template as takeoff_template
 
 
 # ── Division Name Mapping ──
@@ -36,15 +37,6 @@ DIVISION_NAMES = {
     '固定柜': 6, '柜台': 6, '橱柜': 6, 'cabinet': 6,
     '给排水': 7, 'plumbing': 7,
     '电气': 8, 'electric': 8,
-}
-
-# Reasonableness reference ranges (from v3.1 spec)
-REASONABLENESS_RANGES = {
-    'wall_floor_ratio': {'residential': (2.0, 3.0), 'showroom': (2.5, 3.5), 'default': (1.5, 4.0)},
-    'light_per_m2': {'residential': (0.10, 0.20), 'showroom': (0.08, 0.15), 'default': (0.05, 0.30)},
-    'socket_per_m2': {'residential': (0.08, 0.15), 'showroom': (0.05, 0.10), 'default': (0.05, 0.20)},
-    'baseboard_ratio': (0.6, 1.1),
-    'waterproof_ratio': (1.3, None),  # >= 1.3
 }
 
 
@@ -229,6 +221,7 @@ def compare_with_historical(project_id, historical_id):
     Returns:
         dict: {
             'missing_items': [{name, division_id, reason, ...}],
+            'manual_review_items': [{name, division_id, reason, ...}],
             'stats_comparison': {...},
             'warnings': [...],
             'filled_items': [Measurement objects added],
@@ -241,48 +234,34 @@ def compare_with_historical(project_id, historical_id):
     hist_data = json.loads(hist.summary_json) if isinstance(hist.summary_json, str) else hist.summary_json
     current_measurements = Measurement.query.filter_by(project_id=project_id).all()
 
-    # Build lookup of current items by division
-    current_by_div = defaultdict(list)
-    for m in current_measurements:
-        current_by_div[m.division_id].append(m)
-
-    # Get labels for quick dedup
-    current_labels = set()
-    current_by_label = {}
-    for m in current_measurements:
-        label = (m.label or '').strip().replace(' ', '')
-        current_labels.add(label)
-        current_by_label[label] = m
-
-    missing = []
+    missing, manual_review = [], []
     filled = []
 
-    # Compare each division
+    # Compare each division: 分部 + 材料词 + 单位三键匹配，绝不猜
     for div_id, div_name, unit, _ in DIVISIONS:
         hist_items = hist_data.get('stats', {}).get('division_items', {}).get(str(div_id), [])
-
         for hist_name in hist_items:
-            # Clean name for comparison
-            clean_name = hist_name.strip().replace(' ', '')
-            if not clean_name:
+            if not (hist_name or '').strip():
                 continue
-
-            # Check if item exists in current project
-            exists = False
-            for cur_label in current_labels:
-                # Fuzzy match: try substring and keyword overlap
-                if _items_match(clean_name, cur_label):
-                    exists = True
-                    break
-
-            if not exists:
-                missing.append({
+            material = takeoff_template.material_of(hist_name)
+            if not material:
+                manual_review.append({
                     'name': hist_name,
                     'division_id': div_id,
                     'division_name': div_name,
                     'unit': unit,
-                    'reason': '历史清单有此项目，当前算量未检出',
+                    'reason': '无可提取材料词，需人工裁定',
                 })
+                continue
+            if _has_current(current_measurements, div_id, material, unit):
+                continue
+            missing.append({
+                'name': hist_name,
+                'division_id': div_id,
+                'division_name': div_name,
+                'unit': unit,
+                'reason': '历史清单有此列项，当前算量未检出',
+            })
 
     # Calculate stats comparison
     stats_comparison = _compare_stats(hist_data, current_measurements)
@@ -292,6 +271,7 @@ def compare_with_historical(project_id, historical_id):
 
     return {
         'missing_items': missing,
+        'manual_review_items': manual_review,
         'stats_comparison': stats_comparison,
         'warnings': warnings,
         'filled_items': filled,
@@ -302,26 +282,24 @@ def compare_with_historical(project_id, historical_id):
     }
 
 
-def _items_match(name1, name2):
-    """Check if two item names refer to the same thing."""
-    if not name1 or not name2:
-        return False
+def _has_current(measurements, division_id, material, unit):
+    """当前行项是否已覆盖该历史列项：分部一致 + 材料词命中 + 单位一致。
 
-    # Direct match
-    if name1 == name2:
-        return True
-    if name1 in name2 or name2 in name1:
-        return True
-
-    # Extract core keywords (strip common prefixes/suffixes)
-    keywords1 = set(re.findall(r'[一-鿿\w]+', name1))
-    keywords2 = set(re.findall(r'[一-鿿\w]+', name2))
-
-    # Ignore location prefixes (客厅-, 主卧-, etc.)
-    common = keywords1 & keywords2
-    if len(common) >= 2:
-        return True
-
+    分部级标准单位是复合量纲（樘/m²、套/个…）时不做单位比对；
+    template_gap 是零量占位，不算「已有」。
+    """
+    target = takeoff_template.normalize_unit(unit)
+    check_unit = "/" not in target
+    for m in measurements:
+        if m.division_id != division_id:
+            continue
+        if getattr(m, "category", None) == "template_gap":
+            continue
+        if check_unit and takeoff_template.normalize_unit(m.unit or "") != target:
+            continue
+        text = (m.label or "") + " " + (getattr(m, "project_features", "") or "")
+        if material in text:
+            return True
     return False
 
 
