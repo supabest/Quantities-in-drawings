@@ -678,6 +678,18 @@ def test_run_drops_divisions_with_role_layer_proxies(tmp_path, monkeypatch):
     assert cells[("客厅", "踢脚")]["status"] == "无源"
     assert cells[("(项目)", "洞口")]["status"] == "有源"
 
+    # 指标必须描述真正出数的行：被抑制的量不得进入 metrics（reconcile 会拿它
+    # 算墙地比/踢脚比，幻影总量会伪造越界 Issue）。围合已不成立 → perimeter 0，
+    # 踢脚带跳过；只有存活的 4 分部洞口计数进来。
+    surviving_openings = [r for r in result.rows if r.division_id == 4]
+    assert surviving_openings, "前提：4 分部洞口行存活"
+    assert result.metrics["floor_m2"] == 0
+    assert result.metrics["wall_m2"] == 0
+    assert result.metrics["ceiling_m2"] == 0
+    assert result.metrics["baseboard_m"] == 0
+    assert result.metrics["perimeter_m"] == 0
+    assert result.metrics["opening_count"] == len(surviving_openings)
+
 
 def test_api_rolls_back_measurements_on_failure(web_env, tmp_path, monkeypatch):
     """C1 变异守卫（api 失败时直接 commit）：重算中途 flush 了删除再抛错，

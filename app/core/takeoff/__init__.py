@@ -28,6 +28,9 @@ from .types import (  # noqa: F401
 # PDF语义提取是机器每次重算都会重发的识别产物，不清就 10→20 翻倍。
 CLEAR_TAGS = ("图纸实测", "几何推算", "经验补全", "逻辑推理", "待确认", "PDF语义提取")
 
+# 分部 → metrics 键：与 rows_for_divisions 的口径一致（4 分部按樘计数）。
+_DIV_METRIC = {1: "floor_m2", 2: "wall_m2", 3: "ceiling_m2", 5: "baseboard_m"}
+
 
 def _num(value):
     """JSON 里的脏值（"abc"/None/对象）→ None；数字/数字串 → float。"""
@@ -110,6 +113,24 @@ def _unplaced_issue(unplaced):
         "unplaced_room_labels", "warn",
         "有房间标签未落到任何房间：%s（压墙线或连通域未成房）" % "、".join(labels),
         {"labels": labels, "anchors": anchors})
+
+
+def _rows_metrics(rows):
+    """按**存活行**汇总指标（降级路径专用，如 t20 代理整批抑制分部）。
+
+    正常路径用 `data["takeoff_metrics"]`（带真实非残条 perimeter_m）；行被
+    丢弃后那张图的指标就不能再用。围合已不成立：perimeter_m 记 0，让踢脚
+    判定整条跳过，而不是拿错误分母凑比例。
+    """
+    metrics = {"floor_m2": 0.0, "wall_m2": 0.0, "ceiling_m2": 0.0,
+               "baseboard_m": 0.0, "perimeter_m": 0.0, "opening_count": 0.0}
+    for row in rows:
+        division = int(row.division_id or 0)
+        if division == 4:
+            metrics["opening_count"] += 1.0
+        elif division in _DIV_METRIC:
+            metrics[_DIV_METRIC[division]] += float(row.value or 0.0)
+    return metrics
 
 
 def run(project, drawings, upload_folder):
@@ -225,9 +246,6 @@ def run(project, drawings, upload_folder):
                 issues.append(_unplaced_issue(unplaced))
 
             rows, row_issues = takeoff.rows_for_divisions(data, params)
-            drawing_metrics = data.get("takeoff_metrics") or {}
-            for key in metrics:
-                metrics[key] += float(drawing_metrics.get(key) or 0.0)
             covered = _coverage.build_coverage(data, params)
             if roles.audit_fallback:
                 # 几何来自审计层：量仍在，但来源需人工核对，不能显示成完整有源。
@@ -255,6 +273,15 @@ def run(project, drawings, upload_folder):
             for space, part in list(covered.cells):
                 if part in affected:
                     covered.mark(space, part, "无源", "t20_proxy")
+
+        # 指标只描述**真正出数**的行：上面两条丢弃路径（分部过滤、本图异常
+        # continue）之后才汇总，被 withhold 的量不得进入 reconcile 的分母。
+        if divisions:
+            drawing_metrics = _rows_metrics(rows)
+        else:
+            drawing_metrics = data.get("takeoff_metrics") or {}
+        for key in metrics:
+            metrics[key] += float(drawing_metrics.get(key) or 0.0)
         all_rows.extend(rows)
 
         if seed_coverage is None:
