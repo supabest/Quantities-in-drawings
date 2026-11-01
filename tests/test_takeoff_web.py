@@ -1614,3 +1614,56 @@ def test_phase5_persists_template_audit_without_adding_rows(web_env, tmp_path):
         for div in (1, 2, 3, 5):
             assert abs(s2[div] - s1[div]) < 1e-6
         assert s2[4] == s1[4]
+
+
+def test_boq_page_and_report_show_template_panel(web_env, tmp_path):
+    app, pid, _ = web_env
+    _copy_plan(tmp_path, app)
+    with app.app_context():
+        _add_dxf_drawing(pid)
+
+    client = _login_client(app)
+    resp = client.post("/api/process/%d" % pid)
+    assert resp.status_code == 200, resp.get_data(as_text=True)[:300]
+
+    with app.app_context():
+        from app.models import Report
+
+        report = Report.query.filter_by(project_id=pid).first()
+        assert report is not None and report.file_path
+        html = open(report.file_path, encoding="utf-8").read()
+        assert "疑似漏项 / 指标越界" in html
+        assert "缺图源" in html
+        assert "合理性指标" in html
+
+    body = client.get("/project/%d/boq" % pid).get_data(as_text=True)
+    assert "疑似漏项 / 指标越界" in body
+    assert "加入待算清单" in body
+
+
+def test_fill_template_gaps_route_adds_rows_without_quantities(web_env, tmp_path):
+    app, pid, _ = web_env
+    _copy_plan(tmp_path, app)
+    with app.app_context():
+        _add_dxf_drawing(pid)
+
+    client = _login_client(app)
+    assert client.post("/api/process/%d" % pid).status_code == 200
+
+    with app.app_context():
+        from app.models import Measurement
+
+        before = Measurement.query.filter_by(project_id=pid).count()
+
+    resp = client.post("/project/%d/template-gaps/fill" % pid,
+                       follow_redirects=True)
+    assert resp.status_code == 200
+    with app.app_context():
+        from app.models import Measurement
+
+        gaps = Measurement.query.filter_by(
+            project_id=pid, category="template_gap").all()
+        assert gaps
+        assert all(g.area is None and g.length is None and g.count is None
+                   for g in gaps)
+        assert Measurement.query.filter_by(project_id=pid).count() == before + len(gaps)

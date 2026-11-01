@@ -73,6 +73,80 @@
 </div>
 {% endif %}
 
+{% if template_audit %}
+<div class="card">
+    <div class="card-header"><h3>疑似漏项 / 指标越界</h3></div>
+    <div class="card-body">
+        {% if not template_audit.available %}
+        <p class="text-muted">该业态暂无范例库，未做漏项审计（不影响算量）。</p>
+        {% else %}
+        <p class="text-muted">
+            范例库 {{ template_audit.type }} v{{ template_audit.version }} ·
+            已核对 {{ template_audit.counts.checked }} 项 ·
+            真漏算 <strong>{{ template_audit.counts.missing }}</strong> ·
+            缺图源 <strong>{{ template_audit.counts.no_source }}</strong> ·
+            人工排除 {{ template_audit.counts.excluded }}
+        </p>
+
+        {% if template_audit.missing %}
+        <h4>真漏算（该部位有图源但无行）</h4>
+        <div class="table-responsive">
+            <table class="table">
+                <thead><tr><th>分部</th><th>列项</th><th>单位</th><th>说明</th></tr></thead>
+                <tbody>
+                    {% for item in template_audit.missing %}
+                    <tr>
+                        <td>第{{ item.division }}分部</td>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.unit }}</td>
+                        <td class="text-muted">{{ item.message }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if template_audit.no_source %}
+        <h4>缺图源（加入待算清单，不补数）</h4>
+        {% for bucket in template_audit.no_source %}
+        <details>
+            <summary>第{{ bucket.division }}分部 · {{ bucket.count }} 项</summary>
+            <ul>
+                {% for item in bucket["items"] %}
+                <li>{{ item.name }}（{{ item.unit }}）</li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% endfor %}
+        <form method="post" action="{{ url_for('main.fill_template_gaps', project_id=project.id) }}">
+            <button class="btn btn-outline btn-sm" type="submit">➕ 加入待算清单</button>
+        </form>
+        {% endif %}
+
+        {% if template_audit.ranges %}
+        <h4>合理性指标</h4>
+        <div class="table-responsive">
+            <table class="table">
+                <thead><tr><th>指标</th><th>当前值</th><th>参考带</th><th>结论</th></tr></thead>
+                <tbody>
+                    {% for item in template_audit.ranges %}
+                    <tr>
+                        <td>{{ item.label }}</td>
+                        <td>{{ item.value }}</td>
+                        <td>{{ item.band[0] }} ~ {{ item.band[1] }}</td>
+                        <td>{% if item.in_band %}🟢 带内{% else %}🔴 越界{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 {% if not measurements %}
 <div class="empty-state">
     <div class="empty-icon">📋</div>

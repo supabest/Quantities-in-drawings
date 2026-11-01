@@ -239,9 +239,29 @@ def view_boq(project_id):
                            measurements=measurements, pending=pending,
                            conf_dist=conf_dist, banners=banners,
                            coverage=takeoff.get('coverage') or [],
+                           takeoff=takeoff,
+                           template_audit=takeoff.get('template'),
                            DIVISIONS=DIVISIONS,
                            CONFIDENCE_LEVELS=CONFIDENCE_LEVELS,
                            PROJECT_TYPES=PROJECT_TYPES)
+
+
+@main_bp.route('/project/<int:project_id>/template-gaps/fill', methods=['POST'])
+@login_required
+def fill_template_gaps(project_id):
+    """把范例库缺图源列项加入待算清单：只写列项，不写任何工程量。"""
+    project = Project.query.get_or_404(project_id)
+    if project.user_id != current_user.id and not current_user.is_admin:
+        flash('无权操作此项目。', 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    from app.comparison import auto_fill_missing
+    from app.processing import latest_takeoff_summary
+
+    gaps = (latest_takeoff_summary(project.id).get('template') or {}).get('gap_items') or []
+    filled = auto_fill_missing(project.id, gaps)
+    flash('已加入待算清单 %d 项（量为空，不计入分部合计）。' % len(filled), 'success')
+    return redirect(url_for('main.view_boq', project_id=project.id))
 
 
 @main_bp.route('/project/<int:project_id>/export.xlsx')
