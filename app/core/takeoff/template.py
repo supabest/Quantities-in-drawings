@@ -293,6 +293,7 @@ def audit(rows, coverage, project_type, metrics=None, excluded=None,
             matched = bool(material) and any(
                 int(_get(r, "division_id", 0) or 0) == division
                 and material in (_get(r, "label", "") or "")
+                and _get(r, "value") is not None
                 for r in rows)
             if matched:
                 counts["present"] += 1

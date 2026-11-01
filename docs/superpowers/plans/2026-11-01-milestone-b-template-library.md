@@ -1951,7 +1951,7 @@ git commit -m "test(takeoff): 里程碑 B 模板层全量回归"
 | spec 条款 | 落点 |
 |---|---|
 | §5.3 模板文件形态 | Task 1 `sample_flat.json` + `ranges` |
-| §5.4 三档判据 | Task 2 `audit`：`真漏算`/`缺图源`/人工排除；`group_only` 跳过 |
+| §5.4 三档判据 | Task 2 `audit`：`真漏算`/`缺图源`/人工排除；`group_only` 跳过；人工排除＝参数通道 `project.takeoff_params.excluded_template_items`，本里程碑无 UI，出范围 |
 | §5.5 匹配键 | Task 7 历史对照 `(分部, 材料词, 单位)`；模板几何项按能力判存在（见「设计裁定 1」） |
 | §5.6 auto-fill | Task 5：量全 None、`template_gap`、重算保留、合计不变 |
 | §5.7 合理性判据 | Task 2/3：墙地比、踢脚/围合周长、灯具/插座密度；区间唯一来源 JSON；`waterproof` 不启用并记 issue |
@@ -1960,5 +1960,7 @@ git commit -m "test(takeoff): 里程碑 B 模板层全量回归"
 | 缺陷 #2 | Task 7 |
 | 缺陷 #3 | Task 2/3 |
 | 无工程量泄漏 | Task 1 `assert_no_quantities` + Tier C 测试 |
+
+**说明：** `excluded_template_items` 与 `seals` 同属项目参数通道，不提供页面编辑。
 
 **已知不在本轮范围：** 用户上传清单覆盖阈值（spec §5.3 第三层）、`scale_count` 按间判据（样板房无此类区间）、112 户型适配（待 DXF 导出后单独立项）。

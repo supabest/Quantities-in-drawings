@@ -65,6 +65,30 @@ def test_audit_present_when_division_row_exists(tmp_path):
     assert issues == []
 
 
+def test_audit_non_geometry_item_needs_row_with_value(tmp_path):
+    """非几何分支：同材料行但 value 为空，等于没计量，不能算「已有」。"""
+    d = _tpl_dir(tmp_path, [_item(
+        id="7:卫生间-地漏:个", division=7, name="卫生间-地漏", unit="个",
+        material="地漏", capability="fixture")])
+    audit, issues = template.audit(
+        [_row(7, label="卫生间-地漏", value=None, unit="个")], _cov(),
+        "sample_flat", templates_dir=d)
+    assert audit["counts"]["present"] == 0
+    assert audit["counts"]["no_source"] == 1
+    assert [it["id"] for it in audit["gap_items"]] == ["7:卫生间-地漏:个"]
+    assert [i.code for i in issues] == ["template_no_source"]
+
+
+def test_audit_unavailable_when_no_template():
+    audit, issues = template.audit(
+        [_row(1)], _cov(("客厅", "地面", "有源")), "hotel")
+    assert audit["available"] is False
+    assert set(audit["counts"].values()) == {0}
+    assert [i.code for i in issues] == ["template_not_found"]
+    assert audit["no_source"] == []
+    assert audit["gap_items"] == []
+
+
 def test_group_only_is_skipped(tmp_path):
     d = _tpl_dir(tmp_path, [_item(group_only=True)])
     audit, issues = template.audit([], _cov(), "sample_flat", templates_dir=d)
