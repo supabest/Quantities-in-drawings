@@ -162,15 +162,15 @@ def run(project, drawings, upload_folder):
         path = os.path.join(upload_folder, filename)
         if not os.path.exists(path):
             issues.append(Issue("dxf_missing_file", "warn",
-                                "图纸 %s 找不到文件：%s" % (name, path),
+                                "图纸 %s 找不到文件，请重新上传" % name,
                                 {"file": filename}))
             continue
         try:
             doc = ezdxf.readfile(path)
         except Exception as exc:  # noqa: BLE001 - 坏图必须显式披露后跳过
             issues.append(Issue("dxf_unreadable", "error",
-                                "图纸 %s 无法解析：%s" % (name, exc),
-                                {"file": filename}))
+                                "图纸 %s 无法解析（文件损坏或非 DXF）" % name,
+                                {"file": filename, "error": str(exc)}))
             continue
 
         # 几何管线整体兜底：任何一步抛错只废掉本图（行不得部分入 all_rows），
@@ -200,6 +200,13 @@ def run(project, drawings, upload_folder):
                 continue
 
             roles = layers.resolve_roles(doc, scope_bounds=base.bounds)
+            if roles.audit_fallback:
+                issues.append(Issue(
+                    "audit_layer_fallback", "warn",
+                    "图纸 %s 真墙层零命中，已回退审计层 %s 取墙线，请核对图层/口径"
+                    % (name, "、".join(roles.audit_fallback)),
+                    {"file": filename, "drawing": name,
+                     "layers": roles.audit_fallback}))
             data = enclosure.build_rooms(doc, roles, base.bounds, params,
                                          seals=params.seals)
 
@@ -217,11 +224,17 @@ def run(project, drawings, upload_folder):
 
             rows, row_issues = takeoff.rows_for_divisions(data, params)
             covered = _coverage.build_coverage(data, params)
+            if roles.audit_fallback:
+                # 几何来自审计层：量仍在，但来源需人工核对，不能显示成完整有源。
+                for (space, part), cell in list(covered.cells.items()):
+                    # 只降房间部位：洞口来自 DOOR/WINDOW 角色层，不经审计墙层回退。
+                    if part in _coverage.ROOM_PARTS and cell.get("source") == "dxf":
+                        covered.mark(space, part, "待确认", "audit_layer_fallback")
         except Exception as exc:  # noqa: BLE001 - 单图失败必须显式披露后跳过
             issues.append(Issue(
                 "dxf_processing_failed", "error",
-                "图纸 %s 几何处理失败：%s" % (name, exc),
-                {"file": filename}))
+                "图纸 %s 几何处理失败，请检查图纸内容" % name,
+                {"file": filename, "error": str(exc)}))
             continue
 
         # 逐图披露需能指认图纸：同一张坏图/残条在多图项目里不得只靠消息区分。
@@ -232,6 +245,11 @@ def run(project, drawings, upload_folder):
         if divisions:
             # 角色层代理对象：受影响分部整批不出数；代理图元不可分解，不猜。
             rows = [r for r in rows if r.division_id not in divisions]
+            parts = {1: "地面", 2: "墙面", 3: "天棚", 4: "洞口", 5: "踢脚"}
+            affected = {parts[d] for d in divisions if d in parts}
+            for space, part in list(covered.cells):
+                if part in affected:
+                    covered.mark(space, part, "无源", "t20_proxy")
         all_rows.extend(rows)
 
         if seed_coverage is None:

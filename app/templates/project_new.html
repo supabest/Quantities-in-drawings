@@ -38,10 +38,11 @@
                     </select>
                 </div>
                 <div class="form-group half">
-                    <label for="default_floor_height_display">默认层高 (m)</label>
-                    <input type="text" id="default_floor_height_display" class="form-control"
-                           value="" readonly>
-                    <input type="hidden" id="default_floor_height" name="default_floor_height" value="">
+                    <label for="default_floor_height">层高 (m)</label>
+                    <input type="number" id="default_floor_height" name="default_floor_height"
+                           class="form-control" step="0.01" min="0.01"
+                           placeholder="商场/酒店须填写">
+                    <small class="form-hint">有业态默认时自动带出，可覆盖；商场/酒店必须填写。</small>
                 </div>
             </div>
             <div class="form-actions">
@@ -56,12 +57,16 @@
 {% block extra_scripts %}
 <script>
 const floorHeights = { sample_flat: 2.80, showroom: 4.00, mall: null, hotel: null, office: 3.00 };
+const heightInput = document.getElementById('default_floor_height');
+let heightTouched = false;
+heightInput.addEventListener('input', () => { heightTouched = true; });
 function updateFloorHeight() {
     const type = document.getElementById('project_type').value;
     const fh = floorHeights[type];
     const empty = fh === null || fh === undefined;
-    document.getElementById('default_floor_height_display').value = empty ? '待填写' : fh;
-    document.getElementById('default_floor_height').value = empty ? '' : fh;
+    heightInput.placeholder = empty ? '该业态须填写' : '';
+    if (heightTouched) return;              // 用户改过就不覆盖输入
+    heightInput.value = empty ? '' : fh;
 }
 document.addEventListener('DOMContentLoaded', updateFloorHeight);
 </script>

@@ -42,6 +42,37 @@
 </div>
 {% endif %}
 
+{% if coverage %}
+{% set source_labels = {'dxf':'图纸几何','ceiling_levels':'吊顶标高','anchors':'房间标签','audit_layer_fallback':'审计层回退','t20_proxy':'代理对象降级'} %}
+<div class="card">
+    <div class="card-header"><h3>覆盖与缺图</h3></div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr><th>空间</th><th>部位</th><th>状态</th><th>来源 / 缺源说明</th></tr>
+                </thead>
+                <tbody>
+                    {% for c in coverage %}
+                    <tr>
+                        <td>{{ c.space }}</td>
+                        <td>{{ c.part }}</td>
+                        <td>
+                            {% if c.status == '有源' %}🟢 有源
+                            {% elif c.status == '待参数' %}🟡 待参数
+                            {% elif c.status == '待确认' %}🟡 待确认
+                            {% else %}🔴 无源{% endif %}
+                        </td>
+                        <td class="text-muted">{{ source_labels.get(c.source, c.source or '—') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if not measurements %}
 <div class="empty-state">
     <div class="empty-icon">📋</div>

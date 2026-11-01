@@ -10,7 +10,7 @@ from app.models import (
     Project, Drawing, Measurement, Report, HistoricalProject,
     SelfCheckItem, DIVISIONS, CONFIDENCE_LEVELS, SOURCE_TAGS, HIDDEN_ITEMS
 )
-from app.processing import process_project
+from app.processing import TakeoffRefused, process_project
 from app.core.takeoff import MISSING_FLOOR_HEIGHT_BANNER, params_from_project
 
 api_bp = Blueprint('api', __name__)
@@ -130,6 +130,7 @@ def start_processing(project_id):
             Measurement.division_id, Measurement.id
         ).all()
         summary = _generate_boq_summary(measurements)
+        summary['takeoff'] = (results or {}).get('takeoff') or {}
         report_html = _render_report_html(project, measurements, summary)
 
         report_path = os.path.join(current_app.config['REPORTS_FOLDER'],
@@ -137,6 +138,9 @@ def start_processing(project_id):
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report_html)
 
+        # Project.report 是 1:1（uselist=False）：成功重算必须替换旧报告，
+        # 否则 project.report 取到最旧一轮，详情页报告与最新清单披露不一致。
+        Report.query.filter_by(project_id=project.id).delete()
         report = Report(
             title=f'{project.name} - 自动计量报告',
             format='html',
@@ -156,8 +160,15 @@ def start_processing(project_id):
             'warnings': _check_reasonableness(measurements)
         })
 
+    except TakeoffRefused as e:
+        # 预期内的拒绝（多 DXF/坏图/缺文件）：本轮尚未清旧行，回滚后旧清单仍在。
+        db.session.rollback()
+        project.status = 'failed'
+        db.session.commit()
+        return jsonify({'success': False, 'error': str(e)}), 422
+
     except Exception as e:
-        # 先回滚：process_project 开头已 flush 过删除，直接 commit 会把上一轮
+        # 先回滚：process_project 可能已 flush 过删除，直接 commit 会把上一轮
         # 计量行永久删掉；回滚后旧行仍在，只落 status=failed。
         db.session.rollback()
         project.status = 'failed'
@@ -285,6 +296,9 @@ def get_boq(project_id):
         })
 
     summary = _generate_boq_summary(measurements)
+    from app.processing import latest_takeoff_summary
+
+    summary['takeoff'] = latest_takeoff_summary(project.id)
 
     return jsonify({
         'success': True,
@@ -307,7 +321,12 @@ def get_measurements(project_id):
     banners = []
     if params_from_project(project).requires_floor_height():
         banners.append(MISSING_FLOOR_HEIGHT_BANNER)
+    from app.processing import latest_takeoff_summary, takeoff_banners
+
+    takeoff = latest_takeoff_summary(project.id)
+    banners.extend(takeoff_banners(takeoff))
     return jsonify({'success': True, 'banners': banners,
+                    'takeoff': takeoff,
                     'measurements': [m.to_dict() for m in measurements]})
 
 
@@ -339,11 +358,8 @@ def rerun_processing(project_id):
     if project.user_id != current_user.id and not current_user.is_admin:
         return jsonify({'success': False, 'error': '无权操作'}), 403
 
-    Measurement.query.filter_by(project_id=project.id).delete()
-    Report.query.filter_by(project_id=project.id).delete()
-    SelfCheckItem.query.filter_by(project_id=project.id).delete()
-    db.session.commit()
-
+    # 不在处理前清表：process_project 在 DXF 成功出数后才清机器行，钉定/历史
+    # 行整行保留。失败（TakeoffRefused / 异常）时上一轮清单必须原样可查。
     return start_processing(project_id)
 
 

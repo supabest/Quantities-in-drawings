@@ -67,6 +67,26 @@
         </div>
     </div>
 
+    {% if summary.takeoff and summary.takeoff.coverage %}
+    {% set source_labels = {'dxf':'图纸几何','ceiling_levels':'吊顶标高','anchors':'房间标签','audit_layer_fallback':'审计层回退','t20_proxy':'代理对象降级'} %}
+    <h2>覆盖与缺图</h2>
+    <table class="boq-table">
+        <thead>
+            <tr><th>空间</th><th>部位</th><th>状态</th><th>来源 / 缺源说明</th></tr>
+        </thead>
+        <tbody>
+            {% for c in summary.takeoff.coverage %}
+            <tr>
+                <td>{{ c.space }}</td>
+                <td>{{ c.part }}</td>
+                <td>{{ c.status }}</td>
+                <td>{{ source_labels.get(c.source, c.source or '—') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
     <h2>二、工程量清单（八大分部）</h2>
     {% set div_names = {1:'楼地面工程',2:'墙柱面工程',3:'天棚工程',4:'门窗工程',5:'踢脚线工程',6:'固定柜台工程',7:'给排水工程',8:'电气工程'} %}
     {% for div_id in range(1, 9) %}

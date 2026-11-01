@@ -194,18 +194,18 @@ def test_clear_only_recognized_tags(web_env):
         assert len([m for m in rows if m.manual_pinned]) == 2
 
 
-def test_height_gate_blocks_mall_without_height(web_env):
+def test_height_gate_blocks_mall_without_height(web_env, tmp_path):
     app, pid, uid = web_env
+    _copy_plan(tmp_path, app, "gate.dxf")
     with app.app_context():
         from app import db
-        from app.models import Drawing, Project
+        from app.models import Project
 
         p = Project.query.get(pid)
         p.project_type = "mall"
         p.default_floor_height = None
-        db.session.add(Drawing(filename="missing.dxf", original_name="missing.dxf",
-                               file_type="dxf", project_id=pid))
         db.session.commit()
+        _add_dxf_drawing(pid, "gate.dxf")
 
     client = app.test_client()
     resp = client.post("/auth/login", data={
@@ -252,6 +252,32 @@ def test_params_from_project_maps_json():
     assert params.seals == [(0, 0, 1, 0)]
     assert params.requires_floor_height() is False
     assert params.height_source() == "用户填写"
+
+
+def test_seed_227_project_reproduces_golden_params(monkeypatch):
+    """227 验收参数必须由种子项目复现：层高/板厚/完成面/seal 只放种子数据，
+    引擎常量里不留任何 227 数字（评审 Important 3）。"""
+    monkeypatch.syspath_prepend(os.path.join(BASE, "scripts"))
+    import seed_227_decoration as seed
+    from app.core.takeoff import params_from_project
+    from app.core.takeoff.enclosure import _vertical
+
+    project = SimpleNamespace(
+        project_type=seed.PROJECT_TYPE,
+        default_floor_height=seed.DEFAULT_FLOOR_HEIGHT_M,
+        takeoff_params=json.dumps(seed.TAKEOFF_PARAMS),
+    )
+    params = params_from_project(project)
+
+    # 参数必须显式写在种子里，不能靠 default_floor_height 的米→毫米兜底
+    assert seed.TAKEOFF_PARAMS["floor_height_mm"] == 3170
+    assert params.floor_height_mm == 3170
+    assert params.slab_mm == 100
+    assert params.floor_finish_mm == 50
+    assert params.seals == [(52176828, 227805421, 52179628, 227805421)]
+    assert _vertical(params)["clear_to_soffit"] == 3020
+    # 展示列（米）与参数（毫米）双写，必须一致，防止改一处忘另一处
+    assert seed.DEFAULT_FLOOR_HEIGHT_M * 1000 == seed.TAKEOFF_PARAMS["floor_height_mm"]
 
 
 def test_phase3_skips_dxf_rooms_and_flagged_divisions(web_env):
@@ -643,6 +669,14 @@ def test_run_drops_divisions_with_role_layer_proxies(tmp_path, monkeypatch):
     assert len(issues) == 1
     assert issues[0].detail["divisions"] == [1, 2, 3, 5]
     assert issues[0].detail["layers"] == ["WALL"]
+
+    # 被 t20 抑制的分部在覆盖矩阵里必须是「无源」，不能显示成有源完整。
+    cells = {(c["space"], c["part"]): c for c in result.coverage.rows()}
+    assert cells[("客厅", "地面")]["status"] == "无源"
+    assert cells[("客厅", "墙面")]["status"] == "无源"
+    assert cells[("客厅", "天棚")]["status"] == "无源"
+    assert cells[("客厅", "踢脚")]["status"] == "无源"
+    assert cells[("(项目)", "洞口")]["status"] == "有源"
 
 
 def test_api_rolls_back_measurements_on_failure(web_env, tmp_path, monkeypatch):
@@ -1133,6 +1167,30 @@ def test_reconcile_pinned_twin_selection(web_env):
         assert "机器重算值" not in (nq_pin.remarks or "")
 
 
+def test_reprocess_replaces_report_row(web_env, tmp_path):
+    """每次成功重算必须替换旧 Report：Project.report 是 uselist=False 的 1:1，
+    留旧行会让项目详情“查看报告”指向最旧一轮，与清单页的 takeoff 披露不一致。"""
+    app, pid, _ = web_env
+    _copy_plan(tmp_path, app)
+    with app.app_context():
+        _add_dxf_drawing(pid)
+    client = _login_client(app)
+
+    for _ in range(2):
+        resp = client.post("/api/process/%d" % pid)
+        assert resp.status_code == 200, resp.get_data(as_text=True)[:300]
+
+    with app.app_context():
+        from app.models import Project, Report
+
+        reports = Report.query.filter_by(project_id=pid).all()
+        assert len(reports) == 1
+        assert Project.query.get(pid).report.id == reports[0].id
+        summary = json.loads(reports[0].summary_json)
+        assert summary["takeoff"]["dxf_divisions"] == [1, 2, 3, 4, 5]
+        assert os.path.isfile(reports[0].file_path)
+
+
 def test_measurements_banner_for_missing_floor_height(web_env):
     """清单页横幅：无依据默认层高 → 横幅；有依据（业态默认/用户填写）→ 无横幅。"""
     app, pid, _ = web_env
@@ -1183,3 +1241,309 @@ def test_measurements_banner_for_missing_floor_height(web_env):
     assert data.get("banners") == [], data
     page = client.get("/project/%d/boq" % pid)
     assert "墙面分部未计量" not in page.get_data(as_text=True)
+
+
+def _new_project_payload(**over):
+    data = {"name": "新项目", "project_type": "sample_flat",
+            "default_floor_height": ""}
+    data.update(over)
+    return data
+
+
+def test_new_project_mall_requires_valid_floor_height(web_env):
+    """商场/酒店没有业态默认层高：创建时留空或填非数字都必须拦下，不能静默建空项目。"""
+    app, _, _ = web_env
+    client = _login_client(app)
+    with app.app_context():
+        from app.models import Project
+
+        before = Project.query.count()
+        for bad in ("", "abc", "0", "-1", "nan", "inf", "1e999"):
+            resp = client.post("/project/new", data=_new_project_payload(
+                name="商场项目", project_type="mall",
+                default_floor_height=bad))
+            assert resp.status_code == 200, (bad, resp.status_code)
+            assert "层高" in resp.get_data(as_text=True), bad
+        assert Project.query.count() == before
+
+
+def test_new_project_mall_accepts_typed_floor_height(web_env):
+    """创建商场项目时可直接填层高，省掉建完再进编辑页补参数。"""
+    app, _, _ = web_env
+    client = _login_client(app)
+    resp = client.post("/project/new", data=_new_project_payload(
+        name="商场项目", project_type="mall", default_floor_height="3.5"))
+    assert resp.status_code == 302
+    with app.app_context():
+        from app.models import Project
+
+        p = Project.query.filter_by(name="商场项目").one()
+        assert p.project_type == "mall"
+        assert p.default_floor_height == 3.5
+
+
+def test_new_project_uses_type_default_when_height_blank(web_env):
+    """有业态默认的图纸留空即用默认；手填值优先于默认。"""
+    app, _, _ = web_env
+    client = _login_client(app)
+    assert client.post("/project/new", data=_new_project_payload(
+        name="样板房项目", project_type="sample_flat")).status_code == 302
+    assert client.post("/project/new", data=_new_project_payload(
+        name="手填层高项目", project_type="sample_flat",
+        default_floor_height="3.17")).status_code == 302
+    with app.app_context():
+        from app.models import Project
+
+        assert Project.query.filter_by(name="样板房项目").one().default_floor_height == 2.8
+        assert Project.query.filter_by(name="手填层高项目").one().default_floor_height == 3.17
+
+
+def _measurement_snapshot(pid):
+    """旧清单的可见数值快照：重算被拒绝时须逐行不变。"""
+    from app.models import Measurement
+
+    rows = Measurement.query.filter_by(project_id=pid).order_by(Measurement.id).all()
+    return [(m.id, m.division_id, m.label, m.area, m.length, m.count)
+            for m in rows]
+
+
+def _assert_refused_and_preserved(app, client, pid, before, needle):
+    resp = client.post("/api/process/%d" % pid)
+    assert resp.status_code == 422, resp.get_data(as_text=True)
+    data = resp.get_json()
+    assert data["success"] is False
+    assert needle in data["error"], data
+    with app.app_context():
+        from app.models import Project
+
+        assert Project.query.get(pid).status == "failed"
+        assert _measurement_snapshot(pid) == before
+    return data
+
+
+def test_multi_dxf_reprocess_refused_keeps_previous_rows(web_env, tmp_path):
+    """终审 C2：多 DXF 无钉定 → 拒绝重算，上一轮清单不得被清空。"""
+    app, pid, _ = web_env
+    _copy_plan(tmp_path, app, "one.dxf")
+    with app.app_context():
+        _add_dxf_drawing(pid, "one.dxf")
+    client = _login_client(app)
+    assert client.post("/api/process/%d" % pid).status_code == 200
+    with app.app_context():
+        before = _measurement_snapshot(pid)
+        assert before
+
+    _copy_plan(tmp_path, app, "two.dxf")
+    with app.app_context():
+        _add_dxf_drawing(pid, "two.dxf")
+
+    _assert_refused_and_preserved(app, client, pid, before, "仅支持单张底图")
+
+
+def test_unreadable_dxf_reprocess_refused_keeps_previous_rows(web_env, tmp_path):
+    """终审 C2：底图坏掉/缺失时拒绝重算，旧清单必须原样保留。"""
+    app, pid, _ = web_env
+    path = _copy_plan(tmp_path, app, "one.dxf")
+    with app.app_context():
+        _add_dxf_drawing(pid, "one.dxf")
+    client = _login_client(app)
+    assert client.post("/api/process/%d" % pid).status_code == 200
+    with app.app_context():
+        before = _measurement_snapshot(pid)
+        assert before
+
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("not a dxf")
+
+    data = _assert_refused_and_preserved(app, client, pid, before, "无法解析")
+    assert app.config["UPLOAD_FOLDER"] not in data["error"]   # 解析异常也不得带出服务器路径
+
+
+def test_rerun_preserves_pinned_rows(web_env, tmp_path):
+    """重新计量不得先删光全表：钉定行按 §2.2 整行冻结。"""
+    app, pid, _ = web_env
+    _copy_plan(tmp_path, app, "one.dxf")
+    with app.app_context():
+        _add_dxf_drawing(pid, "one.dxf")
+    client = _login_client(app)
+    assert client.post("/api/process/%d" % pid).status_code == 200
+    with app.app_context():
+        from app import db
+        from app.models import Measurement
+
+        db.session.add(Measurement(
+            project_id=pid, division_id=1, label="人工钉定-地面", area=99.0,
+            unit="m²", manual_pinned=True))
+        db.session.commit()
+
+    resp = client.post("/api/project/%d/rerun" % pid)
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    with app.app_context():
+        from app.models import Measurement
+
+        pinned = Measurement.query.filter_by(
+            project_id=pid, manual_pinned=True).all()
+        assert len(pinned) == 1, [(m.label, m.area) for m in pinned]
+        assert abs(pinned[0].area - 99.0) < 1e-9
+
+
+def test_run_discloses_audit_layer_fallback(tmp_path):
+    """终审 I2：真墙层零命中、回退审计层时，必须发 audit_layer_fallback。"""
+    from tests.test_takeoff_layers import _audit_only
+    from app.core.takeoff import run
+
+    _audit_only(tmp_path)
+    project = SimpleNamespace(id=1, project_type="sample_flat",
+                              default_floor_height=2.8,
+                              takeoff_params=None, scale_count=None)
+    drawing = SimpleNamespace(filename="audit.dxf", original_name="audit.dxf",
+                              is_base=None)
+    result = run(project, [drawing], str(tmp_path))
+
+    issue = next(i for i in result.issues if i.code == "audit_layer_fallback")
+    assert issue.level == "warn"
+    assert "$TD_AUDIT_GENERATED_GEOM" in issue.detail["layers"]
+
+
+def test_audit_fallback_downgrades_coverage_to_pending(tmp_path):
+    """审计层回退时，该图由 dxf 取线的房间格必须降为「待确认」；
+    仅发 issue 不改覆盖矩阵等于只披露了一半（终审 I2）。"""
+    from app.core.takeoff import run
+
+    audit = "$TD_AUDIT_GENERATED_GEOM"
+    doc = ezdxf.new("R2018", setup=True)
+    doc.layers.add(audit)
+    doc.layers.add("P-TEXT")
+    doc.layers.add("DOOR")
+    msp = doc.modelspace()
+    for y in (0, 3000):
+        msp.add_line((0, y), (4000, y), dxfattribs={"layer": audit})
+    for x in (0, 4000):
+        msp.add_line((x, 0), (x, 3000), dxfattribs={"layer": audit})
+    msp.add_line((1000, 0), (1900, 0), dxfattribs={"layer": "DOOR"})
+    msp.add_text("客厅", height=250, dxfattribs={"layer": "P-TEXT"}).set_placement((2000, 1500))
+    doc.saveas(tmp_path / "audit_room.dxf")
+
+    project = SimpleNamespace(id=1, project_type="sample_flat",
+                              default_floor_height=2.8,
+                              takeoff_params=None, scale_count=None)
+    drawing = SimpleNamespace(filename="audit_room.dxf", original_name="audit_room.dxf",
+                              is_base=None)
+    result = run(project, [drawing], str(tmp_path))
+
+    assert any(i.code == "audit_layer_fallback" for i in result.issues)
+    cells = {(c["space"], c["part"]): c for c in result.coverage.rows()}
+    for part in ("地面", "墙面", "天棚", "踢脚"):
+        cell = cells[("客厅", part)]
+        assert cell["status"] == "待确认", (part, cell)
+        assert cell["source"] == "audit_layer_fallback", (part, cell)
+    # 洞口来自 DOOR/WINDOW 角色层，不经审计墙层回退，来源仍是有源图纸几何
+    assert cells[("(项目)", "洞口")]["status"] == "有源", cells[("(项目)", "洞口")]
+
+
+def test_missing_or_empty_dxf_reprocess_refused_keeps_previous_rows(web_env, tmp_path):
+    """缺文件 / 空几何与坏图同属「本轮零行」：必须 422 且旧清单逐行不变。"""
+    app, pid, _ = web_env
+    _copy_plan(tmp_path, app)
+    client = _login_client(app)
+    with app.app_context():
+        from app import db
+
+        _add_dxf_drawing(pid)
+        db.session.commit()
+
+    resp = client.post("/api/process/%d" % pid)
+    assert resp.status_code == 200, resp.get_data(as_text=True)[:300]
+    with app.app_context():
+        before = _measurement_snapshot(pid)
+
+    with app.app_context():
+        from app import db
+        from app.models import Drawing
+
+        Drawing.query.filter_by(project_id=pid).delete()
+        _add_dxf_drawing(pid, "missing.dxf")         # 库有行、盘上无文件
+        db.session.commit()
+    data = _assert_refused_and_preserved(app, client, pid, before, "找不到文件")
+    assert app.config["UPLOAD_FOLDER"] not in data["error"]   # 不向用户泄露服务器路径
+
+    with app.app_context():
+        from app import db
+        from app.models import Drawing
+
+        Drawing.query.filter_by(project_id=pid).delete()
+        ezdxf.new("R2018").saveas(
+            os.path.join(app.config["UPLOAD_FOLDER"], "empty.dxf"))
+        _add_dxf_drawing(pid, "empty.dxf")           # 合法 DXF，但零几何
+        db.session.commit()
+    _assert_refused_and_preserved(app, client, pid, before, "未读到任何墙几何")
+
+
+def test_dxf_primary_suppresses_same_division_image_rows(web_env, tmp_path):
+    """终审 I5：DXF 与光栅同项目时，DXF 已出数的分部不得再落图片行（翻倍）。"""
+    import cv2
+    import numpy as np
+
+    app, pid, _ = web_env
+    _copy_plan(tmp_path, app, "plan.dxf")
+    img = np.full((620, 620, 3), 255, np.uint8)
+    cv2.rectangle(img, (40, 40), (422, 422), (0, 0, 0), 8)
+    cv2.imwrite(os.path.join(app.config["UPLOAD_FOLDER"], "plan.png"), img)
+
+    with app.app_context():
+        from app import db
+        from app.models import Drawing
+
+        _add_dxf_drawing(pid, "plan.dxf")
+        png = Drawing(filename="plan.png", original_name="plan.png",
+                      file_type="png", drawing_type="floor_plan", project_id=pid)
+        db.session.add(png)
+        db.session.commit()
+        png_id = png.id
+
+    client = _login_client(app)
+    resp = client.post("/api/process/%d" % pid)
+    assert resp.status_code == 200, resp.get_data(as_text=True)[:500]
+
+    with app.app_context():
+        from app.models import Measurement
+
+        sums = _division_sums(pid)
+        assert abs(sums[1] - 19.73) <= TOL, sums
+        assert abs(sums[2] - 81.89) <= TOL, sums
+        assert abs(sums[3] - 19.73) <= TOL, sums
+        assert sums[4] == 1, sums
+        assert abs(sums[5] - 29.02) <= TOL, sums
+        assert Measurement.query.filter_by(
+            project_id=pid, drawing_id=png_id).count() == 0
+
+
+def test_boq_page_shows_takeoff_issues_and_coverage(web_env, tmp_path):
+    """终审 I1：run() 的 warn/error 与覆盖矩阵必须上清单页/API，不能只写日志。"""
+    app, pid, _ = web_env
+    doc = _plan(tmp_path)
+    doc.modelspace().add_text(
+        "压墙房", height=250,
+        dxfattribs={"layer": "P-TEXT"}).set_placement((0, 1500))
+    src = tmp_path / "warn.dxf"
+    doc.saveas(src)
+    shutil.copy(src, os.path.join(app.config["UPLOAD_FOLDER"], "warn.dxf"))
+    with app.app_context():
+        _add_dxf_drawing(pid, "warn.dxf")
+
+    client = _login_client(app)
+    resp = client.post("/api/process/%d" % pid)
+    assert resp.status_code == 200, resp.get_data(as_text=True)[:500]
+    stored = resp.get_json()["summary"]["takeoff"]
+    assert any(i["code"] == "unplaced_room_labels" for i in stored["issues"])
+    assert stored["coverage"]
+
+    page = client.get("/project/%d/boq" % pid)
+    html = page.get_data(as_text=True)
+    assert page.status_code == 200
+    assert "覆盖与缺图" in html
+    assert "压墙房" in html          # warn 横幅
+    assert "客厅" in html and "天棚" in html
+
+    data = client.get("/api/measurements/%d" % pid).get_json()
+    assert any("压墙房" in b for b in data.get("banners") or []), data.get("banners")

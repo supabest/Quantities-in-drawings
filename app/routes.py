@@ -7,6 +7,7 @@ from app.models import (
     DIVISIONS, CONFIDENCE_LEVELS, PROJECT_TYPES
 )
 from datetime import datetime
+import math
 import os
 import json
 
@@ -45,13 +46,27 @@ def new_project():
             flash('请输入项目名称。', 'danger')
             return render_template('project_new.html')
 
-        # Get default floor height for project type
-        # 商场/酒店无默认层高（None），处理时再向用户索取
+        # 层高：手填值优先；留空才回落到业态默认。商场/酒店无默认层高且表单
+        # 留空时拒绝创建——否则项目建出来就是个“待参数”的空壳。
+        raw_height = (request.form.get('default_floor_height') or '').strip()
         floor_height = None
-        for pt_id, pt_name, fh in PROJECT_TYPES:
-            if pt_id == project_type:
-                floor_height = fh
-                break
+        if raw_height:
+            try:
+                floor_height = float(raw_height)
+            except ValueError:
+                floor_height = None
+            # nan/inf 与比较运算不产生大小关系，必须显式挡掉，否则层高闸门失效。
+            if floor_height is None or not math.isfinite(floor_height) or floor_height <= 0:
+                flash('层高需为正数（米）。', 'danger')
+                return render_template('project_new.html')
+        else:
+            for pt_id, _pt_name, fh in PROJECT_TYPES:
+                if pt_id == project_type:
+                    floor_height = fh
+                    break
+            if floor_height is None:
+                flash('该业态没有默认层高，请先填写层高（米）。', 'danger')
+                return render_template('project_new.html')
 
         project = Project(
             name=name,
@@ -183,6 +198,10 @@ def view_boq(project_id):
     banners = []
     if params_from_project(project).requires_floor_height():
         banners.append(MISSING_FLOOR_HEIGHT_BANNER)
+    from app.processing import latest_takeoff_summary, takeoff_banners
+
+    takeoff = latest_takeoff_summary(project.id)
+    banners.extend(takeoff_banners(takeoff))
 
     # Build 8-division structure
     divisions = []
@@ -219,6 +238,7 @@ def view_boq(project_id):
     return render_template('boq.html', project=project, divisions=divisions,
                            measurements=measurements, pending=pending,
                            conf_dist=conf_dist, banners=banners,
+                           coverage=takeoff.get('coverage') or [],
                            DIVISIONS=DIVISIONS,
                            CONFIDENCE_LEVELS=CONFIDENCE_LEVELS,
                            PROJECT_TYPES=PROJECT_TYPES)

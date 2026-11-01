@@ -61,14 +61,46 @@ COLORS = {
 }
 
 
+class TakeoffRefused(Exception):
+    """DXF 主源在场但本轮零几何行：拒绝重算，上一轮清单原样保留。"""
+
+
+def latest_takeoff_summary(project_id):
+    """最近一次成功计量的 takeoff 披露（issues + 覆盖矩阵）；无则空 dict。"""
+    from app.models import Report
+
+    report = (Report.query.filter_by(project_id=project_id)
+              .order_by(Report.created_at.desc(), Report.id.desc()).first())
+    if not report or not report.summary_json:
+        return {}
+    try:
+        summary = json.loads(report.summary_json)
+    except (TypeError, ValueError):
+        return {}
+    takeoff = summary.get('takeoff') if isinstance(summary, dict) else None
+    return takeoff if isinstance(takeoff, dict) else {}
+
+
+def takeoff_banners(takeoff):
+    """把 takeoff 的 warn/error 转成用户可见横幅；参数闸门已有专用横幅，不重复。"""
+    banners, seen = [], set()
+    for issue in (takeoff or {}).get('issues') or []:
+        if issue.get('level') not in ('warn', 'error'):
+            continue
+        if issue.get('code') == 'param_required_floor_height':
+            continue
+        message = (issue.get('message') or '').strip()
+        if message and message not in seen:
+            banners.append(message)
+            seen.add(message)
+    return banners
+
+
 def process_project(project, drawings):
     """Main entry point: process all drawings for a project.
 
     Generates measurements organized by the 8-division system.
     """
-    # 缺陷 #8：先清上一轮识别产物，避免重算叠加虚高；钉定行/历史参照不删。
-    clear_previous_measurements(project)
-
     scale = project.scale or DEFAULT_PIXELS_PER_METER
     # 层高按 TakeoffParams 口径取（业态默认/用户填写）；无依据时给 0，
     # 派生的图片墙行自然为 0（wall_area > 0 闸门），不再拿 2.80 兜底冒充。
@@ -89,6 +121,33 @@ def process_project(project, drawings):
 
     all_measurements = []
 
+    # Phase 1.2（先于光栅）：DXF 几何主源 run() 只读不落库。
+    dxf_result = takeoff_run(project, drawings, current_app.config['UPLOAD_FOLDER'])
+    dxf_divisions = {row.division_id for row in dxf_result.rows}
+    dxf_drawings = [d for d in drawings
+                    if (getattr(d, 'filename', '') or '').lower().endswith('.dxf')]
+    if dxf_drawings and not dxf_result.rows:
+        # 主源在场却零行：拒绝重算，不清旧行。若先清再报错，用户会静默丢掉
+        # 上一版清单（多 DXF 未钉定、坏图、文件缺失都会走到这里）。
+        detail = "；".join(i.message for i in dxf_result.issues) or "未识别到任何围合或构件"
+        raise TakeoffRefused(
+            "本轮 DXF 未产出任何几何行，清单未改动：%s" % detail)
+
+    # 缺陷 #8：确认本轮有可落库结果后才清旧识别产物；钉定行/历史参照不删。
+    clear_previous_measurements(project)
+
+    dxf_measurements = []
+    for row in dxf_result.rows:
+        # rows.to_measurement 已负责 data_json['check'] 与图标列，不再另写映射
+        m = to_measurement(row, project.id)
+        db.session.add(m)
+        dxf_measurements.append(m)
+    for issue in dxf_result.issues:
+        log = (current_app.logger.debug if issue.level == "info" else
+               current_app.logger.warning if issue.level == "warn" else
+               current_app.logger.error)
+        log("takeoff issue %s: %s %s", issue.code, issue.message, issue.detail)
+
     # Phase 1: Process floor plans → rooms, doors, base rooms
     for drawing in drawing_map['floor_plan']:
         image_path = os.path.join(current_app.config['UPLOAD_FOLDER'], drawing.filename)
@@ -96,21 +155,6 @@ def process_project(project, drawings):
             continue
         ms = _process_floor_plan(image_path, drawing, project, scale)
         all_measurements.extend(ms)
-
-    # Phase 1.2: DXF 几何主源（设计 §2.2：主源先落，先于 PDF/派生）
-    dxf_result = takeoff_run(project, drawings, current_app.config['UPLOAD_FOLDER'])
-    dxf_measurements = []
-    for row in dxf_result.rows:
-        # rows.to_measurement 已负责 data_json['check'] 与图标列，不再另写映射
-        m = to_measurement(row, project.id)
-        db.session.add(m)
-        dxf_measurements.append(m)
-    dxf_divisions = {row.division_id for row in dxf_result.rows}
-    for issue in dxf_result.issues:
-        log = (current_app.logger.debug if issue.level == "info" else
-               current_app.logger.warning if issue.level == "warn" else
-               current_app.logger.error)
-        log("takeoff issue %s: %s %s", issue.code, issue.message, issue.detail)
 
     # Phase 1.5: PDF semantic extraction (Phase 5c)
     pdf_drawings = [d for d in drawings if d.filename.lower().endswith('.pdf')]
@@ -126,19 +170,47 @@ def process_project(project, drawings):
         ms = _process_elevation(image_path, drawing, project, scale)
         all_measurements.extend(ms)
 
+    # 设计 §2.6：DXF 几何行是唯一数值主源。同一项目同时上传 DXF 与光栅时，
+    # DXF 已出数的分部不得再落图片行（否则地面/天棚/墙面各算两遍）。
+    suppressed_image_divisions = set()
+    if dxf_divisions and raster_drawings:
+        raster_ids = {d.id for d in raster_drawings}
+        kept = []
+        for m in all_measurements:
+            if m.division_id in dxf_divisions and m.drawing_id in raster_ids:
+                # Phase 1/2 的行可能仍在 session.new（尚未 flush），不能直接 delete
+                if m in db.session.new:
+                    db.session.expunge(m)
+                else:
+                    db.session.delete(m)
+                suppressed_image_divisions.add(m.division_id)
+            else:
+                kept.append(m)
+        all_measurements = kept
+    if suppressed_image_divisions:
+        image_suppressed = Issue(
+            "image_rows_superseded", "info",
+            "DXF 几何主源已覆盖分部 %s，同分部图片行不落库"
+            % sorted(suppressed_image_divisions),
+            {"divisions": sorted(suppressed_image_divisions)})
+        dxf_result.issues.append(image_suppressed)
+        current_app.logger.info("takeoff issue %s: %s",
+                                image_suppressed.code, image_suppressed.message)
+
     # 第一段钉定对账：赶在 Phase 3 派生之前删掉房间双胞胎，2/3/5/6 只按
     # 钉定房行派生一套（否则钉定房行与机器房行会各派生一套，清单翻倍）。
     reconcile_pinned(project, dxf_measurements + all_measurements)
 
     # Phase 3: Generate derived measurements (walls, baseboard, etc.)
-    # 设计 §2.7：DXF 已有墙面/踢脚主源时，图片派生对应分部不落库。
-    skip_divisions = {d for d in (2, 5) if d in dxf_divisions}
+    # 设计 §2.7：DXF 已有墙面/天棚/踢脚主源时，图片派生对应分部不落库。
+    skip_divisions = {d for d in (2, 3, 5) if d in dxf_divisions}
     if skip_divisions:
         suppressed = Issue(
             "derived_rows_suppressed", "info",
             "DXF 几何主源已覆盖分部 %s，本轮图片派生对应分部不落库"
             % sorted(skip_divisions),
             {"divisions": sorted(skip_divisions)})
+        dxf_result.issues.append(suppressed)
         current_app.logger.info("takeoff issue %s: %s",
                                 suppressed.code, suppressed.message)
     derived = _generate_derived_measurements(
@@ -165,7 +237,15 @@ def process_project(project, drawings):
             _generate_annotated_image(image_path, all_measurements, drawing, project, scale)
 
     db.session.commit()
-    return {'measurement_count': len(all_measurements)}
+    takeoff = {
+        'issues': [{'code': i.code, 'level': i.level, 'message': i.message,
+                    'detail': i.detail} for i in dxf_result.issues],
+        'coverage': dxf_result.coverage.rows() if dxf_result.coverage else [],
+        'dxf_divisions': sorted(dxf_divisions),
+        'superseded_image_divisions': sorted(suppressed_image_divisions),
+    }
+    return {'measurement_count': len(all_measurements) + len(dxf_measurements),
+            'takeoff': takeoff}
 
 
 # ════════════════════════════════════════════════════
@@ -393,7 +473,7 @@ def _generate_derived_measurements(project, floor_height, scale, rooms=None,
         # 图片路径没有天花边界证据，不能用地面净面积冒充天棚量：
         # 露明顶/不同吊顶标高/外挑都可能让两者不等。
         # 0 净面积不是房间：证据行/空行不得派生 0m² 天棚。
-        if area_m2 > 0:
+        if area_m2 > 0 and 3 not in skip:
             m = Measurement(
                 label=f"{label}-天棚",
                 division_id=3,
