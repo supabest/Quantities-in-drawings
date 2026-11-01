@@ -276,14 +276,10 @@ def compare_with_historical(project_id, historical_id):
                     break
 
             if not exists:
-                # Guess quantity and unit from historical data
-                hist_qty = _find_item_quantity(hist, clean_name, div_id)
-
                 missing.append({
                     'name': hist_name,
                     'division_id': div_id,
                     'division_name': div_name,
-                    'historical_quantity': hist_qty,
                     'unit': unit,
                     'reason': '历史清单有此项目，当前算量未检出',
                 })
@@ -327,18 +323,6 @@ def _items_match(name1, name2):
         return True
 
     return False
-
-
-def _find_item_quantity(hist, item_name, div_id):
-    """Find typical quantity for this item in historical data."""
-    try:
-        data = json.loads(hist.summary_json) if isinstance(hist.summary_json, str) else hist.summary_json
-        items = data.get('stats', {}).get('division_items', {}).get(str(div_id), [])
-        counts = data.get('stats', {}).get('division_counts', {}).get(str(div_id), 0)
-        # Simplified: return count as rough estimate
-        return counts
-    except (json.JSONDecodeError, AttributeError, TypeError):
-        return 0
 
 
 def _compare_stats(hist_data, current_measurements):
@@ -387,40 +371,41 @@ def _generate_comparison_warnings(stats):
 # ════════════════════════════════════════════
 
 def auto_fill_missing(project_id, missing_items):
-    """Auto-fill missing items into the project measurements.
+    """把范例库缺列项加入「待算清单」：只写列项，任何工程量都不写。
 
-    Each filled item gets source_tag = '历史参照', confidence = medium.
+    缺陷 #1 回归：历史表某分部有 N 行 ≠ 本项 N 个，禁止再把行数当 count。
+    补入行 category='template_gap'，重算不清除（clear_previous_measurements 跳过）。
     """
     filled = []
-    for item in missing_items:
-        # Skip items that already exist (double-check)
+    for item in missing_items or []:
+        division_id = int(item.get("division") or item.get("division_id") or 0)
+        name = (item.get("name") or "").strip()
+        if not division_id or not name:
+            continue
         existing = Measurement.query.filter_by(
-            project_id=project_id,
-            division_id=item['division_id'],
-        ).filter(Measurement.label.like(f'%{item["name"][:10]}%')).first()
-
+            project_id=project_id, division_id=division_id, label=name).first()
         if existing:
             continue
-
         m = Measurement(
-            label=f'【历史参照】{item["name"]}',
-            division_id=item['division_id'],
-            category='fixture',
-            count=int(item.get('historical_quantity', 1)) or 1,
-            unit=item.get('unit', '项'),
-            source_tag='历史参照',
-            source_tag_icon='📋',
-            confidence_level='medium',
-            confidence_icon='🟡',
-            confidence=0.5,
-            position_desc='（历史清单参照补入）',
-            formula_text=f'参照历史同类项目清单补入，图纸未显示',
-            project_features=item['name'],
-            remarks=f'【历史参照】参照历史清单补入，图纸未明确显示此项目。置信度🟡中，建议复核后用于报价。',
+            label=name,
+            division_id=division_id,
+            category='template_gap',
+            area=None,
+            length=None,
+            count=None,
+            unit=item.get('unit') or '项',
+            source_tag='待确认',
+            source_tag_icon='❓',
+            confidence_level='low',
+            confidence_icon='🔴',
+            confidence=0.0,
+            position_desc='（范例库列项，待算）',
+            formula_text='范例库列项：本图无图源，工程量待补',
+            project_features=item.get('material') or '',
+            remarks='来自样板房范例库；缺图源，未计量，禁止直接用于报价',
             project_id=project_id,
         )
         db.session.add(m)
         filled.append(m)
-
     db.session.commit()
     return filled

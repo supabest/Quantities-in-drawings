@@ -299,6 +299,8 @@ def clear_previous_measurements(project):
 
     `PDF语义提取` 是每次重算都会重发的识别产物，同样清掉（否则重算会翻倍）；
     PDF 行被人工改过时应钉 `manual_pinned=True`，钉定保护优先。
+    `template_gap`（范例库缺列项，待算清单）没有工程量、不来自图纸，
+    重算不该再生成，故按 category 无条件保留（不看 source_tag）。
     `db.session.delete` + `flush()`，不 commit（由 process_project 末尾统一提交，
     失败时由 api 的 rollback 保住旧行）。返回删除行数，便于调用方记日志。
     """
@@ -308,6 +310,8 @@ def clear_previous_measurements(project):
     cleared = 0
     for m in Measurement.query.filter_by(project_id=project.id).all():
         if m.manual_pinned:
+            continue
+        if (m.category or "") == "template_gap":
             continue
         if (m.source_tag or "") in CLEAR_TAGS:
             db.session.delete(m)

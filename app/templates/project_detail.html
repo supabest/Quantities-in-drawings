@@ -97,7 +97,7 @@
                     <div class="hist-prompt-icon">💡</div>
                     <div class="hist-prompt-text">
                         <strong>建议上传历史同类项目清单</strong>
-                        <p class="text-muted small">上传同类项目的工程量清单Excel，系统将自动比对并补全图纸未显示的隐含子目。</p>
+                        <p class="text-muted small">上传同类项目的工程量清单Excel，系统将自动比对；缺图源的列项只加入待算清单，不自动补工程量。</p>
                     </div>
                 </div>
                 <div class="hist-upload-area">
@@ -113,7 +113,7 @@
                     <div id="histWarnings" class="mt-1"></div>
                     <button id="autoFillBtn" style="display:none" class="btn btn-primary btn-sm mt-1"
                             onclick="autoFillMissing({{ project.id }})">
-                        🔄 补入遗漏项目
+                        ➕ 加入待算清单
                     </button>
                     <span id="autoFillStatus" class="text-muted small"></span>
                 </div>
@@ -475,7 +475,7 @@ async function runComparison(projectId, historicalId) {
                 html += `<tr><td colspan="3" class="text-muted small">...还有 ${missing.length - 20} 项</td></tr>`;
             }
             html += `</table>`;
-            html += `<p class="text-muted small">补入后标注【历史参照】📋，置信度🟡中</p>`;
+            html += `<p class="text-muted small">加入待算清单后标注「待确认」❓，工程量留空待人工补算（禁止直接用于报价）</p>`;
 
             // Show auto-fill button
             document.getElementById('autoFillBtn').style.display = 'inline-block';

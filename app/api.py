@@ -474,17 +474,15 @@ def compare_with_historical(project_id):
 @api_bp.route('/historical/auto-fill/<int:project_id>', methods=['POST'])
 @login_required
 def auto_fill_missing(project_id):
-    """Auto-fill missing items from historical comparison into project."""
+    """Add template gap items to the project's 待算清单 (no quantities)."""
     project = Project.query.get_or_404(project_id)
     if project.user_id != current_user.id and not current_user.is_admin:
         return jsonify({'success': False, 'error': '无权操作'}), 403
 
-    data = request.get_json()
-    historical_id = data.get('historical_id')
+    data = request.get_json() or {}
     items_to_fill = data.get('items', [])
-
-    if not historical_id or not items_to_fill:
-        return jsonify({'success': False, 'error': '缺少历史清单ID或待填项目'}), 400
+    if not items_to_fill:
+        return jsonify({'success': False, 'error': '缺少待填项目'}), 400
 
     from app.comparison import auto_fill_missing
     filled = auto_fill_missing(project_id, items_to_fill)
