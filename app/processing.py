@@ -243,6 +243,7 @@ def process_project(project, drawings):
         'coverage': dxf_result.coverage.rows() if dxf_result.coverage else [],
         'dxf_divisions': sorted(dxf_divisions),
         'superseded_image_divisions': sorted(suppressed_image_divisions),
+        'metrics': dxf_result.metrics,
     }
     return {'measurement_count': len(all_measurements) + len(dxf_measurements),
             'takeoff': takeoff}

@@ -1,28 +1,27 @@
-"""两条判定带对账：墙地比 + 踢脚/地面比。
+"""两条判定带对账：墙地比 + 踢脚/围合周长比。
 
-只写 row.check 与 Issue——**不新增任何数字行、不改 row.value**。
-参考带与 app/comparison.py 的 REASONABLENESS_RANGES 同值（不 import 该模块，
-避免把 ORM/Flask 拉进纯包）：
+只写 row.check 与 Issue——不新增任何数字行、不改 row.value。
+带值唯一来源是 template.ranges（样板房取 templates/sample_flat.json，
+未知业态走 template.BUILTIN_RANGES 兜底），本模块不保留硬编码区间。
 
-  · 墙地比 = Σ墙面(m²) / Σ地面(m²)，按项目业态取带；
-  · 踢脚比 = Σ踢脚(m) / Σ地面(m²)，全业态同一带。
-
-注意：计划伪代码把业态硬编码为 sample_flat，这里必须按 params.project_type 取带；
-params=None 时按 sample_flat。
-
-纯包：只 import .types。
+踢脚分母是**参与踢脚的房间围合周长**（残条不计），不是地面面积：
+227 实测 166.73 / 187.04 = 0.89。metrics 由 rows_for_divisions 汇总传入；
+缺 perimeter 时跳过踢脚判定，不用错误分母凑结论。
 """
 from __future__ import annotations
 
+from . import template
 from .types import Issue
 
-WALL_FLOOR_BANDS = {"sample_flat": (2.0, 3.0), "showroom": (2.5, 3.5)}
-DEFAULT_WALL_FLOOR_BAND = (1.5, 4.0)
-BASEBOARD_BAND = (0.6, 1.1)
+_CHECK_DIV = {"wall_floor_ratio": 2, "baseboard_ratio": 5}
+_LIGHT_TOKENS = ("灯",)
+_SOCKET_TOKENS = ("插座", "开关")
 
 
-def _total(rows, division_id):
-    return sum(r.value or 0.0 for r in rows if r.division_id == division_id)
+def _get(row, key, default=None):
+    if isinstance(row, dict):
+        return row.get(key, default)
+    return getattr(row, key, default)
 
 
 def _check_of(row):
@@ -31,44 +30,37 @@ def _check_of(row):
     return row.check
 
 
-def _warn(code, ratio, band, project_type, label):
-    lo, hi = band
-    return Issue(
-        code, "warn",
-        "%s=%.2f，参考范围%.1f~%.1f（业态 %s），请核查"
-        % (label, ratio, lo, hi, project_type),
-        {"ratio": ratio, "band": [lo, hi], "project_type": project_type})
+def measurement_view(m):
+    """ORM Measurement → 纯 dict（只取判定需要的字段）。"""
+    unit = (getattr(m, "unit", "") or "").strip()
+    value = getattr(m, "area", None)
+    if unit == "m":
+        value = getattr(m, "length", None)
+    elif unit not in ("m2", "m²"):
+        value = getattr(m, "count", None)
+    return {"division_id": getattr(m, "division_id", 0) or 0,
+            "label": getattr(m, "label", "") or "",
+            "category": getattr(m, "category", "") or "",
+            "source_tag": getattr(m, "source_tag", "") or "",
+            "unit": unit, "value": value}
 
 
-def apply(rows, params=None):
-    """写 check + 返回越带 Issue；floor/踢脚为 0 时不判（比值无定义）。
-
-    比值先 round 到 2 位，check、带判定、message、detail 全用同一舍入值——
-    避免 3.004 显示成 3.00 却仍报越带的自相矛盾。
-    """
-    issues = []
+def apply(rows, params=None, metrics=None):
     project_type = getattr(params, "project_type", None) or "sample_flat"
-    floor = _total(rows, 1)
-    wall = _total(rows, 2)
-    baseboard = _total(rows, 5)
+    results, issues = template.evaluate_ranges(
+        template.totals(rows, metrics), project_type)
+    by_code = {item["code"]: item for item in results}
 
-    if floor > 0 and wall > 0:
-        ratio = round(wall / floor, 2)
-        lo, hi = WALL_FLOOR_BANDS.get(project_type, DEFAULT_WALL_FLOOR_BAND)
-        for row in rows:
-            if row.division_id == 2:
-                _check_of(row)["wall_floor_ratio"] = ratio
-        if not (lo <= ratio <= hi):
-            issues.append(_warn("wall_floor_ratio", ratio, (lo, hi),
-                                project_type, "项目墙地比"))
-
-    if floor > 0 and baseboard > 0:
-        ratio = round(baseboard / floor, 2)
-        lo, hi = BASEBOARD_BAND
-        for row in rows:
-            if row.division_id == 5:
-                _check_of(row)["baseboard_ratio"] = ratio
-        if not (lo <= ratio <= hi):
-            issues.append(_warn("baseboard_ratio", ratio, (lo, hi),
-                                project_type, "项目踢脚/地面比"))
+    for row in rows:
+        division = int(_get(row, "division_id", 0) or 0)
+        for code, check_key in (("wall_floor_ratio", "wall_floor_ratio"),
+                                ("baseboard_ratio", "baseboard_ratio")):
+            if _CHECK_DIV[code] == division and code in by_code:
+                _check_of(row)[check_key] = by_code[code]["value"]
+        if division == 8:
+            label = _get(row, "label", "") or ""
+            if "light_per_area" in by_code and any(t in label for t in _LIGHT_TOKENS):
+                _check_of(row)["light_per_area"] = by_code["light_per_area"]["value"]
+            if "socket_per_area" in by_code and any(t in label for t in _SOCKET_TOKENS):
+                _check_of(row)["socket_per_area"] = by_code["socket_per_area"]["value"]
     return issues

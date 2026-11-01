@@ -163,6 +163,8 @@ def rows_for_divisions(data, params):
     """1/2/3/4/5 分部出数。返回 (rows, issues)。"""
     rows = []
     issues: list[Issue] = []
+    metrics = {"floor_m2": 0.0, "wall_m2": 0.0, "ceiling_m2": 0.0,
+               "baseboard_m": 0.0, "perimeter_m": 0.0, "opening_count": 0.0}
     door_h = float(params.door_height_mm or 2100.0)
     win_h = float(params.window_height_mm or 1500.0)
     doors = data.get("doors") or []
@@ -221,6 +223,7 @@ def rows_for_divisions(data, params):
         rows.append(Row(
             1, "%s-地面" % name, "dxf_floor", "m2", area,
             floor_formula, pos, remarks=rem_comp, confidence_level=conf))
+        metrics["floor_m2"] += area
         emitted += 1
         # 无名窄条残条只计地面：封账口径地面含 227 的 1.60㎡ 残条，
         # 但天棚/墙面/踢脚不认，避免把结构缝虚增成房间工程量。
@@ -228,6 +231,8 @@ def rows_for_divisions(data, params):
             unknown.append({"comp_id": comp, "area": area,
                             "mean_width_mm": round(width_mm, 1)})
             continue
+        # 踢脚比的分母：参与踢脚判定的房间围合周长（残条不计）。
+        metrics["perimeter_m"] += per / 1e3
         if unnamed_room:
             unnamed.append(comp)
         # 天棚：造型/平顶按逐间标高数判；面积一律围合水平投影，不展开
@@ -248,6 +253,7 @@ def rows_for_divisions(data, params):
             ceil_formula, pos, remarks=rem_comp + ";" + ceil_note,
             project_features=ceil_feat,
             confidence_level=conf if unnamed_room else "medium"))
+        metrics["ceiling_m2"] += area
 
         # ---- 2 墙面：Σ边长×净高 − 门/窗洞口 ----
         door_w = min(sum(_opening_width(doors, e, False) for e in edges), per)
@@ -266,12 +272,15 @@ def rows_for_divisions(data, params):
                 confidence_level=conf if unnamed_room else "medium",
                 check={"gross_m2": round(gross, 2),
                        "openings_m2": round(gross - net, 2)}))
+            metrics["wall_m2"] += round(net, 2)
 
         # ---- 5 踢脚：净周长 − 门洞总宽（窗不落地） ----
         bb = max(per / 1e3 - door_w / 1e3, 0.0)
         if bb > 0:
+            value = round(bb, 2)
+            metrics["baseboard_m"] += value
             rows.append(Row(
-                5, "%s-踢脚线" % name, "dxf_baseboard", "m", round(bb, 2),
+                5, "%s-踢脚线" % name, "dxf_baseboard", "m", value,
                 "踢脚=净周长{:.2f} − 门洞{:.2f}".format(per / 1e3, door_w / 1e3),
                 pos, remarks=rem_comp, source_tag="几何推算",
                 confidence_level=conf))
@@ -282,6 +291,7 @@ def rows_for_divisions(data, params):
         if not any(u[0] == c[0] and math.hypot(u[1] - c[1], u[2] - c[2]) < DEDUP
                    for u in uniq):
             uniq.append(c)
+    metrics["opening_count"] = float(len(uniq))
     order = {"门": 0, "窗": 1}
     uniq.sort(key=lambda c: (order.get(c[0], 9), round(c[2], 1), round(c[1], 1)))
     seq = {"门": 0, "窗": 0}
@@ -337,4 +347,5 @@ def rows_for_divisions(data, params):
             % (len(merged), "、".join("%s(%.2f㎡)" % (m["label"], m["area"])
                                       for m in merged)),
             {"merged": merged}))
+    data["takeoff_metrics"] = metrics
     return rows, issues

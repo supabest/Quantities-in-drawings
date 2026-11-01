@@ -123,6 +123,8 @@ def run(project, drawings, upload_folder):
     issues = []
     all_rows = []
     seed_coverage = None
+    metrics = {"floor_m2": 0.0, "wall_m2": 0.0, "ceiling_m2": 0.0,
+               "baseboard_m": 0.0, "perimeter_m": 0.0, "opening_count": 0.0}
 
     # 层高闸门按**项目级**披露一次（不按图纸重复）：缺层高时无吊顶标高的房间
     # 墙面部不出数，逐间判定在 rows_for_divisions 内做。
@@ -223,6 +225,9 @@ def run(project, drawings, upload_folder):
                 issues.append(_unplaced_issue(unplaced))
 
             rows, row_issues = takeoff.rows_for_divisions(data, params)
+            drawing_metrics = data.get("takeoff_metrics") or {}
+            for key in metrics:
+                metrics[key] += float(drawing_metrics.get(key) or 0.0)
             covered = _coverage.build_coverage(data, params)
             if roles.audit_fallback:
                 # 几何来自审计层：量仍在，但来源需人工核对，不能显示成完整有源。
@@ -255,10 +260,11 @@ def run(project, drawings, upload_folder):
         if seed_coverage is None:
             seed_coverage = covered
 
-    issues.extend(reconcile.apply(all_rows, params=params))
+    issues.extend(reconcile.apply(all_rows, params=params, metrics=metrics))
     return TakeoffResult(rows=all_rows,
                          coverage=seed_coverage or Coverage(),
-                         issues=issues)
+                         issues=issues,
+                         metrics=metrics)
 
 
 def clear_previous_measurements(project):

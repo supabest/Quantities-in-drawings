@@ -81,3 +81,4 @@ class TakeoffResult:
     rows: list
     coverage: Coverage
     issues: list
+    metrics: dict = field(default_factory=dict)

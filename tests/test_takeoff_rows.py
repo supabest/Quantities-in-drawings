@@ -514,69 +514,80 @@ def test_residual_only_drawing_message_not_overclaiming():
     assert msg.detail["residual_comp_ids"] == [1]
 
 
-def test_reconcile_only_two_bands(tmp_path):
-    """恰好两条带：墙地比 4.15、踢脚比 1.47 均越带；只写 check，不改 value、不增行。"""
+def test_reconcile_writes_two_bands_from_metrics(tmp_path):
+    """两条带：墙地比 4.15、踢脚/周长 0.50 均越带；只写 check，不改 value、不增行。"""
     data = _data(tmp_path)
     rows, _ = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
     assert len(rows) == 13
     before = [r.value for r in rows]
-    issues = reconcile_apply(rows)
+    metrics = {"floor_m2": 19.73, "wall_m2": 81.88,
+               "baseboard_m": 29.02, "perimeter_m": 58.0}
+    issues = reconcile_apply(rows, metrics=metrics)
     assert {i.code for i in issues} == {"wall_floor_ratio", "baseboard_ratio"}
 
     wall = [r for r in rows if r.division_id == 2]
     bb = [r for r in rows if r.division_id == 5]
     assert all(r.check["wall_floor_ratio"] == 4.15 for r in wall)
-    assert all(r.check["baseboard_ratio"] == 1.47 for r in bb)
-    assert [r.value for r in rows] == before             # 不改数值
-    assert len(rows) == 13                               # 不新增数字行
+    assert all(r.check["baseboard_ratio"] == 0.5 for r in bb)
+    assert [r.value for r in rows] == before
+    assert len(rows) == 13
 
     by_code = {i.code: i for i in issues}
-    wf = by_code["wall_floor_ratio"]
-    assert wf.level == "warn"
-    assert wf.detail["band"] == [2.0, 3.0]
-    assert wf.detail["project_type"] == "sample_flat"
-    assert abs(wf.detail["ratio"] - 4.15) < 0.01
-    assert "4.15" in wf.message and "2.0" in wf.message and "3.0" in wf.message
-    bbr = by_code["baseboard_ratio"]
-    assert bbr.detail["band"] == [0.6, 1.1]
-    assert "1.47" in bbr.message
+    assert by_code["wall_floor_ratio"].detail["band"] == [2.0, 3.0]
+    assert by_code["baseboard_ratio"].detail["band"] == [0.6, 1.1]
+    assert "4.15" in by_code["wall_floor_ratio"].message
+    assert "0.50" in by_code["baseboard_ratio"].message
 
 
 def test_reconcile_band_respects_project_type(tmp_path):
-    """带按 params.project_type 取：showroom 用 (2.5,3.5)；落入带内不报。"""
     data = _data(tmp_path)
     rows, _ = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
-    issues = reconcile_apply(rows, TakeoffParams(project_type="showroom"))
+    metrics = {"floor_m2": 19.73, "wall_m2": 81.88,
+               "baseboard_m": 29.02, "perimeter_m": 37.0}
+    issues = reconcile_apply(rows, TakeoffParams(project_type="showroom"),
+                             metrics=metrics)
     wf = [i for i in issues if i.code == "wall_floor_ratio"][0]
     assert wf.detail["project_type"] == "showroom"
     assert wf.detail["band"] == [2.5, 3.5]
-    assert abs(wf.detail["ratio"] - 4.15) < 0.01          # 同一 rows 仍越 showroom 带
 
-    # 自选构造：墙地 30/10=3.0 落 showroom 带、踢脚 8/10=0.8 落踢脚带 → 两条都不报
     synth = [
         Row(1, "地面", "dxf_floor", "m2", 10.0, "f"),
         Row(2, "墙面", "dxf_wall", "m2", 30.0, "f", check={"gross_m2": 30.0}),
         Row(5, "踢脚", "dxf_baseboard", "m", 8.0, "f"),
     ]
-    assert reconcile_apply(synth, TakeoffParams(project_type="showroom")) == []
+    assert reconcile_apply(
+        synth, TakeoffParams(project_type="showroom"),
+        metrics={"floor_m2": 10, "wall_m2": 30,
+                 "baseboard_m": 8, "perimeter_m": 10}) == []
     assert synth[1].check["wall_floor_ratio"] == 3.0
-    assert synth[2].check["baseboard_ratio"] == 0.8       # 原 check=None → 新建 dict
+    assert synth[2].check["baseboard_ratio"] == 0.8
+
+
+def test_reconcile_baseboard_uses_perimeter_not_floor():
+    """旧口径 10/8=1.25 会越带；新口径 10/15=0.67 落带内。"""
+    rows = [
+        Row(1, "地面", "dxf_floor", "m2", 8.0, "f"),
+        Row(5, "踢脚", "dxf_baseboard", "m", 10.0, "f"),
+    ]
+    issues = reconcile_apply(
+        rows, metrics={"floor_m2": 8, "baseboard_m": 10, "perimeter_m": 15})
+    assert issues == []
+    assert rows[1].check["baseboard_ratio"] == 0.67
 
 
 def test_reconcile_ratio_rounded_before_band_check():
-    """比值先舍入到 2 位：3.004→3.00 不报；3.006→3.01 报，check/message/detail 同值。"""
     def synth(wall_value):
-        return [
-            Row(1, "地面", "dxf_floor", "m2", 10.0, "f"),
-            Row(2, "墙面", "dxf_wall", "m2", wall_value, "f"),
-        ]
+        return [Row(1, "地面", "dxf_floor", "m2", 10.0, "f"),
+                Row(2, "墙面", "dxf_wall", "m2", wall_value, "f")]
 
-    in_band = synth(30.04)                       # 30.04/10 = 3.004 → 3.00
-    assert reconcile_apply(in_band) == []
+    in_band = synth(30.04)
+    assert reconcile_apply(
+        in_band, metrics={"floor_m2": 10, "wall_m2": 30.04}) == []
     assert in_band[1].check["wall_floor_ratio"] == 3.0
 
-    out_band = synth(30.06)                      # 30.06/10 = 3.006 → 3.01
-    issues = reconcile_apply(out_band)
+    out_band = synth(30.06)
+    issues = reconcile_apply(
+        out_band, metrics={"floor_m2": 10, "wall_m2": 30.06})
     wf = [i for i in issues if i.code == "wall_floor_ratio"][0]
     assert wf.detail["ratio"] == 3.01
     assert "3.01" in wf.message
@@ -584,23 +595,20 @@ def test_reconcile_ratio_rounded_before_band_check():
 
 
 def test_reconcile_empty_and_zero_totals_short_circuit():
-    """空 rows、floor=0、baseboard=0：不报、不崩、不写无定义比值。"""
     assert reconcile_apply([]) == []
 
-    # floor=0（只有 div2/div5）：两个比值都无定义 → 不判、不建 check
-    no_floor = [
-        Row(2, "墙面", "dxf_wall", "m2", 30.0, "f"),
-        Row(5, "踢脚", "dxf_baseboard", "m", 8.0, "f"),
-    ]
-    assert reconcile_apply(no_floor) == []
+    no_floor = [Row(2, "墙面", "dxf_wall", "m2", 30.0, "f"),
+                Row(5, "踢脚", "dxf_baseboard", "m", 8.0, "f")]
+    assert reconcile_apply(
+        no_floor, metrics={"floor_m2": 0, "baseboard_m": 8,
+                           "perimeter_m": 10}) == []
     assert no_floor[0].check is None and no_floor[1].check is None
 
-    # baseboard=0（有 floor/wall、无 div5）：只判墙地比 25/10=2.5 落带内 → 不报
-    no_baseboard = [
-        Row(1, "地面", "dxf_floor", "m2", 10.0, "f"),
-        Row(2, "墙面", "dxf_wall", "m2", 25.0, "f", check={"gross_m2": 25.0}),
-    ]
-    assert reconcile_apply(no_baseboard) == []
+    no_baseboard = [Row(1, "地面", "dxf_floor", "m2", 10.0, "f"),
+                    Row(2, "墙面", "dxf_wall", "m2", 25.0, "f",
+                        check={"gross_m2": 25.0})]
+    assert reconcile_apply(
+        no_baseboard, metrics={"floor_m2": 10, "wall_m2": 25}) == []
     assert no_baseboard[1].check == {"gross_m2": 25.0, "wall_floor_ratio": 2.5}
     assert "baseboard_ratio" not in no_baseboard[1].check
 
@@ -609,7 +617,14 @@ def test_to_measurement_maps_units_and_trace(tmp_path):
     """单位映射 + 来源/置信图标 + 计算式/部位原样 + check 落 data_json。"""
     data = _data(tmp_path)
     rows, _ = rows_for_divisions(data, TakeoffParams(floor_height_mm=2800.0))
-    reconcile_apply(rows)
+    # 围合周长 = 踢脚合计 + 唯一一樘门的净宽 0.90m（夹具：三间房 12.64+10.64+6.64）
+    metrics = {
+        "floor_m2": sum(r.value for r in rows if r.division_id == 1),
+        "wall_m2": sum(r.value for r in rows if r.division_id == 2),
+        "baseboard_m": sum(r.value for r in rows if r.division_id == 5),
+        "perimeter_m": sum(r.value for r in rows if r.division_id == 5) + 0.90,
+    }
+    reconcile_apply(rows, metrics=metrics)
 
     floor = [r for r in rows if r.division_id == 1][0]
     m = to_measurement(floor, project_id=7)
