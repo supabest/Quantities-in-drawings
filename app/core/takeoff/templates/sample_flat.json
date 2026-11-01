@@ -1,0 +1,2050 @@
+{
+  "type": "sample_flat",
+  "version": 1,
+  "origin": "金融城227样板房工程量清单 · ZS02-A-精装修工程-227户型 / ZS02-B-精装修水电136、227户型 / 户内门（列项抽取，工程量已丢弃）",
+  "source_sheets": [
+    "ZS02-A-精装修工程-227户型",
+    "ZS02-B- 精装修水电136、227户型",
+    "户内门"
+  ],
+  "ranges": {
+    "wall_floor_ratio": [
+      2.0,
+      3.0
+    ],
+    "baseboard_perimeter": [
+      0.6,
+      1.1
+    ],
+    "light_per_area": [
+      0.1,
+      0.2
+    ],
+    "socket_per_area": [
+      0.08,
+      0.15
+    ]
+  },
+  "items": [
+    {
+      "division": 1,
+      "name": "地面水泥砂浆找平层",
+      "unit": "m2",
+      "material": null,
+      "capability": "floor_area",
+      "group": "地面装饰工程/地面基层",
+      "group_only": false,
+      "id": "1:地面水泥砂浆找平层:m2"
+    },
+    {
+      "division": 1,
+      "name": "瓷砖地面铺贴阳台",
+      "unit": "m2",
+      "material": "瓷砖",
+      "capability": "finish_surface",
+      "group": "地面装饰工程/地面瓷砖",
+      "group_only": false,
+      "id": "1:瓷砖地面铺贴阳台:m2"
+    },
+    {
+      "division": 1,
+      "name": "石材地面铺贴-客厅地面",
+      "unit": "m2",
+      "material": "石材",
+      "capability": "finish_surface",
+      "group": "地面装饰工程/地面石材",
+      "group_only": false,
+      "id": "1:石材地面铺贴-客厅地面:m2"
+    },
+    {
+      "division": 1,
+      "name": "石材地面铺贴-卫生间地面",
+      "unit": "m2",
+      "material": "石材",
+      "capability": "finish_surface",
+      "group": "地面装饰工程/地面石材",
+      "group_only": false,
+      "id": "1:石材地面铺贴-卫生间地面:m2"
+    },
+    {
+      "division": 1,
+      "name": "石材地面铺贴-玄关地面拼花",
+      "unit": "m2",
+      "material": "石材",
+      "capability": "finish_surface",
+      "group": "地面装饰工程/地面石材",
+      "group_only": false,
+      "id": "1:石材地面铺贴-玄关地面拼花:m2"
+    },
+    {
+      "division": 1,
+      "name": "石材地面铺贴-主卫地面",
+      "unit": "m2",
+      "material": "石材",
+      "capability": "finish_surface",
+      "group": "地面装饰工程/地面石材",
+      "group_only": false,
+      "id": "1:石材地面铺贴-主卫地面:m2"
+    },
+    {
+      "division": 1,
+      "name": "石材地面铺贴-卫生间淋浴间地面",
+      "unit": "m2",
+      "material": "石材",
+      "capability": "finish_surface",
+      "group": "地面装饰工程/地面石材",
+      "group_only": false,
+      "id": "1:石材地面铺贴-卫生间淋浴间地面:m2"
+    },
+    {
+      "division": 1,
+      "name": "石材地面铺贴-主卫淋浴间地面",
+      "unit": "m2",
+      "material": "石材",
+      "capability": "finish_surface",
+      "group": "地面装饰工程/地面石材",
+      "group_only": false,
+      "id": "1:石材地面铺贴-主卫淋浴间地面:m2"
+    },
+    {
+      "division": 1,
+      "name": "门槛石铺贴-入户门槛、阳台门门槛、户内门槛",
+      "unit": "m2",
+      "material": null,
+      "capability": "finish_surface",
+      "group": "地面装饰工程/地面石材",
+      "group_only": false,
+      "id": "1:门槛石铺贴-入户门槛、阳台门门槛、户内门槛:m2"
+    },
+    {
+      "division": 1,
+      "name": "石材晶面处理",
+      "unit": "m2",
+      "material": "石材",
+      "capability": "finish_surface",
+      "group": "地面装饰工程/地面石材",
+      "group_only": false,
+      "id": "1:石材晶面处理:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙面刮腻子",
+      "unit": "m2",
+      "material": null,
+      "capability": "wall_base",
+      "group": "墙柱面装饰工程/墙柱面油漆及裱糊",
+      "group_only": false,
+      "id": "2:墙面刮腻子:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙面刮腻子 每增减一遍",
+      "unit": "m2",
+      "material": null,
+      "capability": "wall_base",
+      "group": "墙柱面装饰工程/墙柱面油漆及裱糊",
+      "group_only": true,
+      "id": "2:墙面刮腻子 每增减一遍:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙面PT-01有色乳胶漆",
+      "unit": "m2",
+      "material": "乳胶漆",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面油漆及裱糊",
+      "group_only": false,
+      "id": "2:墙面PT-01有色乳胶漆:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱面瓷砖粘贴-厨房墙身",
+      "unit": "m2",
+      "material": "瓷砖",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面瓷砖",
+      "group_only": false,
+      "id": "2:墙柱面瓷砖粘贴-厨房墙身:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙面瓷砖背胶处理",
+      "unit": "m2",
+      "material": "瓷砖",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面瓷砖",
+      "group_only": false,
+      "id": "2:墙面瓷砖背胶处理:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱面石材-电视背景墙",
+      "unit": "m2",
+      "material": "石材",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面石材",
+      "group_only": false,
+      "id": "2:墙柱面石材-电视背景墙:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱面石材-主卫墙身",
+      "unit": "m2",
+      "material": "石材",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面石材",
+      "group_only": false,
+      "id": "2:墙柱面石材-主卫墙身:m2"
+    },
+    {
+      "division": 2,
+      "name": "石材窗台 胶贴-飘窗台",
+      "unit": "m2",
+      "material": "石材",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面石材",
+      "group_only": false,
+      "id": "2:石材窗台 胶贴-飘窗台:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱木饰面-墙身(不含柜体)",
+      "unit": "m2",
+      "material": "木饰面",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面装饰板",
+      "group_only": false,
+      "id": "2:墙柱木饰面-墙身(不含柜体):m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱金属饰面-电视背景墙",
+      "unit": "m2",
+      "material": "金属饰面",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面装饰板",
+      "group_only": false,
+      "id": "2:墙柱金属饰面-电视背景墙:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱硬包饰面",
+      "unit": "m2",
+      "material": "硬包",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面装饰板",
+      "group_only": false,
+      "id": "2:墙柱硬包饰面:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱硬包饰面-电视背景墙、主卧",
+      "unit": "m2",
+      "material": "硬包",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面装饰板",
+      "group_only": false,
+      "id": "2:墙柱硬包饰面-电视背景墙、主卧:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱硬包饰面-电视背景墙",
+      "unit": "m2",
+      "material": "硬包",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面装饰板",
+      "group_only": false,
+      "id": "2:墙柱硬包饰面-电视背景墙:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱硬包饰面-主卧",
+      "unit": "m2",
+      "material": "硬包",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面装饰板",
+      "group_only": false,
+      "id": "2:墙柱硬包饰面-主卧:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱硬包饰面-卧室二",
+      "unit": "m2",
+      "material": "硬包",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面装饰板",
+      "group_only": false,
+      "id": "2:墙柱硬包饰面-卧室二:m2"
+    },
+    {
+      "division": 2,
+      "name": "墙柱玻璃饰面-电视背景墙",
+      "unit": "m2",
+      "material": "玻璃",
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面装饰板",
+      "group_only": false,
+      "id": "2:墙柱玻璃饰面-电视背景墙:m2"
+    },
+    {
+      "division": 5,
+      "name": "踢脚线不锈钢饰面",
+      "unit": "m",
+      "material": "不锈钢",
+      "capability": "baseboard_length",
+      "group": "墙柱面装饰工程/墙柱面踢脚线",
+      "group_only": false,
+      "id": "5:踢脚线不锈钢饰面:m"
+    },
+    {
+      "division": 2,
+      "name": "墙面金属装饰线 长边100mm（含）以内",
+      "unit": "m",
+      "material": null,
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面装饰线",
+      "group_only": false,
+      "id": "2:墙面金属装饰线 长边100mm（含）以内:m"
+    },
+    {
+      "division": 2,
+      "name": "墙面木装饰线 100mm宽以内 (E07/B)",
+      "unit": "m",
+      "material": null,
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/墙柱面装饰线",
+      "group_only": false,
+      "id": "2:墙面木装饰线 100mm宽以内 (E07/B):m"
+    },
+    {
+      "division": 2,
+      "name": "轻钢龙骨外隔墙 200mm以内",
+      "unit": "m2",
+      "material": null,
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/隔墙及隔断",
+      "group_only": false,
+      "id": "2:轻钢龙骨外隔墙 200mm以内:m2"
+    },
+    {
+      "division": 2,
+      "name": "轻钢龙骨内隔墙 100mm以内",
+      "unit": "m2",
+      "material": null,
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/隔墙及隔断",
+      "group_only": false,
+      "id": "2:轻钢龙骨内隔墙 100mm以内:m2"
+    },
+    {
+      "division": 2,
+      "name": "轻钢龙骨内隔墙 200mm以内",
+      "unit": "m2",
+      "material": null,
+      "capability": "finish_surface",
+      "group": "墙柱面装饰工程/隔墙及隔断",
+      "group_only": false,
+      "id": "2:轻钢龙骨内隔墙 200mm以内:m2"
+    },
+    {
+      "division": 2,
+      "name": "隔墙每增减一层基层板",
+      "unit": "m2",
+      "material": null,
+      "capability": "wall_base",
+      "group": "墙柱面装饰工程/隔墙及隔断",
+      "group_only": true,
+      "id": "2:隔墙每增减一层基层板:m2"
+    },
+    {
+      "division": 3,
+      "name": "天棚刮腻子",
+      "unit": "m2",
+      "material": null,
+      "capability": "ceiling_area",
+      "group": "天棚装饰工程/天棚涂料",
+      "group_only": false,
+      "id": "3:天棚刮腻子:m2"
+    },
+    {
+      "division": 3,
+      "name": "天棚刮腻子每增减一遍",
+      "unit": "m2",
+      "material": null,
+      "capability": "ceiling_area",
+      "group": "天棚装饰工程/天棚涂料",
+      "group_only": true,
+      "id": "3:天棚刮腻子每增减一遍:m2"
+    },
+    {
+      "division": 3,
+      "name": "天棚艺术涂料PT-01",
+      "unit": "m2",
+      "material": "艺术涂料",
+      "capability": "ceiling_area",
+      "group": "天棚装饰工程/天棚涂料",
+      "group_only": false,
+      "id": "3:天棚艺术涂料PT-01:m2"
+    },
+    {
+      "division": 3,
+      "name": "天棚乳胶漆PT-03",
+      "unit": "m2",
+      "material": "乳胶漆",
+      "capability": "ceiling_area",
+      "group": "天棚装饰工程/天棚涂料",
+      "group_only": false,
+      "id": "3:天棚乳胶漆PT-03:m2"
+    },
+    {
+      "division": 3,
+      "name": "石膏板吊顶 平面",
+      "unit": "m2",
+      "material": "石膏板",
+      "capability": "finish_surface",
+      "group": "天棚装饰工程/天棚吊顶",
+      "group_only": false,
+      "id": "3:石膏板吊顶 平面:m2"
+    },
+    {
+      "division": 3,
+      "name": "石膏板吊顶 立面（灯槽位置）",
+      "unit": "m2",
+      "material": "石膏板",
+      "capability": "ceiling_detail",
+      "group": "天棚装饰工程/天棚吊顶",
+      "group_only": false,
+      "id": "3:石膏板吊顶 立面（灯槽位置）:m2"
+    },
+    {
+      "division": 3,
+      "name": "天棚灯槽 展开宽度500mm（含）以内",
+      "unit": "m",
+      "material": "灯槽",
+      "capability": "ceiling_detail",
+      "group": "天棚装饰工程/天棚灯槽/窗帘盒",
+      "group_only": false,
+      "id": "3:天棚灯槽 展开宽度500mm（含）以内:m"
+    },
+    {
+      "division": 3,
+      "name": "窗帘盒",
+      "unit": "m",
+      "material": "窗帘盒",
+      "capability": "ceiling_detail",
+      "group": "天棚装饰工程/天棚灯槽/窗帘盒",
+      "group_only": false,
+      "id": "3:窗帘盒:m"
+    },
+    {
+      "division": 3,
+      "name": "定制GRG线条1",
+      "unit": "项",
+      "material": "GRG",
+      "capability": "ceiling_detail",
+      "group": "天棚装饰工程/天棚装饰线",
+      "group_only": true,
+      "id": "3:定制GRG线条1:项"
+    },
+    {
+      "division": 3,
+      "name": "定制GRG线条2",
+      "unit": "项",
+      "material": "GRG",
+      "capability": "ceiling_detail",
+      "group": "天棚装饰工程/天棚装饰线",
+      "group_only": true,
+      "id": "3:定制GRG线条2:项"
+    },
+    {
+      "division": 3,
+      "name": "定制GRG线条3",
+      "unit": "项",
+      "material": "GRG",
+      "capability": "ceiling_detail",
+      "group": "天棚装饰工程/天棚装饰线",
+      "group_only": true,
+      "id": "3:定制GRG线条3:项"
+    },
+    {
+      "division": 3,
+      "name": "定制GRG线条4",
+      "unit": "项",
+      "material": "GRG",
+      "capability": "ceiling_detail",
+      "group": "天棚装饰工程/天棚装饰线",
+      "group_only": true,
+      "id": "3:定制GRG线条4:项"
+    },
+    {
+      "division": 3,
+      "name": "定制GRG线条5",
+      "unit": "项",
+      "material": "GRG",
+      "capability": "ceiling_detail",
+      "group": "天棚装饰工程/天棚装饰线",
+      "group_only": true,
+      "id": "3:定制GRG线条5:项"
+    },
+    {
+      "division": 3,
+      "name": "定制GRG线条6",
+      "unit": "项",
+      "material": "GRG",
+      "capability": "ceiling_detail",
+      "group": "天棚装饰工程/天棚装饰线",
+      "group_only": true,
+      "id": "3:定制GRG线条6:项"
+    },
+    {
+      "division": 3,
+      "name": "空调出、回风口",
+      "unit": "m2",
+      "material": "风口",
+      "capability": "finish_surface",
+      "group": "天棚装饰工程/天棚其他项目",
+      "group_only": false,
+      "id": "3:空调出、回风口:m2"
+    },
+    {
+      "division": 5,
+      "name": "美缝",
+      "unit": "m",
+      "material": null,
+      "capability": "other_linear",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "5:美缝:m"
+    },
+    {
+      "division": 6,
+      "name": "玄关柜",
+      "unit": "个",
+      "material": "玄关柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:玄关柜:个"
+    },
+    {
+      "division": 6,
+      "name": "不锈钢圆柱？",
+      "unit": "个",
+      "material": "不锈钢",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:不锈钢圆柱？:个"
+    },
+    {
+      "division": 6,
+      "name": "餐厅柜",
+      "unit": "个",
+      "material": "餐厅柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:餐厅柜:个"
+    },
+    {
+      "division": 6,
+      "name": "餐厅柜边层架？",
+      "unit": "个",
+      "material": "餐厅柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:餐厅柜边层架？:个"
+    },
+    {
+      "division": 6,
+      "name": "茶室柜（左边立柜）",
+      "unit": "个",
+      "material": null,
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:茶室柜（左边立柜）:个"
+    },
+    {
+      "division": 6,
+      "name": "茶室柜",
+      "unit": "个",
+      "material": null,
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:茶室柜:个"
+    },
+    {
+      "division": 6,
+      "name": "电视柜",
+      "unit": "个",
+      "material": "电视柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:电视柜:个"
+    },
+    {
+      "division": 6,
+      "name": "安全间柜",
+      "unit": "个",
+      "material": null,
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:安全间柜:个"
+    },
+    {
+      "division": 6,
+      "name": "收纳间柜1",
+      "unit": "个",
+      "material": null,
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:收纳间柜1:个"
+    },
+    {
+      "division": 6,
+      "name": "收纳间柜2",
+      "unit": "个",
+      "material": null,
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:收纳间柜2:个"
+    },
+    {
+      "division": 6,
+      "name": "主卧衣柜1",
+      "unit": "个",
+      "material": "衣柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:主卧衣柜1:个"
+    },
+    {
+      "division": 6,
+      "name": "主卧衣柜2",
+      "unit": "个",
+      "material": "衣柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:主卧衣柜2:个"
+    },
+    {
+      "division": 6,
+      "name": "主卧玻璃屏风",
+      "unit": "个",
+      "material": "玻璃",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:主卧玻璃屏风:个"
+    },
+    {
+      "division": 6,
+      "name": "卧室一开放式衣柜",
+      "unit": "个",
+      "material": "衣柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:卧室一开放式衣柜:个"
+    },
+    {
+      "division": 6,
+      "name": "卧室二衣柜",
+      "unit": "个",
+      "material": "衣柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:卧室二衣柜:个"
+    },
+    {
+      "division": 6,
+      "name": "橱柜",
+      "unit": "个",
+      "material": "橱柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:橱柜:个"
+    },
+    {
+      "division": 6,
+      "name": "浴室一浴室柜",
+      "unit": "个",
+      "material": "浴室柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:浴室一浴室柜:个"
+    },
+    {
+      "division": 6,
+      "name": "浴室二浴室柜",
+      "unit": "个",
+      "material": "浴室柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:浴室二浴室柜:个"
+    },
+    {
+      "division": 6,
+      "name": "浴室三浴室柜",
+      "unit": "个",
+      "material": "浴室柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:浴室三浴室柜:个"
+    },
+    {
+      "division": 6,
+      "name": "主卫浴室柜",
+      "unit": "个",
+      "material": "浴室柜",
+      "capability": "furniture",
+      "group": "其他装饰工程/其他装饰",
+      "group_only": false,
+      "id": "6:主卫浴室柜:个"
+    },
+    {
+      "division": 7,
+      "name": "厨盆及厨房龙头",
+      "unit": "套",
+      "material": "龙头",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:厨盆及厨房龙头:套"
+    },
+    {
+      "division": 7,
+      "name": "阳台台下盆及龙头",
+      "unit": "套",
+      "material": "龙头",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:阳台台下盆及龙头:套"
+    },
+    {
+      "division": 7,
+      "name": "公卫台下盆及龙头",
+      "unit": "套",
+      "material": "龙头",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:公卫台下盆及龙头:套"
+    },
+    {
+      "division": 7,
+      "name": "套卫台下盆及龙头",
+      "unit": "套",
+      "material": "龙头",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:套卫台下盆及龙头:套"
+    },
+    {
+      "division": 7,
+      "name": "主卫台下盆及龙头",
+      "unit": "套",
+      "material": "龙头",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:主卫台下盆及龙头:套"
+    },
+    {
+      "division": 7,
+      "name": "公卫淋浴花洒龙头",
+      "unit": "套",
+      "material": "龙头",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:公卫淋浴花洒龙头:套"
+    },
+    {
+      "division": 7,
+      "name": "套卫淋浴花洒龙头",
+      "unit": "套",
+      "material": "龙头",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:套卫淋浴花洒龙头:套"
+    },
+    {
+      "division": 7,
+      "name": "主卫淋浴花洒龙头",
+      "unit": "套",
+      "material": "龙头",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:主卫淋浴花洒龙头:套"
+    },
+    {
+      "division": 7,
+      "name": "浴缸带冷热水龙头",
+      "unit": "套",
+      "material": "龙头",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:浴缸带冷热水龙头:套"
+    },
+    {
+      "division": 7,
+      "name": "公卫马桶",
+      "unit": "套",
+      "material": "马桶",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:公卫马桶:套"
+    },
+    {
+      "division": 7,
+      "name": "套卫马桶",
+      "unit": "套",
+      "material": "马桶",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:套卫马桶:套"
+    },
+    {
+      "division": 7,
+      "name": "主卫马桶",
+      "unit": "套",
+      "material": "马桶",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:主卫马桶:套"
+    },
+    {
+      "division": 7,
+      "name": "隐藏式条形地漏",
+      "unit": "个",
+      "material": "地漏",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:隐藏式条形地漏:个"
+    },
+    {
+      "division": 7,
+      "name": "隐藏式地漏",
+      "unit": "个",
+      "material": "地漏",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:隐藏式地漏:个"
+    },
+    {
+      "division": 7,
+      "name": "洗衣机地漏",
+      "unit": "个",
+      "material": "洗衣机",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:洗衣机地漏:个"
+    },
+    {
+      "division": 7,
+      "name": "洗衣机龙头",
+      "unit": "个",
+      "material": "洗衣机",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:洗衣机龙头:个"
+    },
+    {
+      "division": 7,
+      "name": "毛巾架",
+      "unit": "个",
+      "material": "毛巾架",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:毛巾架:个"
+    },
+    {
+      "division": 7,
+      "name": "纸巾架",
+      "unit": "个",
+      "material": "纸巾架",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:纸巾架:个"
+    },
+    {
+      "division": 7,
+      "name": "角阀",
+      "unit": "个",
+      "material": "角阀",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:角阀:个"
+    },
+    {
+      "division": 7,
+      "name": "热水器冷水角阀",
+      "unit": "个",
+      "material": "角阀",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:热水器冷水角阀:个"
+    },
+    {
+      "division": 7,
+      "name": "热水器热水角阀",
+      "unit": "个",
+      "material": "角阀",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:热水器热水角阀:个"
+    },
+    {
+      "division": 7,
+      "name": "马桶喷枪",
+      "unit": "个",
+      "material": "马桶",
+      "capability": "plumbing",
+      "group": "给排水工程（已填）",
+      "group_only": false,
+      "id": "7:马桶喷枪:个"
+    },
+    {
+      "division": 8,
+      "name": "照明配电箱",
+      "unit": "台",
+      "material": "配电箱",
+      "capability": "electrical",
+      "group": "电气工程（已填）",
+      "group_only": false,
+      "id": "8:照明配电箱:台"
+    },
+    {
+      "division": 8,
+      "name": "镀锌电线管JDG DN20",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气工程（已填）",
+      "group_only": false,
+      "id": "8:镀锌电线管JDG DN20:m"
+    },
+    {
+      "division": 8,
+      "name": "镀锌电线管JDG DN25",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气工程（已填）",
+      "group_only": false,
+      "id": "8:镀锌电线管JDG DN25:m"
+    },
+    {
+      "division": 8,
+      "name": "塑料电线管PVC20",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气工程（已填）",
+      "group_only": false,
+      "id": "8:塑料电线管PVC20:m"
+    },
+    {
+      "division": 8,
+      "name": "塑料电线管PVC25",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气工程（已填）",
+      "group_only": false,
+      "id": "8:塑料电线管PVC25:m"
+    },
+    {
+      "division": 8,
+      "name": "金属软管 DN20",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气工程（已填）",
+      "group_only": false,
+      "id": "8:金属软管 DN20:m"
+    },
+    {
+      "division": 8,
+      "name": "金属软管 DN25",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气工程（已填）",
+      "group_only": false,
+      "id": "8:金属软管 DN25:m"
+    },
+    {
+      "division": 8,
+      "name": "电气配线WDZC-B1-BYJ-2.5",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气工程（已填）",
+      "group_only": false,
+      "id": "8:电气配线WDZC-B1-BYJ-2.5:m"
+    },
+    {
+      "division": 8,
+      "name": "电气配线WDZC-B1-BYJ-4",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气工程（已填）",
+      "group_only": false,
+      "id": "8:电气配线WDZC-B1-BYJ-4:m"
+    },
+    {
+      "division": 8,
+      "name": "控制线krvvp7*1.0",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气工程（已填）",
+      "group_only": false,
+      "id": "8:控制线krvvp7*1.0:m"
+    },
+    {
+      "division": 8,
+      "name": "CX-01 调光调色智能磁吸格栅灯",
+      "unit": "套",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:CX-01 调光调色智能磁吸格栅灯:套"
+    },
+    {
+      "division": 8,
+      "name": "轨道",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:轨道:m"
+    },
+    {
+      "division": 8,
+      "name": "DL-01 调光调色防眩射灯",
+      "unit": "套",
+      "material": "射灯",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:DL-01 调光调色防眩射灯:套"
+    },
+    {
+      "division": 8,
+      "name": "DL-01a 调光调色防眩射灯",
+      "unit": "套",
+      "material": "射灯",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:DL-01a 调光调色防眩射灯:套"
+    },
+    {
+      "division": 8,
+      "name": "DL-02 调光调色防眩射灯",
+      "unit": "套",
+      "material": "射灯",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:DL-02 调光调色防眩射灯:套"
+    },
+    {
+      "division": 8,
+      "name": "DL-02a 调光调色防眩射灯",
+      "unit": "套",
+      "material": "射灯",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:DL-02a 调光调色防眩射灯:套"
+    },
+    {
+      "division": 8,
+      "name": "DL-03 调光调色防眩射灯",
+      "unit": "套",
+      "material": "射灯",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:DL-03 调光调色防眩射灯:套"
+    },
+    {
+      "division": 8,
+      "name": "DL-03a 调光调色防眩射灯",
+      "unit": "套",
+      "material": "射灯",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:DL-03a 调光调色防眩射灯:套"
+    },
+    {
+      "division": 8,
+      "name": "COB发光灯带",
+      "unit": "m",
+      "material": "灯带",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:COB发光灯带:m"
+    },
+    {
+      "division": 8,
+      "name": "X1 RGBW套管LED灯带",
+      "unit": "m",
+      "material": "灯带",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:X1 RGBW套管LED灯带:m"
+    },
+    {
+      "division": 8,
+      "name": "X2、X2a 调光套管LED灯带",
+      "unit": "m",
+      "material": "灯带",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:X2、X2a 调光套管LED灯带:m"
+    },
+    {
+      "division": 8,
+      "name": "X3 铝型材硬灯带",
+      "unit": "m",
+      "material": "灯带",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:X3 铝型材硬灯带:m"
+    },
+    {
+      "division": 8,
+      "name": "铝型材硬灯带",
+      "unit": "m",
+      "material": "灯带",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:铝型材硬灯带:m"
+    },
+    {
+      "division": 8,
+      "name": "LED等电位",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:LED等电位:个"
+    },
+    {
+      "division": 8,
+      "name": "单相二、三极插座",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:单相二、三极插座:个"
+    },
+    {
+      "division": 8,
+      "name": "单相二、三极插座(带USB充电)",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:单相二、三极插座(带USB充电):个"
+    },
+    {
+      "division": 8,
+      "name": "单相二、三极防溅插座",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:单相二、三极防溅插座:个"
+    },
+    {
+      "division": 8,
+      "name": "单相二、三极防溅插座(带开关)",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:单相二、三极防溅插座(带开关):个"
+    },
+    {
+      "division": 8,
+      "name": "冰箱插座",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:冰箱插座:个"
+    },
+    {
+      "division": 8,
+      "name": "单相三极油烟机防溅插座",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:单相三极油烟机防溅插座:个"
+    },
+    {
+      "division": 8,
+      "name": "地面五孔插座",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:地面五孔插座:个"
+    },
+    {
+      "division": 8,
+      "name": "六孔强电插座(电动窗帘)",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:六孔强电插座(电动窗帘):个"
+    },
+    {
+      "division": 8,
+      "name": "中岛插座",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:中岛插座:个"
+    },
+    {
+      "division": 8,
+      "name": "蒸烤箱插座",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:蒸烤箱插座:个"
+    },
+    {
+      "division": 8,
+      "name": "升降插座",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:升降插座:个"
+    },
+    {
+      "division": 8,
+      "name": "线性插座",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:线性插座:个"
+    },
+    {
+      "division": 8,
+      "name": "弱电箱插板",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:弱电箱插板:个"
+    },
+    {
+      "division": 8,
+      "name": "电视插座",
+      "unit": "个",
+      "material": "插座",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:电视插座:个"
+    },
+    {
+      "division": 8,
+      "name": "WIFI带网络口面板",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:WIFI带网络口面板:个"
+    },
+    {
+      "division": 8,
+      "name": "手动报警按钮",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:手动报警按钮:个"
+    },
+    {
+      "division": 8,
+      "name": "浴霸开关",
+      "unit": "个",
+      "material": "开关",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:浴霸开关:个"
+    },
+    {
+      "division": 8,
+      "name": "预留电源",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:预留电源:个"
+    },
+    {
+      "division": 8,
+      "name": "线性浴霸",
+      "unit": "台",
+      "material": "浴霸",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:线性浴霸:台"
+    },
+    {
+      "division": 8,
+      "name": "天花侧藏抽气扇",
+      "unit": "台",
+      "material": "抽气扇",
+      "capability": "electrical",
+      "group": "电气设备（已填）",
+      "group_only": false,
+      "id": "8:天花侧藏抽气扇:台"
+    },
+    {
+      "division": 8,
+      "name": "弱电箱",
+      "unit": "台",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:弱电箱:台"
+    },
+    {
+      "division": 8,
+      "name": "2路调光器",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:2路调光器:个"
+    },
+    {
+      "division": 8,
+      "name": "8路开关执行器",
+      "unit": "个",
+      "material": "开关",
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:8路开关执行器:个"
+    },
+    {
+      "division": 8,
+      "name": "AI辅助康养传感器",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:AI辅助康养传感器:个"
+    },
+    {
+      "division": 8,
+      "name": "PLC转干节点控制器",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:PLC转干节点控制器:个"
+    },
+    {
+      "division": 8,
+      "name": "侧装水浸传感器",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:侧装水浸传感器:个"
+    },
+    {
+      "division": 8,
+      "name": "超薄吸顶音箱",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:超薄吸顶音箱:个"
+    },
+    {
+      "division": 8,
+      "name": "灯带驱动器",
+      "unit": "个",
+      "material": "灯带",
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:灯带驱动器:个"
+    },
+    {
+      "division": 8,
+      "name": "电动窗控制盒",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:电动窗控制盒:个"
+    },
+    {
+      "division": 8,
+      "name": "家用可燃气体探测器",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:家用可燃气体探测器:个"
+    },
+    {
+      "division": 8,
+      "name": "开合帘电机",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:开合帘电机:个"
+    },
+    {
+      "division": 8,
+      "name": "暖通网关",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:暖通网关:个"
+    },
+    {
+      "division": 8,
+      "name": "四合一空气质量检测仪",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:四合一空气质量检测仪:个"
+    },
+    {
+      "division": 8,
+      "name": "智能开关-1键",
+      "unit": "个",
+      "material": "开关",
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:智能开关-1键:个"
+    },
+    {
+      "division": 8,
+      "name": "智能开关-2键",
+      "unit": "个",
+      "material": "开关",
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:智能开关-2键:个"
+    },
+    {
+      "division": 8,
+      "name": "智能开关-3键",
+      "unit": "个",
+      "material": "开关",
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:智能开关-3键:个"
+    },
+    {
+      "division": 8,
+      "name": "智能开关-6键",
+      "unit": "个",
+      "material": "开关",
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:智能开关-6键:个"
+    },
+    {
+      "division": 8,
+      "name": "智能中控屏 MINI WIFI版",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:智能中控屏 MINI WIFI版:个"
+    },
+    {
+      "division": 8,
+      "name": "智能主机SE",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:智能主机SE:个"
+    },
+    {
+      "division": 8,
+      "name": "中控屏",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:中控屏:个"
+    },
+    {
+      "division": 8,
+      "name": "子路由",
+      "unit": "个",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:子路由:个"
+    },
+    {
+      "division": 8,
+      "name": "塑料电线管 PVC20",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:塑料电线管 PVC20:m"
+    },
+    {
+      "division": 8,
+      "name": "CAT6",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:CAT6:m"
+    },
+    {
+      "division": 8,
+      "name": "RVV-6*1.5",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:RVV-6*1.5:m"
+    },
+    {
+      "division": 8,
+      "name": "RVV4*0.75",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:RVV4*0.75:m"
+    },
+    {
+      "division": 8,
+      "name": "WDZ-RVVSP-4*0.75",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:WDZ-RVVSP-4*0.75:m"
+    },
+    {
+      "division": 8,
+      "name": "WDZ-BV-2.5",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:WDZ-BV-2.5:m"
+    },
+    {
+      "division": 8,
+      "name": "WDZ-BYJ-2.5",
+      "unit": "m",
+      "material": null,
+      "capability": "electrical",
+      "group": "智能家居工程(已填)",
+      "group_only": false,
+      "id": "8:WDZ-BYJ-2.5:m"
+    },
+    {
+      "division": 8,
+      "name": "厨房空调",
+      "unit": "台",
+      "material": "空调",
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:厨房空调:台"
+    },
+    {
+      "division": 8,
+      "name": "厨房空调面板",
+      "unit": "个",
+      "material": "空调",
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:厨房空调面板:个"
+    },
+    {
+      "division": 8,
+      "name": "卫浴用嵌入式标准型空调",
+      "unit": "台",
+      "material": "空调",
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:卫浴用嵌入式标准型空调:台"
+    },
+    {
+      "division": 8,
+      "name": "卫浴用嵌入式标准型空调面板",
+      "unit": "个",
+      "material": "空调",
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:卫浴用嵌入式标准型空调面板:个"
+    },
+    {
+      "division": 8,
+      "name": "卧式暗装风机盘管 FC600",
+      "unit": "台",
+      "material": "风机盘管",
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:卧式暗装风机盘管 FC600:台"
+    },
+    {
+      "division": 8,
+      "name": "风机盘管温控开关",
+      "unit": "个",
+      "material": "风机盘管",
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:风机盘管温控开关:个"
+    },
+    {
+      "division": 8,
+      "name": "镀锌风管0.5mm",
+      "unit": "m2",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:镀锌风管0.5mm:m2"
+    },
+    {
+      "division": 8,
+      "name": "镀锌风管0.75mm",
+      "unit": "m2",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:镀锌风管0.75mm:m2"
+    },
+    {
+      "division": 8,
+      "name": "风管软接",
+      "unit": "m2",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:风管软接:m2"
+    },
+    {
+      "division": 8,
+      "name": "风管保温（橡塑保温）",
+      "unit": "m2",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:风管保温（橡塑保温）:m2"
+    },
+    {
+      "division": 8,
+      "name": "镀锌钢管-DN50",
+      "unit": "m",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:镀锌钢管-DN50:m"
+    },
+    {
+      "division": 8,
+      "name": "镀锌钢管-DN40",
+      "unit": "m",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:镀锌钢管-DN40:m"
+    },
+    {
+      "division": 8,
+      "name": "镀锌钢管-DN32",
+      "unit": "m",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:镀锌钢管-DN32:m"
+    },
+    {
+      "division": 8,
+      "name": "镀锌钢管-DN25",
+      "unit": "m",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:镀锌钢管-DN25:m"
+    },
+    {
+      "division": 8,
+      "name": "镀锌钢管-DN20",
+      "unit": "m",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:镀锌钢管-DN20:m"
+    },
+    {
+      "division": 8,
+      "name": "橡塑保温管 DN50*32mm",
+      "unit": "m",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:橡塑保温管 DN50*32mm:m"
+    },
+    {
+      "division": 8,
+      "name": "橡塑保温管 DN40*32mm",
+      "unit": "m",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:橡塑保温管 DN40*32mm:m"
+    },
+    {
+      "division": 8,
+      "name": "橡塑保温管 DN32*32mm",
+      "unit": "m",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:橡塑保温管 DN32*32mm:m"
+    },
+    {
+      "division": 8,
+      "name": "橡塑保温管 DN25*25mm",
+      "unit": "m",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:橡塑保温管 DN25*25mm:m"
+    },
+    {
+      "division": 8,
+      "name": "橡塑保温管 DN20*25mm",
+      "unit": "m",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:橡塑保温管 DN20*25mm:m"
+    },
+    {
+      "division": 8,
+      "name": "调节阀-320*120",
+      "unit": "个",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:调节阀-320*120:个"
+    },
+    {
+      "division": 8,
+      "name": "风口百叶",
+      "unit": "m2",
+      "material": "风口",
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:风口百叶:m2"
+    },
+    {
+      "division": 8,
+      "name": "风口百叶带检修口",
+      "unit": "m2",
+      "material": "风口",
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:风口百叶带检修口:m2"
+    },
+    {
+      "division": 8,
+      "name": "电动二通阀(开关型)DN20",
+      "unit": "个",
+      "material": "开关",
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:电动二通阀(开关型)DN20:个"
+    },
+    {
+      "division": 8,
+      "name": "检修阀DN20",
+      "unit": "个",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:检修阀DN20:个"
+    },
+    {
+      "division": 8,
+      "name": "网套式不锈钢软接头DN20",
+      "unit": "个",
+      "material": "不锈钢",
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:网套式不锈钢软接头DN20:个"
+    },
+    {
+      "division": 8,
+      "name": "管道支架",
+      "unit": "kg",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:管道支架:kg"
+    },
+    {
+      "division": 8,
+      "name": "系统调试",
+      "unit": "项",
+      "material": null,
+      "capability": "hvac",
+      "group": "暖通（已填）",
+      "group_only": false,
+      "id": "8:系统调试:项"
+    },
+    {
+      "division": 7,
+      "name": "喷淋头下喷",
+      "unit": "个",
+      "material": null,
+      "capability": "fire",
+      "group": "消防水（已填）",
+      "group_only": false,
+      "id": "7:喷淋头下喷:个"
+    },
+    {
+      "division": 7,
+      "name": "喷淋头侧喷",
+      "unit": "个",
+      "material": null,
+      "capability": "fire",
+      "group": "消防水（已填）",
+      "group_only": false,
+      "id": "7:喷淋头侧喷:个"
+    },
+    {
+      "division": 7,
+      "name": "内外涂塑热镀锌钢管DN25",
+      "unit": "m",
+      "material": null,
+      "capability": "fire",
+      "group": "消防水（已填）",
+      "group_only": false,
+      "id": "7:内外涂塑热镀锌钢管DN25:m"
+    },
+    {
+      "division": 7,
+      "name": "内外涂塑热镀锌钢管DN32",
+      "unit": "m",
+      "material": null,
+      "capability": "fire",
+      "group": "消防水（已填）",
+      "group_only": false,
+      "id": "7:内外涂塑热镀锌钢管DN32:m"
+    },
+    {
+      "division": 7,
+      "name": "内外涂塑热镀锌钢管DN40",
+      "unit": "m",
+      "material": null,
+      "capability": "fire",
+      "group": "消防水（已填）",
+      "group_only": false,
+      "id": "7:内外涂塑热镀锌钢管DN40:m"
+    },
+    {
+      "division": 7,
+      "name": "内外涂塑热镀锌钢管DN50",
+      "unit": "m",
+      "material": null,
+      "capability": "fire",
+      "group": "消防水（已填）",
+      "group_only": false,
+      "id": "7:内外涂塑热镀锌钢管DN50:m"
+    },
+    {
+      "division": 7,
+      "name": "内外涂塑热镀锌钢管DN65",
+      "unit": "m",
+      "material": null,
+      "capability": "fire",
+      "group": "消防水（已填）",
+      "group_only": false,
+      "id": "7:内外涂塑热镀锌钢管DN65:m"
+    },
+    {
+      "division": 7,
+      "name": "内外涂塑热镀锌钢管DN80",
+      "unit": "m",
+      "material": null,
+      "capability": "fire",
+      "group": "消防水（已填）",
+      "group_only": false,
+      "id": "7:内外涂塑热镀锌钢管DN80:m"
+    },
+    {
+      "division": 7,
+      "name": "内外涂塑热镀锌钢管DN100",
+      "unit": "m",
+      "material": null,
+      "capability": "fire",
+      "group": "消防水（已填）",
+      "group_only": false,
+      "id": "7:内外涂塑热镀锌钢管DN100:m"
+    },
+    {
+      "division": 7,
+      "name": "管道支架",
+      "unit": "kg",
+      "material": null,
+      "capability": "fire",
+      "group": "消防水（已填）",
+      "group_only": false,
+      "id": "7:管道支架:kg"
+    },
+    {
+      "division": 4,
+      "name": "户内门",
+      "unit": "樘",
+      "material": null,
+      "capability": "opening_count",
+      "group": "明细",
+      "group_only": false,
+      "id": "4:户内门:樘"
+    }
+  ]
+}
