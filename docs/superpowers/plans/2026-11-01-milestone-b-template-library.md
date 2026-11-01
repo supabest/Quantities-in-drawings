@@ -88,6 +88,10 @@ def test_material_of_uses_head_noun():
     # 「开关型」是修饰用法，跳过该次命中后无有效词 → None（转人工复核）
     assert vocab.material_of("电动二通阀(开关型)DN20") is None
     assert vocab.material_of("8路开关执行器") == "开关"
+    # 括号内是定位语/修饰语，不计入材料匹配（全角、半角括号都剥掉）
+    assert vocab.material_of("石膏板吊顶 立面（灯槽位置）") == "石膏板"
+    assert vocab.material_of("单相二、三极防溅插座(带开关)") == "插座"
+    assert vocab.material_of("单相二、三极插座(带USB充电)") == "插座"
 
 
 def test_assert_no_quantities_rejects_numbers():
@@ -188,6 +192,7 @@ Expected: FAIL（`ModuleNotFoundError: app.core.takeoff.template` 或脚本不�
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
@@ -229,10 +234,12 @@ def material_of(name):
     """取名称中最靠右的受控词作为材料（中文中心语在后）。
 
     「洗衣机地漏」→「地漏」、「洗衣机龙头」→「龙头」、「马桶喷枪」→「喷枪」；
-    同一位置有长短词重叠时取长词。紧跟「型」出现的是修饰用法（如「开关型」），
-    跳过该次命中；若再无有效命中则返回 None，交由人工复核。
+    同一位置有长短词重叠时取长词。括号（全角「（）」与半角「()」）内是定位语/
+    修饰语而非材料，先整体剥掉再匹配——「石膏板吊顶 立面（灯槽位置）」→「石膏板」、
+    「单相二、三极防溅插座(带开关)」→「插座」。紧跟「型」出现的是修饰用法
+    （如「开关型」），跳过该次命中；若再无有效命中则返回 None，交由人工复核。
     """
-    text = name or ""
+    text = re.sub(r"[（(][^）)]*[）)]", "", name or "")
     best = None  # (起点, 词长, 词)
     for token in MATERIAL_TOKENS:
         start = text.find(token)

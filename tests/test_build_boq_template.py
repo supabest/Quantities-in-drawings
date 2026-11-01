@@ -35,6 +35,10 @@ def test_material_of_uses_head_noun():
     # 「开关型」是修饰用法，跳过该次命中后无有效词 → None（转人工复核）
     assert vocab.material_of("电动二通阀(开关型)DN20") is None
     assert vocab.material_of("8路开关执行器") == "开关"
+    # 括号内是定位语/修饰语，不计入材料匹配（全角、半角括号都剥掉）
+    assert vocab.material_of("石膏板吊顶 立面（灯槽位置）") == "石膏板"
+    assert vocab.material_of("单相二、三极防溅插座(带开关)") == "插座"
+    assert vocab.material_of("单相二、三极插座(带USB充电)") == "插座"
 
 
 def test_assert_no_quantities_rejects_numbers():
