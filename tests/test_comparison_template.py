@@ -117,3 +117,25 @@ def test_missing_items_carry_no_fabricated_quantity(web_env):
         result = compare_with_historical(pid, hist.id)
         assert [i["name"] for i in result["missing_items"]] == ["墙面瓷砖"]
         assert all("historical_quantity" not in i for i in result["missing_items"])
+
+
+def test_historical_audit_surfaces_manual_review(web_env):
+    import json
+    app, pid, _ = web_env
+    with app.app_context():
+        from app import db
+        from app.models import HistoricalProject, Project, User
+        from app.orchestrator.audit import historical_audit
+
+        admin = User.query.filter_by(is_admin=True).first()
+        hist = HistoricalProject(
+            name="历史样例3", user_id=admin.id, project_id=pid,
+            summary_json=json.dumps({
+                "stats": {"total_items": 1,
+                          "division_items": {"7": ["某某无法识别列项"]}}}))
+        db.session.add(hist)
+        db.session.commit()
+
+        rep = historical_audit(Project.query.get(pid))
+        assert rep["manual_review_count"] == 1
+        assert rep["manual_review_items"][0]["name"] == "某某无法识别列项"

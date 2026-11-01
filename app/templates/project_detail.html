@@ -413,6 +413,9 @@ async function runComparison(projectId, historicalId) {
     resultDiv.style.display = 'block';
     resultDiv.innerHTML = '<p class="text-muted">⏳ 正在与历史清单对比...</p>';
 
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+        c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+
     try {
         const resp = await fetch(`/api/historical/compare/${projectId}`, {
             method: 'POST',
@@ -466,9 +469,9 @@ async function runComparison(projectId, historicalId) {
             html += `<tr><th>分部</th><th>项目名称</th><th>原因</th></tr>`;
             for (const item of missing.slice(0, 20)) {
                 html += `<tr>`;
-                html += `<td>${item.division_id}.${item.division_name}</td>`;
-                html += `<td>${item.name}</td>`;
-                html += `<td class="text-muted small">${item.reason}</td>`;
+                html += `<td>${esc(item.division_id)}.${esc(item.division_name)}</td>`;
+                html += `<td>${esc(item.name)}</td>`;
+                html += `<td class="text-muted small">${esc(item.reason)}</td>`;
                 html += `</tr>`;
             }
             if (missing.length > 20) {
@@ -479,8 +482,29 @@ async function runComparison(projectId, historicalId) {
 
             // Show auto-fill button
             document.getElementById('autoFillBtn').style.display = 'inline-block';
-        } else {
+        }
+
+        // Manual review items（无可提取材料词 → 无法判定，未计入漏项）
+        const review = comp.manual_review_items || [];
+        if (review.length > 0) {
+            html += `<div class="hist-missing">`;
+            html += `<strong>🖐 ${review.length} 项需人工裁定（无可提取材料词，未计入漏项）</strong>`;
+            html += `<table class="table table-sm hist-table">`;
+            html += `<tr><th>分部</th><th>项目名称</th><th>原因</th></tr>`;
+            for (const item of review.slice(0, 20)) {
+                html += `<tr><td>${esc(item.division_id)}.${esc(item.division_name)}</td>` +
+                        `<td>${esc(item.name)}</td><td class="text-muted small">${esc(item.reason)}</td></tr>`;
+            }
+            if (review.length > 20) {
+                html += `<tr><td colspan="3" class="text-muted small">...还有 ${review.length - 20} 项</td></tr>`;
+            }
+            html += `</table></div>`;
+        }
+
+        if (missing.length === 0 && review.length === 0) {
             html += `<p class="text-success">✅ 与历史清单对照完毕，未发现遗漏项</p>`;
+            document.getElementById('autoFillBtn').style.display = 'none';
+        } else if (missing.length === 0) {
             document.getElementById('autoFillBtn').style.display = 'none';
         }
 

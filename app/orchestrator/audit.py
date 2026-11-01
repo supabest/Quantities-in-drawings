@@ -141,14 +141,20 @@ def historical_audit(project) -> dict:
         return {'skipped': f"历史清单不可用: {result['error']}"}
 
     missing = result.get('missing_items', [])
+    review = result.get('manual_review_items', [])
     return {
         'historical': result.get('historical'),
         'missing_count': len(missing),
         'missing_items': [{'name': i['name'], 'division_id': i['division_id'],
                            'division_name': i['division_name'], 'reason': i['reason']}
                           for i in missing[:HISTORICAL_MISSING_LIMIT]],
+        'manual_review_count': len(review),
+        'manual_review_items': [{'name': i['name'], 'division_id': i['division_id'],
+                                 'division_name': i['division_name'], 'reason': i['reason']}
+                                for i in review[:HISTORICAL_MISSING_LIMIT]],
         'stats_comparison': result.get('stats_comparison'),
-        'note': '漏项仅为建议（历史参照），未自动补入清单；确认后可在历史对照页手动补入',
+        'note': ('漏项仅为建议（历史参照），未自动补入清单；确认后可在历史对照页手动补入。'
+                 '需人工裁定项因无可提取材料词未做判定，未计入漏项，请人工核对。'),
     }
 
 
